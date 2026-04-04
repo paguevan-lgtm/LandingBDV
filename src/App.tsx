@@ -139,7 +139,8 @@ export default function App() {
     luggageS: '0',
     luggageM: '0',
     luggageL: '0',
-    time: ''
+    time: '',
+    paymentMethod: ''
   });
 
   useEffect(() => {
@@ -791,6 +792,20 @@ export default function App() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-bold text-slate-400 mb-2">Forma de Pagamento</label>
+                  <select 
+                    value={formData.paymentMethod}
+                    onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all appearance-none"
+                  >
+                    <option value="" disabled>Selecione uma forma de pagamento</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão">Cartão</option>
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-bold text-slate-400 mb-2">Observação (Opcional)</label>
                   <textarea 
                     rows={3} 
@@ -809,6 +824,10 @@ export default function App() {
                     }
                     if (!formData.name || !formData.phone) {
                       handleAction('Preencha nome e telefone!');
+                      return;
+                    }
+                    if (!formData.paymentMethod) {
+                      handleAction('Selecione a forma de pagamento!');
                       return;
                     }
 
@@ -839,6 +858,7 @@ export default function App() {
                         status: 'Ativo',
                         source: 'Site',
                         payment: 'Pendente',
+                        paymentMethod: formData.paymentMethod || '',
                         createdAt: new Date().toISOString(),
                         observation: formData.observation || ''
                       };
@@ -860,7 +880,7 @@ export default function App() {
                       
                       // Reset form
                       setFormData({
-                        name: '', phone: '', address: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: ''
+                        name: '', phone: '', address: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: '', paymentMethod: ''
                       });
                       setOrigin('');
                       setDestination('');

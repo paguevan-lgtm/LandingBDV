@@ -65,7 +65,9 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
                     className={`${theme.card} p-4 ${theme.radius} border ${item.status === 'Bloqueado' ? 'border-red-500/30 bg-red-500/5' : theme.border} relative overflow-hidden cursor-pointer active:scale-[0.99] transition-transform stagger-in`}
                 >
                     {item.source === 'Site' && (
-                        <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">SITE</div>
+                        <div className="absolute top-0 right-0">
+                            <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
+                        </div>
                     )}
                     <div className="absolute top-1 right-8 text-4xl font-bold opacity-[0.07] pointer-events-none">
                         {String(item.id).startsWith('SITE_') ? String(item.id).replace('_', ' #') : `#${item.id}`}
@@ -91,7 +93,7 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
                             )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div><span className="block opacity-50 text-xs">TELEFONE</span>{item.phone}</div>
-                                <div><span className="block opacity-50 text-xs">PAGAMENTO</span>{item.payment}</div>
+                                <div><span className="block opacity-50 text-xs">PAGAMENTO</span>{item.payment} {item.paymentMethod ? `(${item.paymentMethod})` : ''}</div>
                                 <div className="col-span-2"><span className="block opacity-50 text-xs">ENDEREÇO</span>{item.address} {item.reference ? `(${item.reference})` : ''}</div>
                                 <div><span className="block opacity-50 text-xs">DATA/HORA</span>{formatDisplayDate(item.date)} - {formatTime(item.time) || 'Sem horário'}</div>
                                 <div><span className="block opacity-50 text-xs">DETALHES</span>{item.passengerCount} pass | {item.luggageCount || 0} malas</div>
