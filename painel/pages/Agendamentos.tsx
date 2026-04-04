@@ -107,7 +107,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
     const passOfDayRaw = data.passengers.filter((p:any) => {
         if (p.date !== selectedDate) return false;
         if (systemContext !== 'Mistura' && (p.system || 'Pg') !== systemContext) return false;
-        if (!p.time) return false;
+        if (!p.time || p.time.trim() === '' || p.time.toLowerCase() === 'sem horário') return false;
         return true;
     });
     const passOfDayMap = new Map();

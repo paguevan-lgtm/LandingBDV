@@ -66,7 +66,7 @@ const generateTimeSlots = (selectedDate: Date | null) => {
   let currentHour = 7;
   let currentMinute = 0;
 
-  while (currentHour < 20 || (currentHour === 20 && currentMinute <= 30)) {
+  while (currentHour < 20 || (currentHour === 20 && currentMinute === 0)) {
     const startHourStr = currentHour.toString().padStart(2, '0');
     const startMinStr = currentMinute.toString().padStart(2, '0');
     
@@ -95,10 +95,10 @@ const generateTimeSlots = (selectedDate: Date | null) => {
 
   if (isSunday) {
     slots.push({
-      startHour: 21,
+      startHour: 20,
       startMinute: 30,
-      label: `21:30 - 22:15`,
-      value: `21:30-22:15`
+      label: `20:30 - 21:15`,
+      value: `20:30-21:15`
     });
   }
 
