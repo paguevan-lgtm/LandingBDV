@@ -31,6 +31,16 @@ const destinationOptions = [
   { value: 'guaruja', label: 'Guarujá' },
 ];
 
+const originOptions = [
+  { value: 'praia_grande', label: 'Praia Grande' },
+  { value: 'mongagua', label: 'Mongaguá' },
+  { value: 'itanhaem', label: 'Itanhaém' },
+  { value: 'cubatao', label: 'Cubatão' },
+  { value: 'sao_vicente', label: 'São Vicente' },
+  { value: 'santos', label: 'Santos' },
+  { value: 'guaruja', label: 'Guarujá' },
+];
+
 const tripTypeOptions = [
   { value: 'ida_volta', label: 'Ida e Volta' },
   { value: 'so_ida', label: 'Somente Ida' },
@@ -120,11 +130,12 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isAllDestinationsModalOpen, setIsAllDestinationsModalOpen] = useState(false);
+  const [beachInfoModal, setBeachInfoModal] = useState<{isOpen: boolean, destValue: string}>({isOpen: false, destValue: ''});
 
   // Form State
-  const [tripType, setTripType] = useState('ida_volta');
+  const [tripType, setTripType] = useState('so_ida');
   const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
+  const [destination, setDestination] = useState('jabaquara');
   const [date, setDate] = useState<Date | null>(null);
   const [passengers, setPassengers] = useState('1');
 
@@ -380,6 +391,7 @@ export default function App() {
                 value={tripType}
                 onChange={setTripType}
                 placeholder="Selecione o tipo"
+                disabled={true}
               />
             </div>
 
@@ -388,7 +400,7 @@ export default function App() {
                 <MapPin size={16} className="text-brand-pink" /> ORIGEM
               </label>
               <CustomSelect 
-                options={destinationOptions}
+                options={originOptions}
                 value={origin}
                 onChange={setOrigin}
                 placeholder="De onde saímos?"
@@ -404,6 +416,7 @@ export default function App() {
                 value={destination}
                 onChange={setDestination}
                 placeholder="Para onde vamos?"
+                disabled={true}
               />
             </div>
 
@@ -504,9 +517,9 @@ export default function App() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { name: "Santos", price: "R$ 45", img: "https://images.unsplash.com/photo-1543059080-f9b1272213d5?auto=format&fit=crop&w=800&q=80" },
-              { name: "Praia Grande", price: "R$ 40", img: "https://images.unsplash.com/photo-1596423735880-5c6fa7f0170a?auto=format&fit=crop&w=800&q=80" },
-              { name: "Guarujá", price: "R$ 50", img: "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?auto=format&fit=crop&w=800&q=80" },
+              { value: 'santos', name: "Santos", price: "R$ 45", img: "https://images.unsplash.com/photo-1543059080-f9b1272213d5?auto=format&fit=crop&w=800&q=80" },
+              { value: 'praia_grande', name: "Praia Grande", price: "R$ 40", img: "https://images.unsplash.com/photo-1596423735880-5c6fa7f0170a?auto=format&fit=crop&w=800&q=80" },
+              { value: 'guaruja', name: "Guarujá", price: "R$ 50", img: "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?auto=format&fit=crop&w=800&q=80" },
             ].map((dest, idx) => (
               <motion.div 
                 key={idx}
@@ -521,7 +534,7 @@ export default function App() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent opacity-90" />
                 <div className="absolute bottom-0 left-0 right-0 p-8">
-                  <div className="flex items-center justify-between items-end">
+                  <div className="flex items-center justify-between items-end mb-2">
                     <div>
                       <p className="text-slate-300 font-bold text-sm uppercase tracking-widest mb-1">Destino</p>
                       <h3 className="text-3xl font-display font-extrabold text-white">{dest.name}</h3>
@@ -531,12 +544,12 @@ export default function App() {
                       <p className="text-2xl font-extrabold text-white">{dest.price}</p>
                     </div>
                   </div>
+                  <p className="text-[10px] text-slate-400 text-right mb-4">*Valor sujeito a mudança sem aviso prévio</p>
                   <button 
                     onClick={() => {
-                      setDestination(dest.name.toLowerCase().replace(' ', '_').replace('á', 'a'));
-                      scrollToSection('reserva');
+                      setBeachInfoModal({ isOpen: true, destValue: dest.value });
                     }} 
-                    className="w-full mt-6 bg-white/10 backdrop-blur-md text-white border border-white/20 py-3 rounded-xl font-bold hover:bg-gradient-brand hover:border-transparent transition-all shadow-lg"
+                    className="w-full bg-white/10 backdrop-blur-md text-white border border-white/20 py-3 rounded-xl font-bold hover:bg-gradient-brand hover:border-transparent transition-all shadow-lg"
                   >
                     Agende sua van
                   </button>
@@ -859,7 +872,8 @@ export default function App() {
                         phone: formData.phone,
                         address: formData.address || '',
                         reference: formData.reference || '',
-                        neighborhood: formData.neighborhood || (destination === 'jabaquara' ? origin : destination),
+                        neighborhood: formData.neighborhood || '',
+                        targetCity: destination === 'jabaquara' ? origin : destination,
                         date: formattedDate,
                         time: timeToSave,
                         passengerCount: parseInt(passengers) || 1,
@@ -893,7 +907,7 @@ export default function App() {
                         name: '', phone: '', address: '', neighborhood: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: '', paymentMethod: ''
                       });
                       setOrigin('');
-                      setDestination('');
+                      setDestination('jabaquara');
                       setDate(null);
                       setPassengers('1');
                     } catch (error) {
@@ -912,6 +926,45 @@ export default function App() {
       </AnimatePresence>
 
       {/* All Destinations Modal */}
+      <AnimatePresence>
+        {beachInfoModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-md shadow-2xl relative overflow-hidden"
+            >
+              <div className="p-6 md:p-8 text-center">
+                <div className="w-16 h-16 bg-brand-purple/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="text-brand-pink" size={32} />
+                </div>
+                <h3 className="text-2xl font-display font-extrabold text-white mb-4">Informação de Embarque</h3>
+                <p className="text-slate-300 text-base leading-relaxed mb-6">
+                  As vans saem do <strong className="text-white">Pão de Açúcar Jabaquara</strong> todo dia a partir das <strong className="text-brand-pink">6:00 até ~21:00</strong>.
+                </p>
+                <button 
+                  onClick={() => {
+                    setBeachInfoModal({ isOpen: false, destValue: '' });
+                    setIsAllDestinationsModalOpen(false);
+                    setOrigin(beachInfoModal.destValue);
+                    scrollToSection('reserva');
+                  }} 
+                  className="w-full bg-gradient-brand text-white py-4 rounded-xl font-bold hover:shadow-lg hover:shadow-brand-purple/25 transition-all"
+                >
+                  Entendido, continuar reserva
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isAllDestinationsModalOpen && (
           <motion.div
@@ -952,7 +1005,7 @@ export default function App() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent opacity-90" />
                       <div className="absolute bottom-0 left-0 right-0 p-6">
-                        <div className="flex items-center justify-between items-end mb-4">
+                        <div className="flex items-center justify-between items-end mb-2">
                           <div>
                             <h3 className="text-2xl font-display font-extrabold text-white">{dest.name}</h3>
                           </div>
@@ -961,11 +1014,10 @@ export default function App() {
                             <p className="text-xl font-extrabold text-white">{dest.price}</p>
                           </div>
                         </div>
+                        <p className="text-[10px] text-slate-400 text-right mb-4">*Valor sujeito a mudança sem aviso prévio</p>
                         <button 
                           onClick={() => {
-                            setIsAllDestinationsModalOpen(false);
-                            setDestination(dest.value);
-                            scrollToSection('reserva');
+                            setBeachInfoModal({ isOpen: true, destValue: dest.value });
                           }} 
                           className="w-full bg-white/10 backdrop-blur-md text-white border border-white/20 py-3 rounded-xl font-bold hover:bg-gradient-brand hover:border-transparent transition-all shadow-lg"
                         >

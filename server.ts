@@ -306,8 +306,7 @@ async function startServer() {
             const authParam = dbSecret ? `?auth=${dbSecret}` : '';
 
             // 1. Determine the system based on origin/destination
-            // destination === 'jabaquara' ? origin : destination
-            const targetCity = passengerData.neighborhood; // The frontend already sets neighborhood to the target city
+            const targetCity = passengerData.targetCity || passengerData.neighborhood; // fallback for older requests
             let systemToSave = 'Pg';
             if (targetCity === 'mongagua' || targetCity === 'itanhaem') {
                 systemToSave = 'Mip';
