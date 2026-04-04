@@ -295,6 +295,87 @@ async function startServer() {
         res.json({ success: true });
     });
 
+    app.post('/api/create-booking', async (req, res) => {
+        try {
+            const passengerData = req.body;
+            if (!passengerData || !passengerData.name || !passengerData.phone) {
+                return res.status(400).json({ error: 'Name and phone are required' });
+            }
+
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+
+            // 1. Determine the system based on origin/destination
+            // destination === 'jabaquara' ? origin : destination
+            const targetCity = passengerData.neighborhood; // The frontend already sets neighborhood to the target city
+            let systemToSave = 'Pg';
+            if (targetCity === 'mongagua' || targetCity === 'itanhaem') {
+                systemToSave = 'Mip';
+            } else if (targetCity === 'santos' || targetCity === 'sao_vicente' || targetCity === 'cubatao' || targetCity === 'guaruja') {
+                systemToSave = 'Sv';
+            } else if (targetCity === 'praia_grande') {
+                systemToSave = 'Pg';
+            }
+            passengerData.system = systemToSave;
+
+            // 2. Get and increment the site booking counter
+            const counterUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/site_booking_counter.json${authParam}`;
+            let currentCounter = 1;
+            
+            try {
+                const counterRes = await fetchWithRetry(counterUrl);
+                const counterData = await counterRes.json();
+                if (typeof counterData === 'number') {
+                    currentCounter = counterData + 1;
+                }
+            } catch (e) {
+                console.warn("Could not fetch counter, starting at 1");
+            }
+
+            // Save the new counter
+            await fetchWithRetry(counterUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(currentCounter)
+            });
+
+            // 3. Generate ID
+            const displayId = `SITE #${currentCounter}`;
+            const firebaseKey = `SITE_${currentCounter}`;
+            passengerData.id = displayId;
+
+            // 4. Save to Firebase
+            // If the system is Mistura, it saves to the root passengers node, but wait, 
+            // the app uses separate nodes for each system if they are not Mistura?
+            // Let's check how the app saves passengers.
+            // In painel/App.tsx: db.ref(pSystem === 'Pg' ? `passengers/${pid}` : `${pSystem}/passengers/${pid}`)
+            // So if system is Pg, it goes to /passengers. If Mip, it goes to /Mip/passengers.
+            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            if (systemToSave === 'Pg') {
+                url += `passengers/${firebaseKey}.json${authParam}`;
+            } else {
+                url += `${systemToSave}/passengers/${firebaseKey}.json${authParam}`;
+            }
+
+            const response = await fetchWithRetry(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(passengerData)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Failed to create booking in Firebase. Status:', response.status, errorText);
+                return res.status(500).json({ error: 'Failed to create booking' });
+            }
+
+            res.json({ success: true, id: displayId, system: systemToSave });
+        } catch (error: any) {
+            console.error('Error creating booking:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     app.post('/api/verify_session', async (req, res) => {
         try {
             const { session_id } = req.body;

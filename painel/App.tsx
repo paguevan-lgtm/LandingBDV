@@ -2589,7 +2589,8 @@ const AppContent = () => {
                 
                 let foundAny = false;
                 for (const idOrName of identifiers) {
-                    const p = data.passengers.find((p: any) => String(p.id) === idOrName || p.name.toLowerCase() === idOrName.toLowerCase());
+                    const normalizedId = idOrName.replace(/ /g, '').replace('#', '_').toUpperCase();
+                    const p = data.passengers.find((p: any) => String(p.id) === idOrName || String(p.id).toUpperCase() === normalizedId || p.name.toLowerCase() === idOrName.toLowerCase());
                     if (p) {
                         if (p.status === 'Bloqueado') {
                             notify(`Passageiro BLOQUEADO: ${p.name}. Motivo: ${p.blockReason || 'Não informado'}`, "error");
@@ -2843,7 +2844,8 @@ const AppContent = () => {
     
     const addById = () => {
         if (!searchId || !suggestedTrip) return;
-        const p = data.passengers.find((x:any) => x.id === searchId || x.realId === searchId);
+        const normalizedSearchId = searchId.replace(/ /g, '').replace('#', '_').toUpperCase();
+        const p = data.passengers.find((x:any) => x.id === searchId || x.realId === searchId || String(x.id).toUpperCase() === normalizedSearchId || String(x.realId).toUpperCase() === normalizedSearchId);
         if (!p) return notify("Passageiro não encontrado", "error");
         
         if (p.status === 'Bloqueado') {

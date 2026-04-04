@@ -136,7 +136,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
 
         if (isAssigned) assigned.push(p); 
         
-        if (p.time && !isAssigned) {
+        if (!isAssigned) {
             pending.push(p);
         }
     });
@@ -176,6 +176,9 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                 <div className="space-y-3 pl-2 border-l border-white/5">
                                     {grouped[time].map((p:any) => (
                                         <div key={p.id} className={`${theme.card} ${theme.radius} border border-yellow-500/30 p-4 relative bg-yellow-500/5`}>
+                                            {p.source === 'Site' && (
+                                                <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">SITE</div>
+                                            )}
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
                                                     <div className="font-bold text-lg">{p.name}</div>
@@ -233,6 +236,9 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
 
                             return (
                                 <div key={p.id} className={`${theme.card} ${theme.radius} border border-white/5 p-3 relative opacity-60 hover:opacity-100 transition-opacity`}>
+                                    {p.source === 'Site' && (
+                                        <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">SITE</div>
+                                    )}
                                     <div className="flex justify-between items-center">
                                         <div>
                                             <div className="font-bold">{p.name}</div>

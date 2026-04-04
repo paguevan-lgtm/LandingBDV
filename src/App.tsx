@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from './components/CustomSelect';
 import { CustomDatePicker } from './components/CustomDatePicker';
+import { db } from './firebase';
 
 const destinationOptions = [
   { value: 'jabaquara', label: 'Jabaquara' },
@@ -801,7 +802,7 @@ export default function App() {
                 </div>
 
                 <button 
-                  onClick={() => { 
+                  onClick={async () => { 
                     if (destination === 'jabaquara' && !formData.time) {
                       handleAction('Selecione um horário de saída!');
                       return;
@@ -810,8 +811,65 @@ export default function App() {
                       handleAction('Preencha nome e telefone!');
                       return;
                     }
-                    setIsBookingModalOpen(false); 
-                    handleAction('Reserva finalizada com sucesso!'); 
+
+                    try {
+                      let formattedDate = '';
+                      if (date) {
+                        const d = new Date(date);
+                        formattedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                      }
+
+                      let timeToSave = formData.time;
+                      if (!timeToSave) {
+                        timeToSave = ''; 
+                      } else {
+                        timeToSave = formData.time.split('-')[0];
+                      }
+
+                      const passengerData = {
+                        name: formData.name,
+                        phone: formData.phone,
+                        address: formData.address || '',
+                        reference: formData.reference || '',
+                        neighborhood: destination === 'jabaquara' ? origin : destination,
+                        date: formattedDate,
+                        time: timeToSave,
+                        passengerCount: parseInt(passengers) || 1,
+                        luggageCount: (parseInt(formData.luggageS) || 0) + (parseInt(formData.luggageM) || 0) + (parseInt(formData.luggageL) || 0),
+                        status: 'Ativo',
+                        source: 'Site',
+                        payment: 'Pendente',
+                        createdAt: new Date().toISOString(),
+                        observation: formData.observation || ''
+                      };
+
+                      const response = await fetch('/api/create-booking', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(passengerData)
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to save booking');
+                      }
+                      
+                      setIsBookingModalOpen(false); 
+                      handleAction('Reserva finalizada com sucesso!'); 
+                      
+                      // Reset form
+                      setFormData({
+                        name: '', phone: '', address: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: ''
+                      });
+                      setOrigin('');
+                      setDestination('');
+                      setDate(null);
+                      setPassengers('1');
+                    } catch (error) {
+                      console.error("Error saving booking:", error);
+                      handleAction('Erro ao realizar reserva. Tente novamente.');
+                    }
                   }} 
                   className="w-full bg-gradient-brand text-white py-4 rounded-xl font-bold text-lg mt-4 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-purple/20"
                 >
