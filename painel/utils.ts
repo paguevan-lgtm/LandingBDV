@@ -171,7 +171,11 @@ export const generateWhatsappMessage = (tripId: string, passengers: any[], drive
         msg += `• Bairro: ${p.neighborhood || ''}\n`;
         msg += `• Qtd: ${p.passengerCount || 1} passageiro(s)\n`;
         msg += `• Horário: ${displayTime}\n`;
-        msg += `• Bagagens: ${p.luggageCount || 0} bagagens\n\n`;
+        if (p.luggageDetails) {
+            msg += `• Bagagens: ${p.luggageCount || 0} bagagens (${p.luggageDetails})\n\n`;
+        } else {
+            msg += `• Bagagens: ${p.luggageCount || 0} bagagens\n\n`;
+        }
     });
 
     msg += `_Enviado via Bora de Van Transportes_`;

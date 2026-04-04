@@ -107,6 +107,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
     const passOfDayRaw = data.passengers.filter((p:any) => {
         if (p.date !== selectedDate) return false;
         if (systemContext !== 'Mistura' && (p.system || 'Pg') !== systemContext) return false;
+        if (!p.time) return false;
         return true;
     });
     const passOfDayMap = new Map();
@@ -187,7 +188,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                     <div className="text-xs opacity-70">{p.neighborhood} • {formatTime(p.time)}</div>
                                                 </div>
                                                 <div className="flex gap-2 items-center">
-                                                    <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded">{p.luggageCount || 0}🎒</div>
+                                                    <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded" title={p.luggageDetails || ''}>{p.luggageCount || 0}🎒</div>
                                                     <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded">{p.passengerCount} pass</div>
                                                     <button 
                                                         onClick={(e) => handleQuickReschedule(e, p)}

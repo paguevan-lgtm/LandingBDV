@@ -96,7 +96,7 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
                                 <div><span className="block opacity-50 text-xs">PAGAMENTO</span>{item.payment} {item.paymentMethod ? `(${item.paymentMethod})` : ''}</div>
                                 <div className="col-span-2"><span className="block opacity-50 text-xs">ENDEREÇO</span>{item.address} {item.reference ? `(${item.reference})` : ''}</div>
                                 <div><span className="block opacity-50 text-xs">DATA/HORA</span>{formatDisplayDate(item.date)} - {formatTime(item.time) || 'Sem horário'}</div>
-                                <div><span className="block opacity-50 text-xs">DETALHES</span>{item.passengerCount} pass | {item.luggageCount || 0} malas</div>
+                                <div><span className="block opacity-50 text-xs">DETALHES</span>{item.passengerCount} pass | {item.luggageDetails ? `${item.luggageCount || 0} malas (${item.luggageDetails})` : `${item.luggageCount || 0} malas`}</div>
                                 <div><span className="block opacity-50 text-xs">STATUS</span><span className={item.status === 'Bloqueado' ? 'text-red-500 font-bold' : item.status === 'Ativo' ? 'text-green-400' : 'text-red-400'}>{item.status}</span></div>
                             </div>
                             <div className="flex flex-wrap gap-2 pt-4 mt-2">

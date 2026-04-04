@@ -134,6 +134,7 @@ export default function App() {
     name: '',
     phone: '',
     address: '',
+    neighborhood: '',
     reference: '',
     observation: '',
     luggageS: '0',
@@ -730,30 +731,38 @@ export default function App() {
                   </div>
                 </div>
                 
-                {destination !== 'jabaquara' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-sm font-bold text-slate-400 mb-2">Endereço</label>
-                      <input 
-                        type="text" 
-                        value={formData.address}
-                        onChange={(e) => setFormData({...formData, address: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
-                        placeholder="Rua, Número, Bairro"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-slate-400 mb-2">Ponto de Referência</label>
-                      <input 
-                        type="text" 
-                        value={formData.reference}
-                        onChange={(e) => setFormData({...formData, reference: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
-                        placeholder="Ex: Próximo ao mercado"
-                      />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-400 mb-2">Endereço</label>
+                    <input 
+                      type="text" 
+                      value={formData.address}
+                      onChange={(e) => setFormData({...formData, address: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
+                      placeholder="Rua, Número"
+                    />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-sm font-bold text-slate-400 mb-2">Bairro</label>
+                    <input 
+                      type="text" 
+                      value={formData.neighborhood}
+                      onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
+                      placeholder="Nome do Bairro"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-400 mb-2">Ponto de Referência</label>
+                    <input 
+                      type="text" 
+                      value={formData.reference}
+                      onChange={(e) => setFormData({...formData, reference: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
+                      placeholder="Ex: Próximo ao mercado"
+                    />
+                  </div>
+                </div>
 
                 <div>
                    <label className="block text-sm font-bold text-slate-400 mb-2">Quantidade de Malas</label>
@@ -850,11 +859,12 @@ export default function App() {
                         phone: formData.phone,
                         address: formData.address || '',
                         reference: formData.reference || '',
-                        neighborhood: destination === 'jabaquara' ? origin : destination,
+                        neighborhood: formData.neighborhood || (destination === 'jabaquara' ? origin : destination),
                         date: formattedDate,
                         time: timeToSave,
                         passengerCount: parseInt(passengers) || 1,
                         luggageCount: (parseInt(formData.luggageS) || 0) + (parseInt(formData.luggageM) || 0) + (parseInt(formData.luggageL) || 0),
+                        luggageDetails: `${formData.luggageS}P, ${formData.luggageM}M, ${formData.luggageL}G`,
                         status: 'Ativo',
                         source: 'Site',
                         payment: 'Pendente',
@@ -880,7 +890,7 @@ export default function App() {
                       
                       // Reset form
                       setFormData({
-                        name: '', phone: '', address: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: '', paymentMethod: ''
+                        name: '', phone: '', address: '', neighborhood: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: '', paymentMethod: ''
                       });
                       setOrigin('');
                       setDestination('');
