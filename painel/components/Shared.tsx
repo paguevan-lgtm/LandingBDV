@@ -708,8 +708,10 @@ export const QuickCalculator = ({ isOpen, onClose, theme }: any) => {
         if (v === 'C') setExpr('');
         else if (v === '=') {
             try {
-                // eslint-disable-next-line no-eval
-                setExpr(eval(expr).toString());
+                // Use Function constructor instead of eval to avoid some build warnings
+                // and provide a slightly more isolated execution context.
+                const result = new Function(`return ${expr}`)();
+                setExpr(result.toString());
             } catch {
                 setExpr('Erro');
             }

@@ -54,39 +54,32 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
 
     // Fetch Trusted Devices
     useEffect(() => {
-        if (!isSuperAdmin) return;
-        // @ts-ignore
-        import('../firebase').then(({ db }) => {
-            if(db) {
-                const ref = db.ref('trusted_devices');
-                ref.on('value', (snap:any) => {
-                    setTrustedDevices(snap.val() || {});
-                });
-                return () => ref.off();
-            }
+        if (!isSuperAdmin || !db) return;
+        
+        const ref = db.ref('trusted_devices');
+        ref.on('value', (snap:any) => {
+            setTrustedDevices(snap.val() || {});
         });
+        return () => ref.off();
     }, [isSuperAdmin]);
 
     const toggleTrustDevice = (deviceId: string, info: any) => {
-        if (!deviceId) return;
+        if (!deviceId || !db) return;
         const isCurrentlyTrusted = trustedDevices[deviceId];
         const action = isCurrentlyTrusted ? 'Remover Confiança?' : 'Marcar como Seguro?';
         const msg = isCurrentlyTrusted ? 'Este dispositivo voltará a ser exibido como desconhecido.' : 'Este dispositivo será destacado como seguro na timeline.';
         
         requestConfirm(action, msg, () => {
-            // @ts-ignore
-            import('../firebase').then(({ db }) => {
-                if (isCurrentlyTrusted) {
-                    db.ref(`trusted_devices/${deviceId}`).remove();
-                } else {
-                    db.ref(`trusted_devices/${deviceId}`).set({
-                        trustedAt: Date.now(),
-                        trustedBy: user.username,
-                        info: info || {}
-                    });
-                }
-                notify(isCurrentlyTrusted ? "Confiança removida" : "Dispositivo marcado como seguro", "success");
-            });
+            if (isCurrentlyTrusted) {
+                db.ref(`trusted_devices/${deviceId}`).remove();
+            } else {
+                db.ref(`trusted_devices/${deviceId}`).set({
+                    trustedAt: Date.now(),
+                    trustedBy: user.username,
+                    info: info || {}
+                });
+            }
+            notify(isCurrentlyTrusted ? "Confiança removida" : "Dispositivo marcado como seguro", "success");
         });
     };
 
@@ -264,15 +257,13 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     };
 
     const handleSaveExpiration = (newDate: Date) => {
+        if (!db) return;
         const sys = editExpModal.system;
         const updates: any = {};
         updates[`isBlocked_${sys}`] = false;
         updates[`expiresAt_${sys}`] = newDate.toISOString();
-        // @ts-ignore
-        import('../firebase').then(({ db }) => {
-            db.ref('system_settings/subscription').update(updates);
-            notify(`Vencimento de ${sys} atualizado para ${newDate.toLocaleDateString()}!`, 'success');
-        });
+        db.ref('system_settings/subscription').update(updates);
+        notify(`Vencimento de ${sys} atualizado para ${newDate.toLocaleDateString()}!`, 'success');
     };
 
     const handleExportData = () => {
@@ -453,19 +444,15 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     
     // Fetch Blocked Devices
     useEffect(() => {
-        if (!isSuperAdmin || !dbOp) return;
-        // @ts-ignore
-        import('../firebase').then(({ db }) => {
-            if(db) {
-                const ref = db.ref('blocked_devices');
-                ref.on('value', (snap:any) => {
-                    const val = snap.val();
-                    const list = val ? Object.keys(val).map(k => ({ id: k, ...val[k] })) : [];
-                    setBlockedList(list);
-                });
-                return () => ref.off();
-            }
+        if (!isSuperAdmin || !dbOp || !db) return;
+        
+        const ref = db.ref('blocked_devices');
+        ref.on('value', (snap:any) => {
+            const val = snap.val();
+            const list = val ? Object.keys(val).map(k => ({ id: k, ...val[k] })) : [];
+            setBlockedList(list);
         });
+        return () => ref.off();
     }, [isSuperAdmin]);
 
 
@@ -473,52 +460,45 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const [blocks, setBlocks] = useState<any>({ Pg: false, Mip: false, Sv: false });
 
     useEffect(() => {
-        // @ts-ignore
-        import('../firebase').then(({ db }) => {
-            if (!db) return;
+        if (!db) return;
 
-            // Fetch Prices (Admin only or if needed)
-            if (isSuperAdmin) {
-                ['Pg', 'Mip', 'Sv'].forEach(sys => {
-                    const node = sys === 'Pg' ? 'system_settings/pricePerPassenger' : `${sys}/system_settings/pricePerPassenger`;
-                    db.ref(node).on('value', (snap: any) => {
-                        setPrices((prev:any) => ({ ...prev, [sys]: snap.val() || 4 }));
-                    });
+        // Fetch Prices (Admin only or if needed)
+        if (isSuperAdmin) {
+            ['Pg', 'Mip', 'Sv'].forEach(sys => {
+                const node = sys === 'Pg' ? 'system_settings/pricePerPassenger' : `${sys}/system_settings/pricePerPassenger`;
+                db.ref(node).on('value', (snap: any) => {
+                    setPrices((prev:any) => ({ ...prev, [sys]: snap.val() || 4 }));
                 });
-            }
+            });
+        }
 
-            // Fetch Subscription Data (For everyone)
-            db.ref('system_settings/subscription').on('value', (snap: any) => {
-                const val = snap.val() || {};
-                setBlocks({
-                    Pg: val.isBlocked_Pg || false,
-                    Mip: val.isBlocked_Mip || false,
-                    Sv: val.isBlocked_Sv || false,
-                    expiresAt_Pg: val.expiresAt_Pg,
-                    expiresAt_Mip: val.expiresAt_Mip,
-                    expiresAt_Sv: val.expiresAt_Sv,
-                    isRecurring_Pg: val.isRecurring_Pg || false,
-                    isRecurring_Mip: val.isRecurring_Mip || false,
-                    isRecurring_Sv: val.isRecurring_Sv || false
-                });
+        // Fetch Subscription Data (For everyone)
+        db.ref('system_settings/subscription').on('value', (snap: any) => {
+            const val = snap.val() || {};
+            setBlocks({
+                Pg: val.isBlocked_Pg || false,
+                Mip: val.isBlocked_Mip || false,
+                Sv: val.isBlocked_Sv || false,
+                expiresAt_Pg: val.expiresAt_Pg,
+                expiresAt_Mip: val.expiresAt_Mip,
+                expiresAt_Sv: val.expiresAt_Sv,
+                isRecurring_Pg: val.isRecurring_Pg || false,
+                isRecurring_Mip: val.isRecurring_Mip || false,
+                isRecurring_Sv: val.isRecurring_Sv || false
             });
         });
     }, [isAdmin]);
 
     const updatePrice = (sys: string, val: number) => {
-        // @ts-ignore
-        import('../firebase').then(({ db }) => {
-            const node = sys === 'Pg' ? 'system_settings/pricePerPassenger' : `${sys}/system_settings/pricePerPassenger`;
-            db.ref(node).set(val);
-        });
+        if (!db) return;
+        const node = sys === 'Pg' ? 'system_settings/pricePerPassenger' : `${sys}/system_settings/pricePerPassenger`;
+        db.ref(node).set(val);
     };
 
     const updateBlock = (sys: string, blocked: boolean) => {
-        // @ts-ignore
-        import('../firebase').then(({ db }) => {
-            db.ref('system_settings/subscription').update({ [`isBlocked_${sys}`]: blocked });
-            notify(blocked ? `Bloqueio ${sys} ativado` : `Bloqueio ${sys} removido`, blocked ? 'error' : 'success');
-        });
+        if (!db) return;
+        db.ref('system_settings/subscription').update({ [`isBlocked_${sys}`]: blocked });
+        notify(blocked ? `Bloqueio ${sys} ativado` : `Bloqueio ${sys} removido`, blocked ? 'error' : 'success');
     };
 
     const formatTime = (ts: number) => {
@@ -862,17 +842,15 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             if (isSuperAdmin && !isRecurringActive) {
                                                 triggerEarlyRenewal();
                                             } else {
-                                                import('../firebase').then(({ db }) => {
-                                                    if (!isRecurringActive) notify("Para ativar, use a tela de bloqueio ou aguarde o vencimento.", "warning");
-                                                    else {
-                                                        requestConfirm("Desativar Renovação?", "Você terá que renovar manualmente.", () => {
-                                                            const updates: any = {};
-                                                            updates[`isRecurring_${systemContext}`] = false;
-                                                            db.ref('system_settings/subscription').update(updates);
-                                                            notify("Renovação Automática Desativada", 'success');
-                                                        });
-                                                    }
-                                                });
+                                                if (!isRecurringActive) notify("Para ativar, use a tela de bloqueio ou aguarde o vencimento.", "warning");
+                                                else if (db) {
+                                                    requestConfirm("Desativar Renovação?", "Você terá que renovar manualmente.", () => {
+                                                        const updates: any = {};
+                                                        updates[`isRecurring_${systemContext}`] = false;
+                                                        db.ref('system_settings/subscription').update(updates);
+                                                        notify("Renovação Automática Desativada", 'success');
+                                                    });
+                                                }
                                             }
                                         }}
                                         disabled={!isSuperAdmin}

@@ -467,13 +467,13 @@ async function startServer() {
 
     // Vite Middleware (Development)
     if (process.env.NODE_ENV !== 'production') {
-        const hmrConfig = process.env.DISABLE_HMR === 'true' ? false : true;
+        const hmrConfig = false; // Always disable HMR in this environment to avoid port conflicts
 
         // Root App Vite
         const viteRoot = await createViteServer({
             server: { 
                 middlewareMode: true,
-                hmr: hmrConfig 
+                hmr: false 
             },
             appType: 'spa',
             root: process.cwd()
@@ -483,7 +483,7 @@ async function startServer() {
         const vitePainel = await createViteServer({
             server: { 
                 middlewareMode: true,
-                hmr: hmrConfig ? { port: 24679 } : false
+                hmr: false
             },
             appType: 'spa',
             root: path.resolve(__dirname, 'painel'),
