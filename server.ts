@@ -205,6 +205,10 @@ async function startServer() {
                 subject = 'Bora de Van - Recuperação de Senha';
                 title = 'Recuperação de Senha';
                 message = 'Recebemos uma solicitação para alterar a senha da sua conta. Use o código de verificação abaixo:';
+            } else if (type === 'password_change') {
+                subject = 'Bora de Van - Alerta de Segurança';
+                title = 'Alteração de Senha';
+                message = 'Alguém está tentando alterar a senha da sua conta. Se foi você, use o código abaixo para confirmar a alteração. Caso contrário, ignore este e-mail e sua senha permanecerá segura.';
             }
 
             const emailHtml = `
@@ -282,7 +286,7 @@ async function startServer() {
                   </td>
                   <td style="color: #334155;">&bull;</td>
                   <td style="padding: 0 8px;">
-                    <a href="https://wa.me/551334711830" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
+                    <a href="https://wa.me/5513997744720" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
                   </td>
                 </tr>
               </table>

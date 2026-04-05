@@ -131,6 +131,66 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [verificationToken, setVerificationToken] = useState('');
+    const [isTokenVerified, setIsTokenVerified] = useState(false);
+    const [isSendingToken, setIsSendingToken] = useState(false);
+    const [isVerifyingToken, setIsVerifyingToken] = useState(false);
+
+    const handleRequestToken = async () => {
+        if (!user.email) return notify("Seu usuário não possui e-mail cadastrado.", "error");
+        
+        setIsSendingToken(true);
+        try {
+            const response = await fetch('/api/send-login-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: user.email,
+                    name: user.displayName || user.username,
+                    type: 'password_change'
+                })
+            });
+            
+            if (response.ok) {
+                notify("Código de verificação enviado para seu e-mail!", "success");
+                setShowPasswordForm(true);
+            } else {
+                notify("Erro ao enviar código. Tente novamente.", "error");
+            }
+        } catch (error) {
+            notify("Erro de conexão.", "error");
+        } finally {
+            setIsSendingToken(false);
+        }
+    };
+
+    const handleVerifyToken = async () => {
+        if (!verificationToken) return notify("Digite o código de verificação.", "error");
+        
+        setIsVerifyingToken(true);
+        try {
+            const response = await fetch('/api/verify-login-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: user.email,
+                    token: verificationToken
+                })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                setIsTokenVerified(true);
+                notify("Código verificado! Agora você pode alterar sua senha.", "success");
+            } else {
+                notify(result.error || "Código inválido.", "error");
+            }
+        } catch (error) {
+            notify("Erro de conexão.", "error");
+        } finally {
+            setIsVerifyingToken(false);
+        }
+    };
 
     const handleChangePassword = () => {
         const userToUpdate = data.users.find((u: any) => u.username === user.username);
@@ -156,6 +216,8 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
         setNewPassword('');
         setConfirmPassword('');
         setCurrentPassword('');
+        setVerificationToken('');
+        setIsTokenVerified(false);
         setShowPasswordForm(false);
     };
 
@@ -684,15 +746,16 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             
                             {!showPasswordForm ? (
                                 <div className="space-y-4">
-                                    <p className="text-sm opacity-60">Para sua segurança, recomendamos trocar sua senha periodicamente.</p>
+                                    <p className="text-sm opacity-60">Para sua segurança, é necessário validar seu e-mail antes de trocar a senha.</p>
                                     <Button 
                                         theme={theme} 
-                                        onClick={() => setShowPasswordForm(true)} 
+                                        onClick={handleRequestToken} 
                                         variant="secondary" 
                                         className="w-full"
-                                        icon={Icons.Lock}
+                                        icon={Icons.Mail}
+                                        loading={isSendingToken}
                                     >
-                                        Alterar Senha
+                                        Solicitar Código via E-mail
                                     </Button>
                                 </div>
                             ) : (
@@ -703,39 +766,62 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         exit={{ opacity: 0, height: 0 }}
                                         className="space-y-3 overflow-hidden"
                                     >
-                                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl mb-2">
-                                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Atenção</p>
-                                            <p className="text-xs opacity-70">Você precisará confirmar sua senha atual para prosseguir.</p>
-                                        </div>
-                                        <Input 
-                                            theme={theme} 
-                                            type="password"
-                                            label="Senha Atual"
-                                            placeholder="Digite sua senha atual"
-                                            value={currentPassword}
-                                            onChange={(e: any) => setCurrentPassword(e.target.value)}
-                                        />
-                                        <div className="h-px bg-white/5 my-2"></div>
-                                        <Input 
-                                            theme={theme} 
-                                            type="password"
-                                            label="Nova Senha"
-                                            placeholder="Mínimo 6 caracteres"
-                                            value={newPassword}
-                                            onChange={(e: any) => setNewPassword(e.target.value)}
-                                        />
-                                        <Input 
-                                            theme={theme} 
-                                            type="password"
-                                            label="Confirmar Nova Senha"
-                                            placeholder="Repita a nova senha"
-                                            value={confirmPassword}
-                                            onChange={(e: any) => setConfirmPassword(e.target.value)}
-                                        />
-                                        <div className="grid grid-cols-2 gap-2 pt-2">
-                                            <Button theme={theme} onClick={() => setShowPasswordForm(false)} variant="secondary" className="w-full">Cancelar</Button>
-                                            <Button theme={theme} onClick={handleChangePassword} variant="primary" className="w-full">Salvar Nova Senha</Button>
-                                        </div>
+                                        {!isTokenVerified ? (
+                                            <div className="space-y-3">
+                                                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl mb-2">
+                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Verificação</p>
+                                                    <p className="text-xs opacity-70">Insira o código enviado para <b>{user.email}</b></p>
+                                                </div>
+                                                <Input 
+                                                    theme={theme} 
+                                                    type="text"
+                                                    label="Código de Verificação"
+                                                    placeholder="Digite o código de 6 dígitos"
+                                                    value={verificationToken}
+                                                    onChange={(e: any) => setVerificationToken(e.target.value)}
+                                                />
+                                                <div className="grid grid-cols-2 gap-2 pt-2">
+                                                    <Button theme={theme} onClick={() => setShowPasswordForm(false)} variant="secondary" className="w-full">Cancelar</Button>
+                                                    <Button theme={theme} onClick={handleVerifyToken} variant="primary" className="w-full" loading={isVerifyingToken}>Verificar Código</Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl mb-2">
+                                                    <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Sucesso</p>
+                                                    <p className="text-xs opacity-70">E-mail validado! Agora você pode definir sua nova senha.</p>
+                                                </div>
+                                                <Input 
+                                                    theme={theme} 
+                                                    type="password"
+                                                    label="Senha Atual"
+                                                    placeholder="Digite sua senha atual"
+                                                    value={currentPassword}
+                                                    onChange={(e: any) => setCurrentPassword(e.target.value)}
+                                                />
+                                                <div className="h-px bg-white/5 my-2"></div>
+                                                <Input 
+                                                    theme={theme} 
+                                                    type="password"
+                                                    label="Nova Senha"
+                                                    placeholder="Mínimo 6 caracteres"
+                                                    value={newPassword}
+                                                    onChange={(e: any) => setNewPassword(e.target.value)}
+                                                />
+                                                <Input 
+                                                    theme={theme} 
+                                                    type="password"
+                                                    label="Confirmar Nova Senha"
+                                                    placeholder="Repita a nova senha"
+                                                    value={confirmPassword}
+                                                    onChange={(e: any) => setConfirmPassword(e.target.value)}
+                                                />
+                                                <div className="grid grid-cols-2 gap-2 pt-2">
+                                                    <Button theme={theme} onClick={() => { setShowPasswordForm(false); setIsTokenVerified(false); }} variant="secondary" className="w-full">Cancelar</Button>
+                                                    <Button theme={theme} onClick={handleChangePassword} variant="primary" className="w-full">Salvar Nova Senha</Button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 </AnimatePresence>
                             )}
