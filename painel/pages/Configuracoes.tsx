@@ -627,9 +627,9 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             localStorage.setItem('nexflow_sound_enabled', String(newVal));
                                             notify(newVal ? "Sons ativados" : "Sons desativados", "info");
                                         }}
-                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative ${soundEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                                        className={`w-11 h-6 rounded-full transition-all duration-300 flex items-center px-1 ${soundEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
                                     >
-                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${soundEnabled ? 'left-7' : 'left-1'}`} />
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${soundEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
 
@@ -645,9 +645,9 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             localStorage.setItem('nexflow_popups_enabled', String(newVal));
                                             notify(newVal ? "Popups ativados" : "Popups desativados", "info");
                                         }}
-                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative ${popupsEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                                        className={`w-11 h-6 rounded-full transition-all duration-300 flex items-center px-1 ${popupsEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
                                     >
-                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${popupsEnabled ? 'left-7' : 'left-1'}`} />
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${popupsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
 
@@ -663,9 +663,9 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             localStorage.setItem('nexflow_site_notifs_enabled', String(newVal));
                                             notify(newVal ? "Avisos de site ativados" : "Avisos de site desativados", "info");
                                         }}
-                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative ${siteNotificationsEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                                        className={`w-11 h-6 rounded-full transition-all duration-300 flex items-center px-1 ${siteNotificationsEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
                                     >
-                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${siteNotificationsEnabled ? 'left-7' : 'left-1'}`} />
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${siteNotificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
                             </div>

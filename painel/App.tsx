@@ -3606,7 +3606,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
                             {/* Calculator Trigger */}
                             <button 
                                 onClick={() => setCalcOpen(prev => !prev)} 
-                                className={`p-2.5 rounded-xl ${theme.ghost || 'bg-white/5 hover:bg-white/10 text-white/50'} flex items-center gap-2 text-xs font-bold border ${theme.divider || 'border-white/5'}`} 
+                                className={`p-2.5 rounded-xl ${theme.ghost || 'bg-white/5 hover:bg-white/10 text-white/50'} hidden md:flex items-center gap-2 text-xs font-bold border ${theme.divider || 'border-white/5'}`} 
                                 title="Calculadora Rápida"
                             >
                                 <Icons.Calculator size={14} />

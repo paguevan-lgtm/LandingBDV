@@ -170,7 +170,10 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                 </div>
                                 <div className="space-y-3 pl-2 border-l border-white/5">
                                     {grouped[time].map((p:any) => (
-                                        <div key={p.id} className={`${theme.card} ${theme.radius} border border-yellow-500/30 p-4 relative bg-yellow-500/5`}>
+                                        <div key={p.id} className={`${theme.card} ${theme.radius} border border-yellow-500/30 p-4 relative bg-yellow-500/5 overflow-hidden`}>
+                                            <div className="absolute top-1 right-8 text-4xl font-bold opacity-[0.07] pointer-events-none">
+                                                {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
+                                            </div>
                                             {p.source === 'Site' && (
                                                 <div className="absolute top-0 right-0">
                                                     <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
@@ -232,7 +235,10 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                             const displayTime = trip ? formatTime(trip.time) : (formatTime(p.time) || 'Sem horário');
 
                             return (
-                                <div key={p.id} className={`${theme.card} ${theme.radius} border border-white/5 p-3 relative opacity-60 hover:opacity-100 transition-opacity`}>
+                                <div key={p.id} className={`${theme.card} ${theme.radius} border border-white/5 p-3 relative opacity-60 hover:opacity-100 transition-opacity overflow-hidden`}>
+                                    <div className="absolute top-1 right-8 text-4xl font-bold opacity-[0.07] pointer-events-none">
+                                        {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
+                                    </div>
                                     {p.source === 'Site' && (
                                         <div className="absolute top-0 right-0">
                                             <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
