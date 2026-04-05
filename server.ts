@@ -230,17 +230,12 @@ async function startServer() {
           <!-- Brand Header -->
           <tr>
             <td style="padding: 48px 40px 32px 40px; text-align: center;">
-              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto 24px auto;">
-                <tr>
-                  <td style="background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); padding: 12px; border-radius: 14px; transform: rotate(-6deg);">
-                    <span style="color: #ffffff; font-size: 24px; line-height: 1;">🚌</span>
-                  </td>
-                  <td style="padding-left: 12px; text-align: left;">
-                    <span style="color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -1px; display: block;">Bora de <span style="color: #db2777;">Van</span></span>
-                  </td>
-                </tr>
-              </table>
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1.2;">${title}</h1>
+              <div style="margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 32px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -1px; color: #ffffff; line-height: 1;">
+                  BORA DE <span style="color: #db2777;">VAN</span>
+                </h2>
+              </div>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; opacity: 0.9;">${title}</h1>
             </td>
           </tr>
 
@@ -251,9 +246,11 @@ async function startServer() {
               <p style="margin: 0 0 40px 0; color: #94a3b8; font-size: 16px; line-height: 1.6;">${message}</p>
               
               <!-- Token Display -->
-              <div style="background-color: #020617; border: 1px solid #334155; border-radius: 24px; padding: 32px 20px; margin-bottom: 32px; position: relative;">
+              <div style="background-color: #020617; border: 1px solid #334155; border-radius: 24px; padding: 32px 20px; margin-bottom: 32px; text-align: center;">
                 <p style="margin: 0 0 12px 0; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Seu código é</p>
-                <span style="display: block; color: #db2777; font-size: 48px; font-weight: 900; letter-spacing: 12px; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 20px rgba(219, 39, 119, 0.3);">${token}</span>
+                <div style="display: inline-block; margin: 0 auto;">
+                  <span style="display: block; color: #db2777; font-size: 48px; font-weight: 900; letter-spacing: 12px; padding-left: 12px; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 20px rgba(219, 39, 119, 0.3); line-height: 1;">${token}</span>
+                </div>
               </div>
               
               <!-- Expiration Warning -->
