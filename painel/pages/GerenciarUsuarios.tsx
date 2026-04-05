@@ -44,7 +44,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
 
     // Filtra para não mostrar o Breno e filtra pelo sistema atual (se não for o Breno logado)
     const userList = (data.users || []).filter((u:any) => 
-        u.username !== 'Breno' && 
+        (u.username !== 'Breno' || currentUser.username === 'Breno') && 
         (currentUser.username === 'Breno' || (u.systems && u.systems.includes(systemContext)) || u.system === systemContext)
     );
 
@@ -94,7 +94,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
             return notify("Por favor, insira um e-mail válido.", "error");
         }
 
-        if (formUser.username.toLowerCase() === 'breno') {
+        if (formUser.username.toLowerCase() === 'breno' && currentUser.username !== 'Breno') {
             setFormUser({ username: '', email: '', pass: '', role: 'operador', systems: [systemContext || 'Pg'] });
             setIsEditing(null);
             setViewMode('list');
@@ -222,7 +222,8 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
 
     const handleEdit = (u: any) => {
         const systems = u.systems || (u.system ? [u.system] : ['Pg']);
-        setFormUser({ ...u, systems });
+        const email = u.username === 'Breno' ? 'breno0452@gmail.com' : u.email;
+        setFormUser({ ...u, systems, email });
         setIsEditing(u.id);
         setViewMode('form');
     };

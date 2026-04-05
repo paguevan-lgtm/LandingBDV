@@ -628,6 +628,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>
                                         {user.role === 'admin' ? 'Coordenação' : (user.role === 'operador' ? 'Operador' : user.role)}
                                     </span>
+                                    {user.email && (
+                                        <span className="text-[10px] opacity-50 font-bold lowercase tracking-tight flex items-center gap-1">
+                                            <Icons.Mail size={10} /> {user.email}
+                                        </span>
+                                    )}
                                 </div>
                                 <span className="text-xs opacity-50 font-medium">Renova em: {daysRemaining}</span>
                             </div>
