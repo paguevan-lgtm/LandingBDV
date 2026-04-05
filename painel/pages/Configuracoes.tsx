@@ -135,9 +135,23 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const [isTokenVerified, setIsTokenVerified] = useState(false);
     const [isSendingToken, setIsSendingToken] = useState(false);
     const [isVerifyingToken, setIsVerifyingToken] = useState(false);
+    const [resendTimer, setResendTimer] = useState(0);
+    const [isBlocked, setIsBlocked] = useState(false);
+
+    // Timer effect
+    useEffect(() => {
+        let interval: any;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer(prev => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
 
     const handleRequestToken = async () => {
         if (!user.email) return notify("Seu usuário não possui e-mail cadastrado.", "error");
+        if (resendTimer > 0 || isBlocked) return;
         
         setIsSendingToken(true);
         try {
@@ -151,11 +165,25 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                 })
             });
             
+            const data = await response.json();
+
+            if (response.status === 429) {
+                if (data.retryAfter) {
+                    const seconds = Math.ceil((data.retryAfter - Date.now()) / 1000);
+                    if (seconds > 0) setResendTimer(seconds);
+                }
+                if (data.blocked) setIsBlocked(true);
+                notify(data.error || "Muitas tentativas", "error");
+                setIsSendingToken(false);
+                return;
+            }
+
             if (response.ok) {
+                setResendTimer(120);
                 notify("Código de verificação enviado para seu e-mail!", "success");
                 setShowPasswordForm(true);
             } else {
-                notify("Erro ao enviar código. Tente novamente.", "error");
+                notify(data.error || "Erro ao enviar código. Tente novamente.", "error");
             }
         } catch (error) {
             notify("Erro de conexão.", "error");
@@ -181,6 +209,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
             const result = await response.json();
             if (result.success) {
                 setIsTokenVerified(true);
+                setResendTimer(0);
                 notify("Código verificado! Agora você pode alterar sua senha.", "success");
             } else {
                 notify(result.error || "Código inválido.", "error");
@@ -780,8 +809,17 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                     value={verificationToken}
                                                     onChange={(e: any) => setVerificationToken(e.target.value)}
                                                 />
+                                                <div className="flex justify-center py-1">
+                                                    <button
+                                                        onClick={handleRequestToken}
+                                                        disabled={isSendingToken || resendTimer > 0 || isBlocked}
+                                                        className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${resendTimer > 0 || isBlocked ? 'text-slate-500 cursor-not-allowed' : 'text-amber-500 hover:text-amber-400'}`}
+                                                    >
+                                                        {isBlocked ? 'Tente novamente mais tarde' : (resendTimer > 0 ? `Reenviar em ${resendTimer}s` : 'Reenviar Código')}
+                                                    </button>
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-2 pt-2">
-                                                    <Button theme={theme} onClick={() => setShowPasswordForm(false)} variant="secondary" className="w-full">Cancelar</Button>
+                                                    <Button theme={theme} onClick={() => { setShowPasswordForm(false); setResendTimer(0); }} variant="secondary" className="w-full">Cancelar</Button>
                                                     <Button theme={theme} onClick={handleVerifyToken} variant="primary" className="w-full" loading={isVerifyingToken}>Verificar Código</Button>
                                                 </div>
                                             </div>

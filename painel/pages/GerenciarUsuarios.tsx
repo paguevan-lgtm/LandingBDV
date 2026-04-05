@@ -16,6 +16,19 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
     const [showTokenModal, setShowTokenModal] = useState(false);
     const [token, setToken] = useState('');
     const [isSendingToken, setIsSendingToken] = useState(false);
+    const [resendTimer, setResendTimer] = useState(0);
+    const [isBlocked, setIsBlocked] = useState(false);
+
+    // Timer effect
+    useEffect(() => {
+        let interval: any;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer(prev => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
     const roleMenuRef = useRef<HTMLDivElement>(null);
 
     // Close role menu when clicking outside
@@ -116,6 +129,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
     };
 
     const handleSendToken = async () => {
+        if (resendTimer > 0 || isBlocked) return;
         setIsSendingToken(true);
         try {
             const response = await fetch('/api/send-login-token', {
@@ -127,8 +141,19 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
             const contentType = response.headers.get("content-type");
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 const data = await response.json();
+                
+                if (response.status === 429) {
+                    if (data.retryAfter) {
+                        const seconds = Math.ceil((data.retryAfter - Date.now()) / 1000);
+                        if (seconds > 0) setResendTimer(seconds);
+                    }
+                    if (data.blocked) setIsBlocked(true);
+                    throw new Error(data.error || 'Muitas tentativas');
+                }
+
                 if (!response.ok) throw new Error(data.error || 'Erro ao enviar token');
                 
+                setResendTimer(120);
                 setShowEmailConfirm(false);
                 setShowTokenModal(true);
                 notify('Código enviado para o e-mail.', 'success');
@@ -158,6 +183,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Token inválido');
                 
+                setResendTimer(0);
                 setShowTokenModal(false);
                 setToken('');
                 handleSaveFinal();
@@ -633,23 +659,34 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                     />
                                 </div>
 
-                                <div className="flex gap-4 w-full">
-                                    <Button 
-                                        onClick={() => { setShowTokenModal(false); setToken(''); }}
-                                        variant="secondary"
-                                        className="flex-1 !rounded-xl"
-                                    >
-                                        Cancelar
-                                    </Button>
+                                <div className="flex flex-col gap-4 w-full">
                                     <Button 
                                         onClick={handleVerifyTokenAndSave}
                                         disabled={isSendingToken || token.length !== 6}
                                         loading={isSendingToken}
                                         variant="primary"
                                         theme={{ primary: 'bg-amber-600 text-white' }}
-                                        className="flex-1 !rounded-xl"
+                                        className="w-full !rounded-xl py-4"
                                     >
-                                        Validar
+                                        Validar Código
+                                    </Button>
+
+                                    <div className="flex justify-center">
+                                        <button
+                                            onClick={handleSendToken}
+                                            disabled={isSendingToken || resendTimer > 0 || isBlocked}
+                                            className={`text-xs font-bold uppercase tracking-widest transition-colors ${resendTimer > 0 || isBlocked ? 'text-slate-600 cursor-not-allowed' : 'text-amber-500 hover:text-amber-400'}`}
+                                        >
+                                            {isBlocked ? 'Tente novamente mais tarde' : (resendTimer > 0 ? `Reenviar em ${resendTimer}s` : 'Reenviar Código')}
+                                        </button>
+                                    </div>
+
+                                    <Button 
+                                        onClick={() => { setShowTokenModal(false); setToken(''); setResendTimer(0); }}
+                                        variant="secondary"
+                                        className="w-full !rounded-xl"
+                                    >
+                                        Cancelar
                                     </Button>
                                 </div>
                             </div>

@@ -26,6 +26,7 @@ function getStripe(): Stripe {
 
 // In-memory token store for login
 const loginTokens = new Map<string, { token: string, expires: number }>();
+const tokenAttempts = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
 
 // Helper function for resilient fetch
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
@@ -158,6 +159,49 @@ async function startServer() {
         try {
             const { email, name, type, uid, deviceId } = req.body;
             if (!email) return res.status(400).json({ error: 'Email is required' });
+
+            const emailKey = email.toLowerCase();
+            const now = Date.now();
+            let attemptData = tokenAttempts.get(emailKey) || { count: 0, lastAttempt: 0 };
+
+            // Check if blocked
+            if (attemptData.blockedUntil && now < attemptData.blockedUntil) {
+                const remainingMinutes = Math.ceil((attemptData.blockedUntil - now) / (60 * 1000));
+                return res.status(429).json({ 
+                    error: `Muitas tentativas. Tente novamente em ${remainingMinutes} minutos.`,
+                    blocked: true,
+                    retryAfter: attemptData.blockedUntil
+                });
+            }
+
+            // Check wait time between attempts
+            let waitTime = 0;
+            if (attemptData.count === 1) waitTime = 2 * 60 * 1000;
+            else if (attemptData.count === 2) waitTime = 5 * 60 * 1000;
+            else if (attemptData.count === 3) waitTime = 10 * 60 * 1000;
+            else if (attemptData.count >= 4) {
+                // Block for 2 hours
+                attemptData.blockedUntil = now + 2 * 60 * 60 * 1000;
+                tokenAttempts.set(emailKey, attemptData);
+                return res.status(429).json({ 
+                    error: 'Não foi possível verificar sua identidade. Tente novamente mais tarde.',
+                    blocked: true,
+                    retryAfter: attemptData.blockedUntil
+                });
+            }
+
+            if (now < attemptData.lastAttempt + waitTime) {
+                const remainingSeconds = Math.ceil((attemptData.lastAttempt + waitTime - now) / 1000);
+                return res.status(429).json({ 
+                    error: `Aguarde ${remainingSeconds} segundos para solicitar um novo código.`,
+                    retryAfter: attemptData.lastAttempt + waitTime
+                });
+            }
+
+            // Update attempts
+            attemptData.count += 1;
+            attemptData.lastAttempt = now;
+            tokenAttempts.set(emailKey, attemptData);
 
             // Check if device is trusted
             if (type === 'login' && uid && deviceId) {
@@ -339,6 +383,7 @@ async function startServer() {
         if (storedData.token !== token) return res.status(400).json({ success: false, error: 'Token incorreto' });
 
         loginTokens.delete(email.toLowerCase());
+        tokenAttempts.delete(email.toLowerCase());
 
         if (uid && deviceId) {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;

@@ -30,6 +30,19 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const [token, setToken] = useState('');
     const [userEmail, setUserEmail] = useState('');
     const [currentUserUid, setCurrentUserUid] = useState('');
+    const [resendTimer, setResendTimer] = useState(0);
+    const [isBlocked, setIsBlocked] = useState(false);
+
+    // Timer effect
+    useEffect(() => {
+        let interval: any;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer(prev => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
 
     // Device ID for trusted devices
     const getDeviceId = () => {
@@ -163,12 +176,24 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             const contentType = response.headers.get("content-type");
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 const data = await response.json();
+                
+                if (response.status === 429) {
+                    if (data.retryAfter) {
+                        const seconds = Math.ceil((data.retryAfter - Date.now()) / 1000);
+                        if (seconds > 0) setResendTimer(seconds);
+                    }
+                    if (data.blocked) setIsBlocked(true);
+                    throw new Error(data.error || 'Muitas tentativas');
+                }
+
                 if (!response.ok) throw new Error(data.error || 'Erro ao enviar token');
                 
                 if (data.trusted) {
                     return data;
                 }
                 
+                // Set initial resend timer (2 min)
+                setResendTimer(120);
                 notify('Código enviado para o seu email.', 'success');
                 return data;
             } else {
@@ -686,8 +711,18 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                                 {loading ? 'Verificando...' : 'Confirmar Código'}
                             </Button>
 
+                            <div className="mt-4 w-full">
+                                <button
+                                    onClick={() => sendToken(userEmail, forgotPasswordUser?.displayName || 'Usuário', forgotPasswordStep === 'token' ? 'reset' : 'login', currentUserUid)}
+                                    disabled={loading || resendTimer > 0 || isBlocked}
+                                    className={`text-xs font-bold uppercase tracking-widest transition-colors ${resendTimer > 0 || isBlocked ? 'text-slate-600 cursor-not-allowed' : 'text-amber-500 hover:text-amber-400'}`}
+                                >
+                                    {isBlocked ? 'Tente novamente mais tarde' : (resendTimer > 0 ? `Reenviar em ${resendTimer}s` : 'Reenviar Código')}
+                                </button>
+                            </div>
+
                             <button 
-                                onClick={() => { setShowTokenInput(false); setLoading(false); setToken(''); }}
+                                onClick={() => { setShowTokenInput(false); setLoading(false); setToken(''); setResendTimer(0); }}
                                 className="mt-6 text-xs text-slate-500 hover:text-white transition-colors uppercase font-bold tracking-widest"
                             >
                                 Cancelar
