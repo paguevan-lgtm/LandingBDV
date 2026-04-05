@@ -330,7 +330,7 @@ async function startServer() {
                   </td>
                   <td style="color: #334155;">&bull;</td>
                   <td style="padding: 0 8px;">
-                    <a href="https://wa.me/5513997744720" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
+                    <a href="https://wa.me/551334711830" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
                   </td>
                 </tr>
               </table>

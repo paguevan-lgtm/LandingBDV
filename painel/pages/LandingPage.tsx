@@ -176,9 +176,14 @@ export default function LandingPage({ onLogin }: { onLogin: () => void }) {
                         © 2024 Bora de Van. Todos os direitos reservados.
                     </div>
                     <div className="flex gap-6">
-                        <a href="#" className="text-white/40 hover:text-white transition-colors"><Icons.Instagram size={20} /></a>
-                        <a href="#" className="text-white/40 hover:text-white transition-colors"><Icons.Facebook size={20} /></a>
-                        <a href="#" className="text-white/40 hover:text-white transition-colors"><Icons.Twitter size={20} /></a>
+                        <a 
+                            href="https://www.instagram.com/bora_devan?igsh=MXMxeTMxa2FwdnVteQ==" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-white/40 hover:text-white transition-colors"
+                        >
+                            <Icons.Instagram size={20} />
+                        </a>
                     </div>
                 </div>
             </footer>

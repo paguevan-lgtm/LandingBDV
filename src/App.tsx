@@ -629,11 +629,14 @@ export default function App() {
               <p className="text-xl md:text-2xl text-white/90 mb-12 font-medium">
                 Não perca tempo! Garanta seu lugar agora e viaje com quem entende de diversão e segurança.
               </p>
-              <div className="flex flex-col sm:flex-row items-center gap-6 justify-center">
+                <div className="flex flex-col sm:flex-row items-center gap-6 justify-center">
                 <button onClick={() => scrollToSection('reserva')} className="w-full sm:w-auto bg-slate-950 text-white px-10 py-5 rounded-2xl font-extrabold text-xl shadow-2xl hover:scale-105 active:scale-95 transition-all border border-slate-800 hover:border-brand-pink">
                   Reserve sua viagem agora
                 </button>
-                <button onClick={() => handleAction('Abrindo chat com consultor...')} className="w-full sm:w-auto bg-brand-purple/20 backdrop-blur-md border border-white/30 text-white px-10 py-5 rounded-2xl font-extrabold text-xl hover:bg-white/10 transition-all">
+                <button 
+                  onClick={() => window.open('https://wa.me/551334711830', '_blank')} 
+                  className="w-full sm:w-auto bg-brand-purple/20 backdrop-blur-md border border-white/30 text-white px-10 py-5 rounded-2xl font-extrabold text-xl hover:bg-white/10 transition-all"
+                >
                   Falar com consultor
                 </button>
               </div>
@@ -663,20 +666,20 @@ export default function App() {
             <div>
               <h4 className="text-xl font-bold mb-6">Links Rápidos</h4>
               <ul className="space-y-4 text-slate-400">
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Navegando para Destinos'); }} className="hover:text-brand-pink transition-colors">Destinos</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Navegando para Como Funciona'); }} className="hover:text-brand-pink transition-colors">Como Funciona</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Navegando para Segurança'); }} className="hover:text-brand-pink transition-colors">Segurança</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Navegando para Agendamento'); }} className="hover:text-brand-pink transition-colors">Agendamento</a></li>
+                <li><a href="#destinos" onClick={(e) => { e.preventDefault(); scrollToSection('destinos'); }} className="hover:text-brand-pink transition-colors">Destinos</a></li>
+                <li><a href="#como-funciona" onClick={(e) => { e.preventDefault(); scrollToSection('como-funciona'); }} className="hover:text-brand-pink transition-colors">Como Funciona</a></li>
+                <li><a href="#sobre" onClick={(e) => { e.preventDefault(); scrollToSection('sobre'); }} className="hover:text-brand-pink transition-colors">Sobre Nós</a></li>
+                <li><a href="#reserva" onClick={(e) => { e.preventDefault(); scrollToSection('reserva'); }} className="hover:text-brand-pink transition-colors">Agendamento</a></li>
               </ul>
             </div>
 
             <div>
               <h4 className="text-xl font-bold mb-6">Suporte</h4>
               <ul className="space-y-4 text-slate-400">
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Abrindo Central de Ajuda'); }} className="hover:text-brand-pink transition-colors">Central de Ajuda</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Abrindo Termos de Uso'); }} className="hover:text-brand-pink transition-colors">Termos de Uso</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Abrindo Privacidade'); }} className="hover:text-brand-pink transition-colors">Privacidade</a></li>
-                <li><a href="#" onClick={(e) => { e.preventDefault(); handleAction('Abrindo Contato'); }} className="hover:text-brand-pink transition-colors">Contato</a></li>
+                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Central de Ajuda</a></li>
+                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Termos de Uso</a></li>
+                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Privacidade</a></li>
+                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Contato</a></li>
               </ul>
             </div>
 
@@ -700,11 +703,14 @@ export default function App() {
           <div className="pt-10 border-t border-slate-900 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-slate-500 text-sm">&copy; {new Date().getFullYear()} Bora de Van. Todos os direitos reservados. Viaje com diversão e segurança.</p>
             <div className="flex gap-4">
-              {['Instagram', 'Facebook', 'Twitter'].map((social) => (
-                <a key={social} href="#" onClick={(e) => { e.preventDefault(); handleAction(`Abrindo ${social}`); }} className="text-slate-500 hover:text-brand-pink transition-colors text-sm font-medium">
-                  {social}
-                </a>
-              ))}
+              <a 
+                href="https://www.instagram.com/bora_devan?igsh=MXMxeTMxa2FwdnVteQ==" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-slate-500 hover:text-brand-pink transition-colors text-sm font-medium"
+              >
+                Instagram
+              </a>
             </div>
           </div>
         </div>
