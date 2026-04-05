@@ -162,6 +162,24 @@ async function startServer() {
 
             const emailKey = email.toLowerCase();
             const now = Date.now();
+
+            // 1. Check if device is trusted FIRST (to skip token request and rate limits)
+            if (type === 'login' && uid && deviceId) {
+                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                
+                try {
+                    const trustRes = await fetchWithRetry(trustedUrl);
+                    const trustData = await trustRes.json();
+                    
+                    if (trustData && trustData.expiresAt && Date.now() < trustData.expiresAt) {
+                        return res.json({ success: true, trusted: true, message: 'Device trusted' });
+                    }
+                } catch (e) {
+                    console.error("Error checking trusted device:", e);
+                }
+            }
+
             let attemptData = tokenAttempts.get(emailKey) || { count: 0, lastAttempt: 0 };
 
             // Check if blocked
@@ -174,14 +192,14 @@ async function startServer() {
                 });
             }
 
-            // Check wait time between attempts
+            // Check wait time between attempts (Relaxed)
             let waitTime = 0;
-            if (attemptData.count === 1) waitTime = 2 * 60 * 1000;
-            else if (attemptData.count === 2) waitTime = 5 * 60 * 1000;
-            else if (attemptData.count === 3) waitTime = 10 * 60 * 1000;
+            if (attemptData.count === 1) waitTime = 30 * 1000; // 30s for first retry
+            else if (attemptData.count === 2) waitTime = 2 * 60 * 1000; // 2 min
+            else if (attemptData.count === 3) waitTime = 5 * 60 * 1000; // 5 min
             else if (attemptData.count >= 4) {
-                // Block for 2 hours
-                attemptData.blockedUntil = now + 2 * 60 * 60 * 1000;
+                // Block for 1 hour (instead of 2)
+                attemptData.blockedUntil = now + 1 * 60 * 60 * 1000;
                 tokenAttempts.set(emailKey, attemptData);
                 return res.status(429).json({ 
                     error: 'Não foi possível verificar sua identidade. Tente novamente mais tarde.',
@@ -202,23 +220,6 @@ async function startServer() {
             attemptData.count += 1;
             attemptData.lastAttempt = now;
             tokenAttempts.set(emailKey, attemptData);
-
-            // Check if device is trusted
-            if (type === 'login' && uid && deviceId) {
-                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-                
-                try {
-                    const trustRes = await fetchWithRetry(trustedUrl);
-                    const trustData = await trustRes.json();
-                    
-                    if (trustData && trustData.expiresAt && Date.now() < trustData.expiresAt) {
-                        return res.json({ success: true, trusted: true, message: 'Device trusted' });
-                    }
-                } catch (e) {
-                    console.error("Error checking trusted device:", e);
-                }
-            }
 
             const token = Math.floor(100000 + Math.random() * 900000).toString();
             const expires = Date.now() + 10 * 60 * 1000;

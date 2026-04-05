@@ -192,8 +192,8 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     return data;
                 }
                 
-                // Set initial resend timer (2 min)
-                setResendTimer(120);
+                // Set initial resend timer (30s)
+                setResendTimer(30);
                 notify('Código enviado para o seu email.', 'success');
                 return data;
             } else {

@@ -49,19 +49,19 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                     const parsed = JSON.parse(savedSession);
                     const now = Date.now();
                     
-                    // Verifica expiração absoluta (17 horas)
-                    const absoluteExpiry = parsed.loginTime + (17 * 60 * 60 * 1000);
-                    // Verifica inatividade (6 horas)
-                    const inactivityExpiry = parsed.lastActivity + (6 * 60 * 60 * 1000);
+                    // Verifica expiração absoluta (12 horas)
+                    const absoluteExpiry = parsed.loginTime + (12 * 60 * 60 * 1000);
+                    // Verifica inatividade (12 horas)
+                    const inactivityExpiry = parsed.lastActivity + (12 * 60 * 60 * 1000);
 
                     if (now < absoluteExpiry && now < inactivityExpiry) {
                         setUser(parsed.user);
                     } else {
                         localStorage.removeItem('nexflow_session');
                         if (now >= absoluteExpiry) {
-                            setLogoutReason("Login encerrado por motivos de segurança, se ainda esta usando o sistema considere logar novamente");
+                            setLogoutReason("Login encerrado por motivos de segurança (limite de 12 horas atingido). Por favor, logue novamente.");
                         } else {
-                            setLogoutReason("Pelo motivo de ficar 6 horas sem nenhuma modificação no site, seu login foi encerrado por inatividade.");
+                            setLogoutReason("Pelo motivo de ficar 12 horas sem nenhuma modificação no site, seu login foi encerrado por inatividade.");
                         }
                     }
                 }
@@ -125,15 +125,15 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                 const parsed = JSON.parse(savedSession);
                 const now = Date.now();
                 
-                const absoluteExpiry = parsed.loginTime + (17 * 60 * 60 * 1000);
-                const inactivityExpiry = parsed.lastActivity + (6 * 60 * 60 * 1000);
+                const absoluteExpiry = parsed.loginTime + (12 * 60 * 60 * 1000);
+                const inactivityExpiry = parsed.lastActivity + (12 * 60 * 60 * 1000);
 
                 if (now >= absoluteExpiry) {
                     clearInterval(checkInterval);
-                    logout("Login encerrado por motivos de segurança, se ainda esta usando o sistema considere logar novamente");
+                    logout("Login encerrado por motivos de segurança (limite de 12 horas atingido). Por favor, logue novamente.");
                 } else if (now >= inactivityExpiry) {
                     clearInterval(checkInterval);
-                    logout("Pelo motivo de ficar 6 horas sem nenhuma modificação no site, seu login foi encerrado por inatividade.");
+                    logout("Pelo motivo de ficar 12 horas sem nenhuma modificação no site, seu login foi encerrado por inatividade.");
                 }
             }
         }, 30000); // Checa a cada 30 segundos
