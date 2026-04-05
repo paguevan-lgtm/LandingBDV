@@ -88,7 +88,10 @@ export const Sidebar = ({
     daysRemaining,
     renewalDate,
     setRunTour,
-    systemContext
+    systemContext,
+    isOnline,
+    isDbConnected,
+    pendingOpsCount
 }: any) => {
 
     const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -189,6 +192,30 @@ export const Sidebar = ({
             </div>
 
             <div className="p-4 border-t border-white/5 mt-auto">
+                {/* Offline Status Indicator */}
+                <div className="px-4 py-2 mb-2 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">Status</span>
+                        <div className={`w-2 h-2 rounded-full ${isOnline && isDbConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-[11px]">
+                            {isOnline ? <Icons.Wifi size={12} className="text-green-400" /> : <Icons.WifiOff size={12} className="text-red-400" />}
+                            <span className={isOnline ? 'text-green-400/80' : 'text-red-400/80'}>{isOnline ? 'Internet OK' : 'Sem Internet'}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px]">
+                            {isDbConnected ? <Icons.Database size={12} className="text-green-400" /> : <Icons.CloudOff size={12} className="text-red-400" />}
+                            <span className={isDbConnected ? 'text-green-400/80' : 'text-red-400/80'}>{isDbConnected ? 'Banco Conectado' : 'Banco Offline'}</span>
+                        </div>
+                        {pendingOpsCount > 0 && (
+                            <div className="flex items-center gap-2 text-[11px] mt-1 text-amber-400 animate-pulse">
+                                <Icons.RefreshCw size={12} />
+                                <span>{pendingOpsCount} pendentes</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <button onClick={() => { setView('dashboard'); setRunTour(true); if(isMobile) setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left transition-colors rounded-xl mb-2">
                     <Icons.HelpCircle size={20}/>
                     <span className="text-sm font-bold">Como usar (Tour)</span>

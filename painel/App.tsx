@@ -57,10 +57,19 @@ const AppContent = () => {
     }, [user, updateActivity]);
     
     // Estados Globais
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isDbConnected, setIsDbConnected] = useState(false);
+    const [pendingOps, setPendingOps] = useState<any[]>(() => {
+        const saved = localStorage.getItem('nexflow_pending_ops');
+        return saved ? JSON.parse(saved) : [];
+    });
     const [isFireConnected, setIsFireConnected] = useState(false);
     const [view, setView] = useState('dashboard');
     const [menuOpen, setMenuOpen] = useState(false);
-    const [data, setData] = useState<any>({ passengers: [], drivers: [], trips: [], notes: [], lostFound: [], blocked_ips: [], newsletter: [], users: [], prancheta: [] });
+    const [data, setData] = useState<any>(() => {
+        const saved = localStorage.getItem('nexflow_cached_data');
+        return saved ? JSON.parse(saved) : { passengers: [], drivers: [], trips: [], notes: [], lostFound: [], blocked_ips: [], newsletter: [], users: [], prancheta: [] };
+    });
     
     // Estados Específicos
     const [spList, setSpList] = useState<any[]>([]);
@@ -144,6 +153,69 @@ const AppContent = () => {
         setDeletedItemsBuffer([]);
         setIsAdminAuthorized(false);
     }, [user?.username]);
+
+    // Cache data to localStorage
+    useEffect(() => {
+        if (data) {
+            localStorage.setItem('nexflow_cached_data', JSON.stringify(data));
+        }
+    }, [data]);
+
+    // Cache pendingOps to localStorage
+    useEffect(() => {
+        localStorage.setItem('nexflow_pending_ops', JSON.stringify(pendingOps));
+    }, [pendingOps]);
+
+    // Monitor Online/Offline status
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        if (db) {
+            const connectedRef = db.ref('.info/connected');
+            const callback = connectedRef.on('value', (snap: any) => {
+                setIsDbConnected(!!snap.val());
+            });
+            return () => {
+                connectedRef.off('value', callback);
+                window.removeEventListener('online', handleOnline);
+                window.removeEventListener('offline', handleOffline);
+            };
+        }
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // Sync Pending Operations when coming back online
+    useEffect(() => {
+        if (isOnline && isDbConnected && pendingOps.length > 0) {
+            const syncOps = async () => {
+                const opsToProcess = [...pendingOps];
+                // Clear pending ops immediately to prevent double processing if sync is slow
+                setPendingOps([]);
+                
+                notify(`Sincronizando ${opsToProcess.length} alterações pendentes...`, "info");
+                
+                for (const op of opsToProcess) {
+                    try {
+                        await dbOp(op.type, op.node, op.payload, true); // true means it's a sync operation
+                    } catch (e) {
+                        console.error("Error syncing operation:", e, op);
+                        // If it fails, we might want to put it back or log it
+                        setPendingOps(prev => [...prev, op]);
+                    }
+                }
+                notify("Sincronização concluída!", "success");
+            };
+            syncOps();
+        }
+    }, [isOnline, isDbConnected]);
 
     const theme = useMemo(() => THEMES[themeKey] || THEMES.default, [themeKey]);
 
@@ -704,9 +776,44 @@ const AppContent = () => {
         }
     }, [user]);
 
-    const dbOp = async (type: string, node: string, payload: any) => {
+    const dbOp = async (type: string, node: string, payload: any, isSync: boolean = false) => {
         // Atualiza atividade ao realizar qualquer operação no banco
         updateActivity();
+
+        // Se estiver offline e não for uma sincronização, enfileira a operação
+        if (!isSync && (!isOnline || !isDbConnected)) {
+            const opId = generateUniqueId();
+            const op = { id: opId, type, node, payload, timestamp: Date.now() };
+            setPendingOps(prev => [...prev, op]);
+            
+            // Atualização Otimista do Estado Local
+            if (type === 'create' || type === 'update') {
+                const targetId = payload.id || (type === 'create' ? opId : null);
+                if (targetId) {
+                    setData((prev: any) => {
+                        const list = prev[node] || [];
+                        const existingIdx = list.findIndex((item: any) => item.id === targetId);
+                        const newList = [...list];
+                        const finalPayload = { ...payload, id: targetId };
+                        
+                        if (existingIdx !== -1) {
+                            newList[existingIdx] = { ...newList[existingIdx], ...finalPayload };
+                        } else {
+                            newList.unshift(finalPayload);
+                        }
+                        return { ...prev, [node]: newList };
+                    });
+                }
+            } else if (type === 'delete') {
+                setData((prev: any) => ({
+                    ...prev,
+                    [node]: (prev[node] || []).filter((item: any) => item.id !== payload)
+                }));
+            }
+
+            notify("Modo Offline: Alteração salva em cache e será sincronizada ao voltar a conexão.", "warning");
+            return;
+        }
 
         if(!db) return notify("Sem conexão DB.", "error");
 
@@ -3592,6 +3699,9 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
                     renewalDate={renewalDate}
                     setRunTour={setRunTour}
                     systemContext={systemContext}
+                    isOnline={isOnline}
+                    isDbConnected={isDbConnected}
+                    pendingOpsCount={pendingOps.length}
                  />
     
                  <div className={`flex-1 flex flex-col h-full min-w-0 ${theme.contentBg || 'bg-black/20'}`}>
