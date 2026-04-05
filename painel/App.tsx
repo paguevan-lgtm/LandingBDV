@@ -983,10 +983,12 @@ const AppContent = () => {
 
     // Reminder Logic
     const [activeReminder, setActiveReminder] = useState<any>(null);
+    const [activeSiteNotification, setActiveSiteNotification] = useState<any>(null);
     const [showSnoozeModal, setShowSnoozeModal] = useState(false);
     const [snoozeDate, setSnoozeDate] = useState(getTodayDate());
     const [snoozeTime, setSnoozeTime] = useState('');
     const reminderAudioRef = useRef<HTMLAudioElement | null>(null);
+    const siteNotificationAudioRef = useRef<HTMLAudioElement | null>(null);
     const successAudioRef = useRef<HTMLAudioElement | null>(null);
     const updateAudioRef = useRef<HTMLAudioElement | null>(null);
     const deleteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -1068,6 +1070,55 @@ const AppContent = () => {
         
         return () => clearInterval(interval);
     }, [activeReminder]);
+
+    // Real-time Site Booking Notifications Listener
+    useEffect(() => {
+        if (!db || !user) return;
+
+        const notifRef = db.ref('site_notifications');
+        const startTime = Date.now();
+
+        const handleNewNotif = (snap: any) => {
+            const notif = snap.val();
+            if (!notif) return;
+
+            // Only process notifications created after the app started
+            if (notif.timestamp < startTime) return;
+
+            // Filter by system
+            const shouldShow = systemContext === 'Mistura' || notif.system === systemContext;
+            if (!shouldShow) return;
+
+            setActiveSiteNotification(notif);
+            
+            // Initial sound
+            if (siteNotificationAudioRef.current) {
+                siteNotificationAudioRef.current.currentTime = 0;
+                siteNotificationAudioRef.current.play().catch(e => console.warn("Sound blocked:", e));
+            }
+        };
+
+        const query = notifRef.limitToLast(1);
+        query.on('child_added', handleNewNotif);
+
+        return () => {
+            query.off('child_added', handleNewNotif);
+        };
+    }, [db, user, systemContext]);
+
+    // Repetitive sound for site notifications (every 3 seconds)
+    useEffect(() => {
+        if (!activeSiteNotification) return;
+
+        const interval = setInterval(() => {
+            if (siteNotificationAudioRef.current) {
+                siteNotificationAudioRef.current.currentTime = 0;
+                siteNotificationAudioRef.current.play().catch(e => console.warn("Repetitive sound blocked:", e));
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [activeSiteNotification]);
 
     const handleSnooze = () => {
         if (!activeReminder || !snoozeDate || !snoozeTime) return;
@@ -3683,6 +3734,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
             <PersistentNotifications notifications={persistentNotifications} onClose={removePersistentNotification} />
             
             <audio ref={reminderAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
+            <audio ref={siteNotificationAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
             <audio ref={successAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
             <audio ref={updateAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto" />
             <audio ref={deleteAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto" />
@@ -3730,6 +3782,48 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
                                 className="bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl text-sm font-black transition-all shadow-xl shadow-amber-500/30 active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <Icons.Clock size={18}/> Adiar...
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* NEW BOOKING NOTIFICATION POPUP */}
+            {activeSiteNotification && (
+                <div className="fixed bottom-6 right-6 z-[9999] w-full max-w-sm px-4 animate-bounce-in">
+                    <div className={`${theme.card} border-2 border-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.5)] p-6 rounded-[2.5rem] flex flex-col gap-5 relative overflow-hidden backdrop-blur-2xl animate-pulse-gentle`}>
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent animate-pulse"></div>
+                        <div className="flex items-start gap-5 relative z-10">
+                            <div className="bg-emerald-500 p-4 rounded-3xl text-white shadow-2xl shadow-emerald-500/40 animate-bounce">
+                                <Icons.Calendar size={28}/>
+                            </div>
+                            <div className="flex-1 min-w-0 pt-1">
+                                <h4 className="font-black text-emerald-500 text-[10px] uppercase tracking-[0.3em] mb-2">Novo Agendamento Site</h4>
+                                <p className="text-lg font-black leading-tight text-white drop-shadow-md">
+                                    {activeSiteNotification.passengerName} acabou de agendar!
+                                </p>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-500 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                        Sistema {activeSiteNotification.system}
+                                    </span>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setActiveSiteNotification(null)}
+                                className="p-2.5 hover:bg-white/10 rounded-2xl opacity-40 hover:opacity-100 transition-all active:scale-90"
+                            >
+                                <Icons.X size={22}/>
+                            </button>
+                        </div>
+                        <div className="relative z-10">
+                            <button 
+                                onClick={() => {
+                                    setView('appointments');
+                                    setActiveSiteNotification(null);
+                                }}
+                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black transition-all shadow-xl shadow-emerald-500/30 active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <Icons.Eye size={18}/> Ver Agendamentos
                             </button>
                         </div>
                     </div>

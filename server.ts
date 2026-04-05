@@ -368,6 +368,28 @@ async function startServer() {
                 return res.status(500).json({ error: 'Failed to create booking' });
             }
 
+            // 5. Push notification for real-time alerts in the panel
+            try {
+                const notificationUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/site_notifications.json${authParam}`;
+                const notificationData = {
+                    id: Date.now().toString(),
+                    type: 'new_booking',
+                    system: systemToSave,
+                    passengerName: passengerData.name,
+                    timestamp: Date.now(),
+                    read: false
+                };
+
+                await fetchWithRetry(notificationUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(notificationData)
+                });
+            } catch (notifError) {
+                console.error('Failed to push notification:', notifError);
+                // Don't fail the request if notification fails
+            }
+
             res.json({ success: true, id: displayId, system: systemToSave });
         } catch (error: any) {
             console.error('Error creating booking:', error);

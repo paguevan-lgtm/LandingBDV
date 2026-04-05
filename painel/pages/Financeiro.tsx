@@ -249,7 +249,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                     className="px-3 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-500 transition-colors shadow-lg active:scale-95 flex-shrink-0"
                                                     title="Cobrar no WhatsApp"
                                                 >
-                                                    <Icons.Phone size={16}/>
+                                                    <Icons.Message size={16}/>
                                                 </button>
                                                 
                                                 <button 
@@ -342,7 +342,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                 className="p-2 rounded-lg bg-green-600/20 text-green-500 hover:bg-green-600/30 transition-colors"
                                                 title="WhatsApp"
                                             >
-                                                <Icons.Phone size={14}/>
+                                                <Icons.Message size={14}/>
                                             </button>
                                         )}
                                         <button 

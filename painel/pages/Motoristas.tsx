@@ -55,7 +55,7 @@ export default function Motoristas({ data, theme, searchTerm, setFormData, setMo
                                 onClick={() => { const msg = encodeURIComponent(`Olá ${item.name}, tudo bem?`); window.open(`https://wa.me/55${(item.phone||'').replace(/\D/g,'')}?text=${msg}`, '_blank'); }} 
                                 className="flex-1 text-green-400 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-colors"
                             >
-                                <Icons.Phone size={14}/> WhatsApp
+                                <Icons.Message size={14}/> WhatsApp
                             </Button>
                             <Button theme={theme} onClick={()=>{setFormData(item); setModal('driver')}} variant="secondary" className="px-3 py-2 text-xs" icon={Icons.Edit}>Editar</Button>
                             <IconButton theme={theme} variant="danger" onClick={()=>del('drivers', item.id)} icon={Icons.Trash}/>

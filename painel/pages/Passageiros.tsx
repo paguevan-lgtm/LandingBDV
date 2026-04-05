@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
-import { formatDisplayDate, getTodayDate, formatTime } from '../utils';
+import { formatDisplayDate, getTodayDate, formatTime, sendPassWhatsapp } from '../utils';
 
 export default function Passageiros({ data, theme, searchTerm, setFormData, setModal, del, notify, systemContext, dbOp }: any) {
     const [expandedPass, setExpandedPass] = useState<string|null>(null);
@@ -22,11 +22,6 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
         navigator.clipboard.writeText(txt);
         notify('Dados copiados para a área de transferência!', 'success');
     };
-
-    const callPhone = (ph: string) => { 
-        if(!ph) return notify("Passageiro sem telefone cadastrado.", "error"); 
-        window.location.href = `tel:${ph.replace(/\D/g,'')}`; 
-    }
 
     const handleEdit = (e: any, item: any) => {
         e.stopPropagation();
@@ -103,7 +98,7 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
                                 <Button theme={theme} onClick={(e:any)=>handleEdit(e, item)} variant="secondary" className="flex-1 min-w-[140px] py-2 text-sm" icon={Icons.Edit}>Editar/Agendar</Button>
                                 <div className="flex gap-2">
                                     <IconButton theme={theme} variant="default" onClick={(e:any)=>{e.stopPropagation(); copyPassengerData(item)}} icon={Icons.Copy}/>
-                                    {item.phone && <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); callPhone(item.phone)}} icon={Icons.Phone}/>}
+                                    {item.phone && <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); sendPassWhatsapp(item)}} icon={Icons.Message} title="Falar no WhatsApp"/>}
                                     {item.status === 'Bloqueado' ? (
                                         <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); dbOp('update', 'passengers', { id: item.id, status: 'Ativo', blockReason: null }); notify('Passageiro desbloqueado!', 'success')}} icon={Icons.Check} title="Desbloquear"/>
                                     ) : (

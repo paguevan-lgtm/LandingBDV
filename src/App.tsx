@@ -20,6 +20,21 @@ import { CustomSelect } from './components/CustomSelect';
 import { CustomDatePicker } from './components/CustomDatePicker';
 import { db } from './firebase';
 
+const BAIRROS = [ "Forte / Canto do Forte", "Tude Bastos / Chico de Paula", "Boqueirao", "Guilhermina", "Aviação", "Tupi", "Tupiry", "Ocian", "Gloria", "Vila Antartica", "Vila Sonia", "Quietude", "Mirim", "Anhanguera", "Maracana", "Ribeiropolis", "Esmeralda", "Samambaia", "Melvi", "Caiçara", "Imperador", "Real", "Princesa", "Florida", "Cidade das Crianças", "Solemar" ];
+
+const BAIRROS_MIP = [
+    "Agenor de Campos", "Balneário Agenor de Campos", "Regina Maria", "Balneário Regina Maria", "Jardim Primavera", "Parque Verde Mar",
+    "Balneário Umuarama", "Umuarama", "Balneário Triesse", "Balneário Samas", "Balneário Marinho", "Jardim Santana", "Jardim Leonor",
+    "Santa Eugênia", "Balneário Santa Eugênia", "Jussara", "Balneário Jussara", "Flórida Mirim", "Balneário Flórida Mirim", "Parque Marinho",
+    "Jardim Marina", "Jardim Samoa", "Jardim Caiahu", "Jardim Guanabara", "Jardim Aguapeú", "Aguapeú", "Itaguaí", "Balneário Itaguaí",
+    "Jardim Itaguaí", "Jardim Marabá", "Jardim Luciana", "Jardim Maria Luiza", "Jardim Cascata", "Jardim Silveira", "Plataforma",
+    "Balneário Plataforma", "Centro", "Vila Atlântica", "Vila São Paulo", "Vila Seabra", "Vila Arens", "Vila Anhanguera", "Vila Nova",
+    "Vila São José", "Vera Cruz", "Vila Vera Cruz", "Balneário Vera Cruz", "Oceanópolis", "Vila Oceanópolis", "Jardim Oceanópolis",
+    "Pedreira", "Jardim Santana II", "Chácara São João", "Chácara São José", "Conjunto Mazzeo", "CDHU Vila Atlântica", "Jardim Praia Grande",
+    "Jardim Itapoan", "Copacabana Paulista", "Balneário Verde Mar", "Balneário Barigui", "Estância Balneária Barigui", "Balneário Mar e Sol",
+    "Balneário Europa", "Balneário Palmeiras", "Itaóca", "Balneário Itaóca", "Balneário Anchieta", "Balneário América", "Balneário Cascais"
+];
+
 const destinationOptions = [
   { value: 'jabaquara', label: 'Jabaquara' },
   { value: 'praia_grande', label: 'Praia Grande' },
@@ -48,12 +63,12 @@ const tripTypeOptions = [
 ];
 
 const allDestinationsList = [
-  { value: 'praia_grande', name: "Praia Grande", price: "R$ 40", img: "https://images.unsplash.com/photo-1596423735880-5c6fa7f0170a?auto=format&fit=crop&w=800&q=80" },
-  { value: 'mongagua', name: "Mongaguá", price: "R$ 45", img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80" },
-  { value: 'itanhaem', name: "Itanhaém", price: "R$ 50", img: "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80" },
-  { value: 'cubatao', name: "Cubatão", price: "R$ 35", img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80" },
-  { value: 'sao_vicente', name: "São Vicente", price: "R$ 40", img: "https://images.unsplash.com/photo-1506477331477-33d5d8b3dc85?auto=format&fit=crop&w=800&q=80" },
-  { value: 'santos', name: "Santos", price: "R$ 45", img: "https://images.unsplash.com/photo-1543059080-f9b1272213d5?auto=format&fit=crop&w=800&q=80" },
+  { value: 'praia_grande', name: "Praia Grande", price: "R$ 45", img: "https://images.unsplash.com/photo-1596423735880-5c6fa7f0170a?auto=format&fit=crop&w=800&q=80" },
+  { value: 'mongagua', name: "Mongaguá", price: "R$ 50", img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80" },
+  { value: 'itanhaem', name: "Itanhaém", price: "R$ 55", img: "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80" },
+  { value: 'cubatao', name: "Cubatão", price: "R$ 50", img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80" },
+  { value: 'sao_vicente', name: "São Vicente", price: "R$ 50", img: "https://images.unsplash.com/photo-1506477331477-33d5d8b3dc85?auto=format&fit=crop&w=800&q=80" },
+  { value: 'santos', name: "Santos", price: "R$ 50", img: "https://images.unsplash.com/photo-1543059080-f9b1272213d5?auto=format&fit=crop&w=800&q=80" },
   { value: 'guaruja', name: "Guarujá", price: "R$ 50", img: "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?auto=format&fit=crop&w=800&q=80" },
 ];
 
@@ -402,7 +417,10 @@ export default function App() {
               <CustomSelect 
                 options={originOptions}
                 value={origin}
-                onChange={setOrigin}
+                onChange={(val) => {
+                  setOrigin(val);
+                  setFormData(prev => ({ ...prev, neighborhood: '' }));
+                }}
                 placeholder="De onde saímos?"
               />
             </div>
@@ -517,8 +535,8 @@ export default function App() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { value: 'santos', name: "Santos", price: "R$ 45", img: "https://images.unsplash.com/photo-1543059080-f9b1272213d5?auto=format&fit=crop&w=800&q=80" },
-              { value: 'praia_grande', name: "Praia Grande", price: "R$ 40", img: "https://images.unsplash.com/photo-1596423735880-5c6fa7f0170a?auto=format&fit=crop&w=800&q=80" },
+              { value: 'santos', name: "Santos", price: "R$ 50", img: "https://images.unsplash.com/photo-1543059080-f9b1272213d5?auto=format&fit=crop&w=800&q=80" },
+              { value: 'praia_grande', name: "Praia Grande", price: "R$ 45", img: "https://images.unsplash.com/photo-1596423735880-5c6fa7f0170a?auto=format&fit=crop&w=800&q=80" },
               { value: 'guaruja', name: "Guarujá", price: "R$ 50", img: "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?auto=format&fit=crop&w=800&q=80" },
             ].map((dest, idx) => (
               <motion.div 
@@ -757,12 +775,11 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-400 mb-2">Bairro</label>
-                    <input 
-                      type="text" 
+                    <CustomSelect 
+                      options={(['mongagua', 'itanhaem'].includes(origin) ? BAIRROS_MIP : BAIRROS).map(b => ({ value: b, label: b }))}
                       value={formData.neighborhood}
-                      onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
-                      placeholder="Nome do Bairro"
+                      onChange={(val) => setFormData({...formData, neighborhood: val})}
+                      placeholder="Selecione o Bairro"
                     />
                   </div>
                   <div>
@@ -953,6 +970,7 @@ export default function App() {
                     setBeachInfoModal({ isOpen: false, destValue: '' });
                     setIsAllDestinationsModalOpen(false);
                     setOrigin(beachInfoModal.destValue);
+                    setFormData(prev => ({ ...prev, neighborhood: '' }));
                     scrollToSection('reserva');
                   }} 
                   className="w-full bg-gradient-brand text-white py-4 rounded-xl font-bold hover:shadow-lg hover:shadow-brand-purple/25 transition-all"

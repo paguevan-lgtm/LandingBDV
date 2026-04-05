@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
-import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime } from '../utils';
+import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime, sendPassWhatsapp } from '../utils';
 
 export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext }: any) {
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
@@ -63,12 +63,6 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
         setEditingTripId(t.id);
         setSuggestedTrip({ driver: dr || {name: 'Desconhecido', capacity: 0}, time: t.time, passengers: pax, occupancy: occ, date: t.date, vaga: t.vaga });
         setModal('trip');
-    };
-
-    const sendPassWhatsapp = (p: any) => {
-        if(!p.phone) return notify('Passageiro sem telefone.', 'error');
-        const msg = encodeURIComponent(`Olá ${p.name}, sobre seu agendamento para ${formatDisplayDate(p.date)} às ${p.time}...`);
-        window.open(`https://wa.me/55${p.phone.replace(/\D/g,'')}?text=${msg}`, '_blank');
     };
 
     const clearPassSchedule = (pid: string) => {
@@ -211,7 +205,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                 </div>
                                             </div>
                                             <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
-                                                <button onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Phone size={16}/> WhatsApp</button>
+                                                <button onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Message size={16}/> WhatsApp</button>
                                                 <button onClick={() => handleCreateTripFromPass(p)} className="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Plus size={16}/> Criar Viagem</button>
                                             </div>
                                         </div>
