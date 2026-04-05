@@ -325,7 +325,7 @@ export default function App() {
             <div className="flex-1 relative w-full max-w-2xl">
               {/* Animated Van Illustration Area */}
               <motion.div 
-                initial={{ x: 100, opacity: 0 }}
+                initial={{ x: -100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
                 className="relative z-10"
@@ -340,25 +340,25 @@ export default function App() {
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   >
                     <svg viewBox="0 0 500 300" className="w-full h-auto drop-shadow-2xl">
-                      {/* Simplified Cartoon Van Body */}
-                      <path d="M50,220 L450,220 L450,150 Q450,100 400,80 L150,80 Q100,80 80,120 L50,150 Z" fill="url(#vanGradient)" />
+                      {/* Simplified Cartoon Van Body - Flipped to face right */}
+                      <path d="M450,220 L50,220 L50,150 Q50,100 100,80 L350,80 Q400,80 420,120 L450,150 Z" fill="url(#vanGradient)" />
                       <defs>
                         <linearGradient id="vanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                           <stop offset="0%" stopColor="#7c3aed" />
                           <stop offset="100%" stopColor="#db2777" />
                         </linearGradient>
                       </defs>
-                      {/* Windows */}
-                      <path d="M100,100 L250,100 L250,150 L85,150 Q90,120 100,100 Z" fill="white" fillOpacity="0.3" />
-                      <path d="M270,100 L420,100 L420,150 L270,150 Z" fill="white" fillOpacity="0.3" />
-                      {/* Wheels */}
-                      <circle cx="130" cy="220" r="35" fill="#0f172a" />
-                      <circle cx="130" cy="220" r="15" fill="#334155" />
+                      {/* Windows - Flipped */}
+                      <path d="M400,100 L250,100 L250,150 L415,150 Q410,120 400,100 Z" fill="white" fillOpacity="0.3" />
+                      <path d="M230,100 L80,100 L80,150 L230,150 Z" fill="white" fillOpacity="0.3" />
+                      {/* Wheels - Swapped positions */}
                       <circle cx="370" cy="220" r="35" fill="#0f172a" />
                       <circle cx="370" cy="220" r="15" fill="#334155" />
-                      {/* Speed Lines */}
+                      <circle cx="130" cy="220" r="35" fill="#0f172a" />
+                      <circle cx="130" cy="220" r="15" fill="#334155" />
+                      {/* Speed Lines - Kept on left, animation reversed to move away from van */}
                       <motion.g
-                        animate={{ x: [-20, 20], opacity: [0, 1, 0] }}
+                        animate={{ x: [20, -20], opacity: [0, 1, 0] }}
                         transition={{ duration: 0.5, repeat: Infinity }}
                       >
                         <line x1="20" y1="140" x2="60" y2="140" stroke="#db2777" strokeWidth="4" strokeLinecap="round" />
@@ -1110,7 +1110,7 @@ export default function App() {
                 </p>
 
                 <div className="space-y-4">
-                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Caso queira adiantar o processo chame nosso time no whatsapp</p>
+                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Caso queira adiantar o processo chame nossa equipe no whatsapp</p>
                   
                   <a 
                     href={`https://wa.me/551334711830?text=${encodeURIComponent(`Olá me chamo ${lastBookingInfo.name}, acabei de me auto agendar para fazer uma viagem no dia ${lastBookingInfo.date} as ${lastBookingInfo.time} e gostaria de confirmar a disponibilidade.`)}`}

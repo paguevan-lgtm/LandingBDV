@@ -210,31 +210,44 @@ async function startServer() {
             const emailHtml = `
 <!DOCTYPE html>
 <html>
-<body style="margin: 0; padding: 0; background-color: #020617; font-family: sans-serif; color: #f8fafc;">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #020617; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #f8fafc;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #020617; padding: 40px 20px;">
     <tr>
       <td align="center">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0f172a; border-radius: 16px; border: 1px solid #1e293b; max-width: 600px;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0f172a; border-radius: 24px; border: 1px solid #1e293b; max-width: 500px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);">
+          <!-- Header -->
           <tr>
-            <td style="padding: 40px 30px; text-align: center; border-bottom: 1px solid #1e293b;">
-              <h1 style="margin: 0; color: #f59e0b; font-size: 28px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">Bora de Van</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 40px 30px; text-align: center;">
-              <h2 style="margin: 0 0 20px 0; color: #ffffff; font-size: 20px;">Olá, ${userName}!</h2>
-              <p style="margin: 0 0 30px 0; color: #94a3b8; font-size: 16px; line-height: 1.5;">${message}</p>
-              <div style="margin: 0 auto 30px auto; max-width: 300px;">
-                <div style="background-color: #f59e0b; border-radius: 12px; padding: 20px; text-align: center;">
-                  <span style="margin: 0; color: #0f172a; font-size: 36px; font-weight: 900; letter-spacing: 8px; font-family: monospace;">${token}</span>
-                </div>
+            <td style="padding: 40px 30px 30px 30px; text-align: center;">
+              <div style="display: inline-block; padding: 12px; background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); border-radius: 12px; margin-bottom: 20px;">
+                <span style="color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -1px;">Bora de Van</span>
               </div>
-              <p style="margin: 0; color: #ef4444; font-size: 14px;">Este código expira em 10 minutos.</p>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">${title}</h1>
             </td>
           </tr>
+          <!-- Body -->
           <tr>
-            <td style="padding: 30px; text-align: center; background-color: #020617; border-top: 1px solid #1e293b;">
-              <p style="margin: 0; color: #64748b; font-size: 12px;">${footerMessage}</p>
+            <td style="padding: 0 40px 40px 40px; text-align: center;">
+              <p style="margin: 0 0 24px 0; color: #f8fafc; font-size: 18px; font-weight: 600;">Olá, ${userName}!</p>
+              <p style="margin: 0 0 32px 0; color: #94a3b8; font-size: 16px; line-height: 1.6;">${message}</p>
+              
+              <div style="background: rgba(219, 39, 119, 0.1); border: 2px dashed #db2777; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                <span style="display: block; color: #db2777; font-size: 42px; font-weight: 900; letter-spacing: 10px; font-family: 'Courier New', Courier, monospace;">${token}</span>
+              </div>
+              
+              <p style="margin: 0 0 8px 0; color: #f43f5e; font-size: 14px; font-weight: 700;">Este código expira em 10 minutos.</p>
+              <p style="margin: 0; color: #64748b; font-size: 13px;">Por segurança, não compartilhe este código com ninguém.</p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; text-align: center; background-color: #020617; border-top: 1px solid #1e293b;">
+              <p style="margin: 0 0 12px 0; color: #475569; font-size: 12px; line-height: 1.4;">${footerMessage}</p>
+              <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">&copy; ${new Date().getFullYear()} Bora de Van. Todos os direitos reservados.</p>
             </td>
           </tr>
         </table>
@@ -314,7 +327,7 @@ async function startServer() {
 
             for (const key in passengers) {
                 const p = passengers[key];
-                if (!p.name || !p.phone) continue;
+                if (!p || !p.name || !p.phone) continue;
 
                 const pName = p.name.toLowerCase().trim();
                 const pPhone = p.phone.replace(/\D/g, '');
