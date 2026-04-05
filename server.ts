@@ -295,6 +295,42 @@ async function startServer() {
         res.json({ success: true });
     });
 
+    async function findExistingPassenger(system: string, name: string, phone: string, address: string, authParam: string) {
+        let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+        if (system === 'Pg') {
+            url += `passengers.json${authParam}`;
+        } else {
+            url += `${system}/passengers.json${authParam}`;
+        }
+
+        try {
+            const res = await fetchWithRetry(url);
+            const passengers = await res.json();
+            if (!passengers) return null;
+
+            const normalizedName = name.toLowerCase().trim();
+            const normalizedPhone = phone.replace(/\D/g, '');
+            const normalizedAddress = address.toLowerCase().trim();
+
+            for (const key in passengers) {
+                const p = passengers[key];
+                if (!p.name || !p.phone) continue;
+
+                const pName = p.name.toLowerCase().trim();
+                const pPhone = p.phone.replace(/\D/g, '');
+                const pAddress = (p.address || '').toLowerCase().trim();
+
+                // Match by Name, Phone and Address
+                if (pName === normalizedName && pPhone === normalizedPhone && pAddress === normalizedAddress) {
+                    return { key, id: p.id, data: p };
+                }
+            }
+        } catch (e) {
+            console.error("Error searching for existing passenger:", e);
+        }
+        return null;
+    }
+
     app.post('/api/create-booking', async (req, res) => {
         try {
             const passengerData = req.body;
@@ -317,38 +353,58 @@ async function startServer() {
             }
             passengerData.system = systemToSave;
 
-            // 2. Get and increment the site booking counter
-            const counterUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/site_booking_counter.json${authParam}`;
-            let currentCounter = 1;
+            // 2. Check for existing passenger (Name, Phone, Address match)
+            const existing = await findExistingPassenger(systemToSave, passengerData.name, passengerData.phone, passengerData.address || '', authParam);
             
-            try {
-                const counterRes = await fetchWithRetry(counterUrl);
-                const counterData = await counterRes.json();
-                if (typeof counterData === 'number') {
-                    currentCounter = counterData + 1;
+            let displayId, firebaseKey;
+
+            if (existing) {
+                // Check if blocked
+                if (existing.data.status === 'Bloqueado') {
+                    return res.status(403).json({ 
+                        error: 'Este cadastro está bloqueado para novos agendamentos. Por favor, entre em contato com o suporte.',
+                        isBlocked: true 
+                    });
                 }
-            } catch (e) {
-                console.warn("Could not fetch counter, starting at 1");
+
+                displayId = existing.id;
+                firebaseKey = existing.key;
+                
+                // Preserve some existing metadata
+                if (existing.data.tags) passengerData.tags = existing.data.tags;
+                if (existing.data.notes) passengerData.notes = existing.data.notes;
+                
+                console.log(`Reusing existing passenger: ${displayId} (key: ${firebaseKey})`);
+            } else {
+                // 3. Get and increment the site booking counter
+                const counterUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/site_booking_counter.json${authParam}`;
+                let currentCounter = 1;
+                
+                try {
+                    const counterRes = await fetchWithRetry(counterUrl);
+                    const counterData = await counterRes.json();
+                    if (typeof counterData === 'number') {
+                        currentCounter = counterData + 1;
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch counter, starting at 1");
+                }
+
+                // Save the new counter
+                await fetchWithRetry(counterUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentCounter)
+                });
+
+                // 4. Generate new ID
+                displayId = `SITE #${currentCounter}`;
+                firebaseKey = `SITE_${currentCounter}`;
             }
 
-            // Save the new counter
-            await fetchWithRetry(counterUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(currentCounter)
-            });
-
-            // 3. Generate ID
-            const displayId = `SITE #${currentCounter}`;
-            const firebaseKey = `SITE_${currentCounter}`;
             passengerData.id = displayId;
 
-            // 4. Save to Firebase
-            // If the system is Mistura, it saves to the root passengers node, but wait, 
-            // the app uses separate nodes for each system if they are not Mistura?
-            // Let's check how the app saves passengers.
-            // In painel/App.tsx: db.ref(pSystem === 'Pg' ? `passengers/${pid}` : `${pSystem}/passengers/${pid}`)
-            // So if system is Pg, it goes to /passengers. If Mip, it goes to /Mip/passengers.
+            // 5. Save to Firebase
             let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
             if (systemToSave === 'Pg') {
                 url += `passengers/${firebaseKey}.json${authParam}`;

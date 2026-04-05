@@ -1052,7 +1052,8 @@ export default function App() {
                         });
 
                         if (!response.ok) {
-                          throw new Error('Failed to create booking');
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || 'Failed to create booking');
                         }
 
                         setIsPhoneConfirmationModalOpen(false);
@@ -1067,9 +1068,9 @@ export default function App() {
                         setDate(null);
                         setPassengers('1');
                         setPendingBookingData(null);
-                      } catch (err) {
+                      } catch (err: any) {
                         console.error("Error creating booking:", err);
-                        handleAction('Erro ao finalizar reserva. Tente novamente.', 'error');
+                        handleAction(err.message || 'Erro ao finalizar reserva. Tente novamente.', 'error');
                       }
                     }}
                     className="w-full bg-gradient-brand text-white py-4 rounded-2xl font-extrabold text-lg shadow-xl shadow-brand-purple/20 hover:scale-[1.02] active:scale-95 transition-all"
