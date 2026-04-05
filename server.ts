@@ -397,6 +397,43 @@ async function startServer() {
         }
     });
 
+    app.post('/api/update-booking-phone', async (req, res) => {
+        try {
+            const { id, system, phone } = req.body;
+            if (!id || !system || !phone) {
+                return res.status(400).json({ error: 'ID, system and phone are required' });
+            }
+
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+            const firebaseKey = id.replace(' #', '_');
+            
+            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            if (system === 'Pg') {
+                url += `passengers/${firebaseKey}.json${authParam}`;
+            } else {
+                url += `${system}/passengers/${firebaseKey}.json${authParam}`;
+            }
+
+            const response = await fetchWithRetry(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Failed to update phone in Firebase. Status:', response.status, errorText);
+                return res.status(500).json({ error: 'Failed to update phone' });
+            }
+
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error('Error updating phone:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     app.post('/api/verify_session', async (req, res) => {
         try {
             const { session_id } = req.body;

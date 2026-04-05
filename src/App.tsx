@@ -143,7 +143,7 @@ const isSlotPast = (selectedDate: Date, slotHour: number, slotMinute: number) =>
 export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isAllDestinationsModalOpen, setIsAllDestinationsModalOpen] = useState(false);
   const [beachInfoModal, setBeachInfoModal] = useState<{isOpen: boolean, destValue: string}>({isOpen: false, destValue: ''});
 
@@ -153,10 +153,15 @@ export default function App() {
   const [destination, setDestination] = useState('jabaquara');
   const [date, setDate] = useState<Date | null>(null);
   const [passengers, setPassengers] = useState('1');
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [widgetErrors, setWidgetErrors] = useState<string[]>([]);
 
   // Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isPhoneConfirmationModalOpen, setIsPhoneConfirmationModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [confirmedPhone, setConfirmedPhone] = useState('');
+  const [pendingBookingData, setPendingBookingData] = useState<any>(null);
   const [lastBookingInfo, setLastBookingInfo] = useState<{name: string, date: string, time: string} | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -178,8 +183,8 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleAction = (action: string) => {
-    setToast(action);
+  const handleAction = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
@@ -206,13 +211,21 @@ export default function App() {
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] bg-slate-800 border border-slate-700 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3"
+            initial={{ opacity: 0, y: -50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -50, x: '-50%' }}
+            className={`fixed top-24 left-1/2 z-[100] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border min-w-[300px] ${
+              toast.type === 'error' 
+                ? 'bg-red-950/90 border-red-500/50 text-red-200 backdrop-blur-md' 
+                : 'bg-slate-900/90 border-brand-purple/50 text-white backdrop-blur-md'
+            }`}
           >
-            <CheckCircle2 className="text-brand-pink w-5 h-5" />
-            <span className="font-medium">{toast}</span>
+            {toast.type === 'error' ? (
+              <X className="text-red-500 w-6 h-6 shrink-0" />
+            ) : (
+              <CheckCircle2 className="text-brand-pink w-6 h-6 shrink-0" />
+            )}
+            <span className="font-bold text-sm md:text-base">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -422,8 +435,10 @@ export default function App() {
                 onChange={(val) => {
                   setOrigin(val);
                   setFormData(prev => ({ ...prev, neighborhood: '' }));
+                  setWidgetErrors(prev => prev.filter(e => e !== 'origin'));
                 }}
                 placeholder="De onde saímos?"
+                error={widgetErrors.includes('origin')}
               />
             </div>
 
@@ -434,9 +449,13 @@ export default function App() {
               <CustomSelect 
                 options={destinationOptions}
                 value={destination}
-                onChange={setDestination}
+                onChange={(val) => {
+                  setDestination(val);
+                  setWidgetErrors(prev => prev.filter(e => e !== 'destination'));
+                }}
                 placeholder="Para onde vamos?"
                 disabled={true}
+                error={widgetErrors.includes('destination')}
               />
             </div>
 
@@ -446,8 +465,12 @@ export default function App() {
               </label>
               <CustomDatePicker 
                 value={date}
-                onChange={setDate}
+                onChange={(val) => {
+                  setDate(val);
+                  setWidgetErrors(prev => prev.filter(e => e !== 'date'));
+                }}
                 placeholder="Escolha a data"
+                error={widgetErrors.includes('date')}
               />
             </div>
 
@@ -459,19 +482,30 @@ export default function App() {
                 type="number" 
                 min="1"
                 value={passengers}
-                onChange={(e) => setPassengers(e.target.value)}
+                onChange={(e) => {
+                  setPassengers(e.target.value);
+                  setWidgetErrors(prev => prev.filter(e => e !== 'passengers'));
+                }}
                 placeholder="Ex: 2"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 font-bold text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all placeholder:text-slate-500"
+                className={`w-full bg-slate-950 border rounded-2xl px-5 py-4 font-bold text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all placeholder:text-slate-500 ${widgetErrors.includes('passengers') ? 'border-red-500/50' : 'border-slate-800'}`}
               />
             </div>
 
             <div className="flex items-end">
               <button 
                 onClick={() => {
-                  if (!origin || !destination || !date || !passengers) {
-                    handleAction('Por favor, preencha todos os campos!');
+                  const errors: string[] = [];
+                  if (!origin) errors.push('origin');
+                  if (!destination) errors.push('destination');
+                  if (!date) errors.push('date');
+                  if (!passengers) errors.push('passengers');
+
+                  if (errors.length > 0) {
+                    setWidgetErrors(errors);
+                    handleAction('Por favor, preencha todos os campos destacados!', 'error');
                     return;
                   }
+                  setWidgetErrors([]);
                   setIsBookingModalOpen(true);
                 }} 
                 className="w-full bg-gradient-brand text-white py-4 rounded-2xl font-extrabold text-lg shadow-lg shadow-brand-purple/20 hover:shadow-brand-pink/40 hover:scale-[1.02] active:scale-95 transition-all"
@@ -692,7 +726,13 @@ export default function App() {
               className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-2xl shadow-2xl relative max-h-[90vh] flex flex-col overflow-hidden"
             >
               <div className="p-6 md:p-8 border-b border-slate-800 flex-shrink-0 relative">
-                <button onClick={() => setIsBookingModalOpen(false)} className="absolute top-6 md:top-8 right-6 md:right-8 text-slate-400 hover:text-white transition-colors">
+                <button 
+                  onClick={() => {
+                    setIsBookingModalOpen(false);
+                    setFormErrors([]);
+                  }} 
+                  className="absolute top-6 md:top-8 right-6 md:right-8 text-slate-400 hover:text-white transition-colors"
+                >
                   <X size={24} />
                 </button>
                 <h3 className="text-2xl md:text-3xl font-display font-extrabold text-white mb-2 pr-8">Complete sua reserva</h3>
@@ -712,7 +752,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="mb-2">
-                    <label className="block text-sm font-bold text-slate-400 mb-3">Horário de Saída</label>
+                    <label className={`block text-sm font-bold mb-3 ${formErrors.includes('time') ? 'text-red-400' : 'text-slate-400'}`}>Horário de Saída</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {generateTimeSlots(date).map((slot) => {
                         const isPast = date ? isSlotPast(date, slot.startHour, slot.startMinute) : false;
@@ -722,14 +762,19 @@ export default function App() {
                           <button
                             key={slot.value}
                             disabled={isPast}
-                            onClick={() => setFormData({ ...formData, time: slot.value })}
+                            onClick={() => {
+                              setFormData({ ...formData, time: slot.value });
+                              setFormErrors(prev => prev.filter(e => e !== 'time'));
+                            }}
                             className={`
                               py-2 px-1 rounded-xl text-xs sm:text-sm font-bold border transition-all
                               ${isPast 
                                 ? 'bg-slate-900/50 border-slate-800/50 text-slate-600 line-through cursor-not-allowed' 
                                 : isSelected
                                   ? 'bg-brand-purple border-brand-pink text-white shadow-lg shadow-brand-purple/20'
-                                  : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-brand-purple hover:text-white'
+                                  : formErrors.includes('time')
+                                    ? 'bg-red-950/20 border-red-500/50 text-red-200'
+                                    : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-brand-purple hover:text-white'
                               }
                             `}
                           >
@@ -743,22 +788,28 @@ export default function App() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-bold text-slate-400 mb-2">Nome Completo</label>
+                    <label className={`block text-sm font-bold mb-2 ${formErrors.includes('name') ? 'text-red-400' : 'text-slate-400'}`}>Nome Completo</label>
                     <input 
                       type="text" 
                       value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
+                      onChange={(e) => {
+                        setFormData({...formData, name: e.target.value});
+                        setFormErrors(prev => prev.filter(err => err !== 'name'));
+                      }}
+                      className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all ${formErrors.includes('name') ? 'border-red-500/50' : 'border-slate-800'}`} 
                       placeholder="Seu nome"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-400 mb-2">Telefone / WhatsApp</label>
+                    <label className={`block text-sm font-bold mb-2 ${formErrors.includes('phone') ? 'text-red-400' : 'text-slate-400'}`}>Telefone / WhatsApp</label>
                     <input 
                       type="tel" 
                       value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
+                      onChange={(e) => {
+                        setFormData({...formData, phone: e.target.value});
+                        setFormErrors(prev => prev.filter(err => err !== 'phone'));
+                      }}
+                      className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all ${formErrors.includes('phone') ? 'border-red-500/50' : 'border-slate-800'}`} 
                       placeholder="(00) 00000-0000"
                     />
                   </div>
@@ -766,22 +817,29 @@ export default function App() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div>
-                    <label className="block text-sm font-bold text-slate-400 mb-2">Endereço</label>
+                    <label className={`block text-sm font-bold mb-2 ${formErrors.includes('address') ? 'text-red-400' : 'text-slate-400'}`}>Endereço</label>
                     <input 
                       type="text" 
                       value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all" 
+                      onChange={(e) => {
+                        setFormData({...formData, address: e.target.value});
+                        setFormErrors(prev => prev.filter(err => err !== 'address'));
+                      }}
+                      className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all ${formErrors.includes('address') ? 'border-red-500/50' : 'border-slate-800'}`} 
                       placeholder="Rua, Número"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-400 mb-2">Bairro</label>
+                    <label className={`block text-sm font-bold mb-2 ${formErrors.includes('neighborhood') ? 'text-red-400' : 'text-slate-400'}`}>Bairro</label>
                     <CustomSelect 
                       options={(['mongagua', 'itanhaem'].includes(origin) ? BAIRROS_MIP : BAIRROS).map(b => ({ value: b, label: b }))}
                       value={formData.neighborhood}
-                      onChange={(val) => setFormData({...formData, neighborhood: val})}
+                      onChange={(val) => {
+                        setFormData({...formData, neighborhood: val});
+                        setFormErrors(prev => prev.filter(err => err !== 'neighborhood'));
+                      }}
                       placeholder="Selecione o Bairro"
+                      error={formErrors.includes('neighborhood')}
                     />
                   </div>
                   <div>
@@ -833,11 +891,14 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-400 mb-2">Forma de Pagamento</label>
+                  <label className={`block text-sm font-bold mb-2 ${formErrors.includes('paymentMethod') ? 'text-red-400' : 'text-slate-400'}`}>Forma de Pagamento</label>
                   <select 
                     value={formData.paymentMethod}
-                    onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all appearance-none"
+                    onChange={(e) => {
+                      setFormData({...formData, paymentMethod: e.target.value});
+                      setFormErrors(prev => prev.filter(err => err !== 'paymentMethod'));
+                    }}
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all appearance-none ${formErrors.includes('paymentMethod') ? 'border-red-500/50' : 'border-slate-800'}`}
                   >
                     <option value="" disabled>Selecione uma forma de pagamento</option>
                     <option value="Dinheiro">Dinheiro</option>
@@ -859,17 +920,17 @@ export default function App() {
 
                 <button 
                   onClick={async () => { 
-                    if (destination === 'jabaquara' && !formData.time) {
-                      handleAction('Selecione um horário de saída!');
-                      return;
-                    }
-                    if (!formData.name || !formData.phone) {
-                      handleAction('Preencha nome e telefone!');
-                      return;
-                    }
-                    if (!formData.paymentMethod) {
-                      handleAction('Selecione a forma de pagamento!');
-                      return;
+                    const errors: string[] = [];
+                    if (destination === 'jabaquara' && !formData.time) errors.push('time');
+                    if (!formData.name) errors.push('name');
+                    if (!formData.phone) errors.push('phone');
+                    if (!formData.address) errors.push('address');
+                    if (!formData.neighborhood) errors.push('neighborhood');
+                    if (!formData.paymentMethod) errors.push('paymentMethod');
+
+                    if (errors.length > 0) {
+                      setFormErrors(errors);
+                      return handleAction('Por favor, preencha todos os campos destacados em vermelho!', 'error');
                     }
 
                     try {
@@ -906,44 +967,116 @@ export default function App() {
                         observation: formData.observation || ''
                       };
 
-                      const response = await fetch('/api/create-booking', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(passengerData)
-                      });
-
-                      if (!response.ok) {
-                        throw new Error('Failed to save booking');
-                      }
-                      
-                      setIsBookingModalOpen(false); 
-                      
+                      setPendingBookingData(passengerData);
                       setLastBookingInfo({
                         name: formData.name,
                         date: date ? new Date(date).toLocaleDateString('pt-BR') : '',
                         time: timeToSave
                       });
-                      setIsSuccessModalOpen(true);
-                      
-                      // Reset form
-                      setFormData({
-                        name: '', phone: '', address: '', neighborhood: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: '', paymentMethod: ''
-                      });
-                      setOrigin('');
-                      setDestination('jabaquara');
-                      setDate(null);
-                      setPassengers('1');
+                      setConfirmedPhone(formData.phone);
+                      setIsBookingModalOpen(false); 
+                      setIsPhoneConfirmationModalOpen(true);
                     } catch (error) {
-                      console.error("Error saving booking:", error);
-                      handleAction('Erro ao realizar reserva. Tente novamente.');
+                      console.error("Error preparing booking:", error);
+                      handleAction('Erro ao preparar reserva. Tente novamente.', 'error');
                     }
                   }} 
                   className="w-full bg-gradient-brand text-white py-4 rounded-xl font-bold text-lg mt-4 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-purple/20"
                 >
                   Finalizar Reserva
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isPhoneConfirmationModalOpen && lastBookingInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[85] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg shadow-2xl relative overflow-hidden"
+            >
+              <div className="p-8 md:p-10 text-center">
+                <div className="w-16 h-16 bg-brand-purple/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Clock className="text-brand-pink" size={32} />
+                </div>
+                
+                <h3 className="text-2xl md:text-3xl font-display font-extrabold text-white mb-4">
+                  {lastBookingInfo.name.split(' ')[0]}!
+                </h3>
+                
+                <p className="text-slate-300 text-base leading-relaxed mb-8">
+                  Por favor verifique seu número de telefone se caso ele estiver incorreto não iremos conseguir entrar em contato para confirmar sua viagem. Se caso seu número de telefone não for whatsapp favor ligar neste número para confirmar sua viagem: <strong className="text-white">1334711830</strong>.
+                </p>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-400 mb-2 text-left">Seu Telefone / WhatsApp</label>
+                    <input 
+                      type="tel" 
+                      value={confirmedPhone}
+                      onChange={(e) => setConfirmedPhone(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-4 text-white text-lg font-bold focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all text-center" 
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                  
+                  <button 
+                    onClick={async () => {
+                      if (!confirmedPhone) {
+                        handleAction('Por favor, informe seu telefone!', 'error');
+                        return;
+                      }
+
+                      try {
+                        const finalBookingData = {
+                          ...pendingBookingData,
+                          phone: confirmedPhone
+                        };
+
+                        const response = await fetch('/api/create-booking', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify(finalBookingData)
+                        });
+
+                        if (!response.ok) {
+                          throw new Error('Failed to create booking');
+                        }
+
+                        setIsPhoneConfirmationModalOpen(false);
+                        setIsSuccessModalOpen(true);
+
+                        // Reset form
+                        setFormData({
+                          name: '', phone: '', address: '', neighborhood: '', reference: '', observation: '', luggageS: '0', luggageM: '0', luggageL: '0', time: '', paymentMethod: ''
+                        });
+                        setOrigin('');
+                        setDestination('jabaquara');
+                        setDate(null);
+                        setPassengers('1');
+                        setPendingBookingData(null);
+                      } catch (err) {
+                        console.error("Error creating booking:", err);
+                        handleAction('Erro ao finalizar reserva. Tente novamente.', 'error');
+                      }
+                    }}
+                    className="w-full bg-gradient-brand text-white py-4 rounded-2xl font-extrabold text-lg shadow-xl shadow-brand-purple/20 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    Confirmar Número
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

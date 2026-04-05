@@ -8,9 +8,10 @@ interface CustomDatePickerProps {
   value: Date | null;
   onChange: (date: Date) => void;
   placeholder: string;
+  error?: boolean;
 }
 
-export function CustomDatePicker({ value, onChange, placeholder }: CustomDatePickerProps) {
+export function CustomDatePicker({ value, onChange, placeholder, error }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(value || new Date());
   const datePickerRef = useRef<HTMLDivElement>(null);
@@ -116,7 +117,7 @@ export function CustomDatePicker({ value, onChange, placeholder }: CustomDatePic
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 font-bold text-white flex items-center justify-between focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all"
+        className={`w-full bg-slate-950 border rounded-2xl px-5 py-4 font-bold text-white flex items-center justify-between focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all ${error ? 'border-red-500/50' : 'border-slate-800'}`}
       >
         <span className={value ? 'text-white' : 'text-slate-500'}>
           {value ? format(value, "dd 'de' MMMM, yyyy", { locale: ptBR }) : placeholder}

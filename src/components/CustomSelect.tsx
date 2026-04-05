@@ -13,9 +13,10 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   placeholder: string;
   disabled?: boolean;
+  error?: boolean;
 }
 
-export function CustomSelect({ options, value, onChange, placeholder, disabled }: CustomSelectProps) {
+export function CustomSelect({ options, value, onChange, placeholder, disabled, error }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +38,9 @@ export function CustomSelect({ options, value, onChange, placeholder, disabled }
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 font-bold flex items-center justify-between focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all ${disabled ? 'opacity-50 cursor-not-allowed text-slate-500' : 'text-white'}`}
+        className={`w-full bg-slate-950 border rounded-2xl px-5 py-4 font-bold flex items-center justify-between focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all ${
+          disabled ? 'opacity-50 cursor-not-allowed text-slate-500' : 'text-white'
+        } ${error ? 'border-red-500/50' : 'border-slate-800'}`}
       >
         <span className={selectedOption ? (disabled ? 'text-slate-400' : 'text-white') : 'text-slate-500'}>
           {selectedOption ? selectedOption.label : placeholder}
