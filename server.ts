@@ -209,45 +209,97 @@ async function startServer() {
 
             const emailHtml = `
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; background-color: #020617; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #f8fafc;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #020617; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; background-color: #020617; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #020617; min-height: 100vh;">
     <tr>
-      <td align="center">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0f172a; border-radius: 24px; border: 1px solid #1e293b; max-width: 500px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);">
-          <!-- Header -->
+      <td align="center" style="padding: 40px 20px;">
+        <!-- Container -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px; background-color: #0f172a; border-radius: 32px; border: 1px solid #1e293b; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+          
+          <!-- Brand Header -->
           <tr>
-            <td style="padding: 40px 30px 30px 30px; text-align: center;">
-              <div style="display: inline-block; padding: 12px; background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); border-radius: 12px; margin-bottom: 20px;">
-                <span style="color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -1px;">Bora de Van</span>
-              </div>
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">${title}</h1>
+            <td style="padding: 48px 40px 32px 40px; text-align: center;">
+              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto 24px auto;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); padding: 12px; border-radius: 14px; transform: rotate(-6deg);">
+                    <span style="color: #ffffff; font-size: 24px; line-height: 1;">🚌</span>
+                  </td>
+                  <td style="padding-left: 12px; text-align: left;">
+                    <span style="color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -1px; display: block;">Bora de <span style="color: #db2777;">Van</span></span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1.2;">${title}</h1>
             </td>
           </tr>
-          <!-- Body -->
+
+          <!-- Content Body -->
           <tr>
-            <td style="padding: 0 40px 40px 40px; text-align: center;">
-              <p style="margin: 0 0 24px 0; color: #f8fafc; font-size: 18px; font-weight: 600;">Olá, ${userName}!</p>
-              <p style="margin: 0 0 32px 0; color: #94a3b8; font-size: 16px; line-height: 1.6;">${message}</p>
+            <td style="padding: 0 40px 48px 40px; text-align: center;">
+              <p style="margin: 0 0 16px 0; color: #ffffff; font-size: 20px; font-weight: 700;">Olá, ${userName}!</p>
+              <p style="margin: 0 0 40px 0; color: #94a3b8; font-size: 16px; line-height: 1.6;">${message}</p>
               
-              <div style="background: rgba(219, 39, 119, 0.1); border: 2px dashed #db2777; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
-                <span style="display: block; color: #db2777; font-size: 42px; font-weight: 900; letter-spacing: 10px; font-family: 'Courier New', Courier, monospace;">${token}</span>
+              <!-- Token Display -->
+              <div style="background-color: #020617; border: 1px solid #334155; border-radius: 24px; padding: 32px 20px; margin-bottom: 32px; position: relative;">
+                <p style="margin: 0 0 12px 0; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;">Seu código é</p>
+                <span style="display: block; color: #db2777; font-size: 48px; font-weight: 900; letter-spacing: 12px; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 20px rgba(219, 39, 119, 0.3);">${token}</span>
               </div>
               
-              <p style="margin: 0 0 8px 0; color: #f43f5e; font-size: 14px; font-weight: 700;">Este código expira em 10 minutos.</p>
-              <p style="margin: 0; color: #64748b; font-size: 13px;">Por segurança, não compartilhe este código com ninguém.</p>
+              <!-- Expiration Warning -->
+              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                <tr>
+                  <td style="background-color: rgba(244, 63, 94, 0.1); padding: 8px 16px; border-radius: 100px; border: 1px solid rgba(244, 63, 94, 0.2);">
+                    <span style="color: #f43f5e; font-size: 13px; font-weight: 700;">⏱ Expira em 10 minutos</span>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 24px 0 0 0; color: #475569; font-size: 13px; line-height: 1.5;">
+                Se você não solicitou este acesso, pode ignorar este e-mail com segurança.
+              </p>
             </td>
           </tr>
+
           <!-- Footer -->
           <tr>
-            <td style="padding: 30px 40px; text-align: center; background-color: #020617; border-top: 1px solid #1e293b;">
-              <p style="margin: 0 0 12px 0; color: #475569; font-size: 12px; line-height: 1.4;">${footerMessage}</p>
-              <p style="margin: 0; color: #475569; font-size: 12px; font-weight: 600;">&copy; ${new Date().getFullYear()} Bora de Van. Todos os direitos reservados.</p>
+            <td style="padding: 32px 40px; text-align: center; background-color: #020617; border-top: 1px solid #1e293b;">
+              <p style="margin: 0 0 16px 0; color: #64748b; font-size: 12px; line-height: 1.6;">
+                Este é um e-mail automático, por favor não responda.<br>
+                &copy; ${new Date().getFullYear()} Bora de Van. Todos os direitos reservados.
+              </p>
+              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
+                <tr>
+                  <td style="padding: 0 8px;">
+                    <a href="https://boradevan.com.br" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Site Oficial</a>
+                  </td>
+                  <td style="color: #334155;">&bull;</td>
+                  <td style="padding: 0 8px;">
+                    <a href="https://wa.me/551334711830" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        
+        <!-- Bottom Spacer -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="padding-top: 40px; text-align: center;">
+              <p style="margin: 0; color: #334155; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">
+                Enviado com ❤️ por Bora de Van
+              </p>
             </td>
           </tr>
         </table>
