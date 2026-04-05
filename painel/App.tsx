@@ -129,6 +129,7 @@ const AppContent = () => {
     const [geminiKey, setGeminiKey] = useState(localStorage.getItem('nexflow_gemini_key') || '');
     const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('nexflow_sound_enabled') !== 'false');
     const [popupsEnabled, setPopupsEnabled] = useState(() => localStorage.getItem('nexflow_popups_enabled') !== 'false');
+    const [siteNotificationsEnabled, setSiteNotificationsEnabled] = useState(() => localStorage.getItem('nexflow_site_notifs_enabled') !== 'false');
     
     const [ipHistory, setIpHistory] = useState<any[]>([]);
     const [ipLabels, setIpLabels] = useState<any>({});
@@ -1073,7 +1074,7 @@ const AppContent = () => {
 
     // Real-time Site Booking Notifications Listener
     useEffect(() => {
-        if (!db || !user) return;
+        if (!db || !user || !siteNotificationsEnabled) return;
 
         const notifRef = db.ref('site_notifications');
         const startTime = Date.now();
@@ -3725,6 +3726,8 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
                                 setSoundEnabled={setSoundEnabled}
                                 popupsEnabled={popupsEnabled}
                                 setPopupsEnabled={setPopupsEnabled}
+                                siteNotificationsEnabled={siteNotificationsEnabled}
+                                setSiteNotificationsEnabled={setSiteNotificationsEnabled}
                             />}
                             {view === 'manageUsers' && <GerenciarUsuarios data={data} theme={theme} setView={setView} dbOp={dbOp} notify={notify} user={user} requestConfirm={requestConfirm} systemContext={systemContext} />}
                         </div>
@@ -3790,29 +3793,29 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
 
             {/* NEW BOOKING NOTIFICATION POPUP */}
             {activeSiteNotification && (
-                <div className="fixed bottom-6 right-6 z-[9999] w-full max-w-sm px-4 animate-bounce-in">
-                    <div className={`${theme.card} border-2 border-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.5)] p-6 rounded-[2.5rem] flex flex-col gap-5 relative overflow-hidden backdrop-blur-2xl animate-pulse-gentle`}>
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-transparent animate-pulse"></div>
-                        <div className="flex items-start gap-5 relative z-10">
-                            <div className="bg-emerald-500 p-4 rounded-3xl text-white shadow-2xl shadow-emerald-500/40 animate-bounce">
-                                <Icons.Calendar size={28}/>
+                <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-6 z-[9999] w-auto md:w-full md:max-w-sm animate-bounce-in">
+                    <div className={`${theme.card} border-2 ${theme.border} shadow-2xl p-5 md:p-6 rounded-[2rem] md:rounded-[2.5rem] flex flex-col gap-4 md:gap-5 relative overflow-hidden backdrop-blur-2xl animate-pulse-gentle`}>
+                        <div className={`absolute inset-0 bg-gradient-to-br ${themeKey === 'solar' ? 'from-amber-500/10' : 'from-white/5'} to-transparent animate-pulse`}></div>
+                        <div className="flex items-start gap-4 md:gap-5 relative z-10">
+                            <div className={`${theme.primary} p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl animate-bounce`}>
+                                <Icons.Calendar size={24} className="md:w-7 md:h-7"/>
                             </div>
                             <div className="flex-1 min-w-0 pt-1">
-                                <h4 className="font-black text-emerald-500 text-[10px] uppercase tracking-[0.3em] mb-2">Novo Agendamento Site</h4>
-                                <p className="text-lg font-black leading-tight text-white drop-shadow-md">
+                                <h4 className={`font-black ${theme.accent} text-[9px] md:text-[10px] uppercase tracking-[0.3em] mb-1 md:mb-2`}>Agendamento via Site</h4>
+                                <p className={`text-base md:text-lg font-black leading-tight ${theme.text} drop-shadow-sm`}>
                                     {activeSiteNotification.passengerName} acabou de agendar!
                                 </p>
-                                <div className="mt-2 flex items-center gap-2">
-                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-500 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                <div className="mt-1.5 md:mt-2 flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 ${theme.inner} rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wider`}>
                                         Sistema {activeSiteNotification.system}
                                     </span>
                                 </div>
                             </div>
                             <button 
                                 onClick={() => setActiveSiteNotification(null)}
-                                className="p-2.5 hover:bg-white/10 rounded-2xl opacity-40 hover:opacity-100 transition-all active:scale-90"
+                                className={`p-2 hover:bg-black/10 rounded-xl opacity-40 hover:opacity-100 transition-all active:scale-90 ${theme.text}`}
                             >
-                                <Icons.X size={22}/>
+                                <Icons.X size={20}/>
                             </button>
                         </div>
                         <div className="relative z-10">
@@ -3821,7 +3824,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
                                     setView('appointments');
                                     setActiveSiteNotification(null);
                                 }}
-                                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl text-sm font-black transition-all shadow-xl shadow-emerald-500/30 active:scale-95 flex items-center justify-center gap-2"
+                                className={`w-full ${theme.primary} py-3.5 md:py-4 rounded-xl md:rounded-2xl text-sm font-black transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2`}
                             >
                                 <Icons.Eye size={18}/> Ver Agendamentos
                             </button>

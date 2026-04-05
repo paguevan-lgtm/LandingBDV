@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../components/SubscriptionLock';
 import { db } from '../firebase';
 
-export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, setGeminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled }: any) {
+export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, setGeminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled }: any) {
     const { logout } = useAuth();
     const { triggerEarlyRenewal } = useSubscription();
     
@@ -648,6 +648,24 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         className={`w-12 h-6 rounded-full transition-all duration-300 relative ${popupsEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
                                     >
                                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${popupsEnabled ? 'left-7' : 'left-1'}`} />
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-black/10 border border-white/5">
+                                    <div>
+                                        <p className="font-bold text-sm">Avisos de Agendamentos via Site</p>
+                                        <p className="text-xs opacity-60">Notificar quando um passageiro agendar pelo site.</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            const newVal = !siteNotificationsEnabled;
+                                            setSiteNotificationsEnabled(newVal);
+                                            localStorage.setItem('nexflow_site_notifs_enabled', String(newVal));
+                                            notify(newVal ? "Avisos de site ativados" : "Avisos de site desativados", "info");
+                                        }}
+                                        className={`w-12 h-6 rounded-full transition-all duration-300 relative ${siteNotificationsEnabled ? 'bg-green-500' : 'bg-gray-600'}`}
+                                    >
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${siteNotificationsEnabled ? 'left-7' : 'left-1'}`} />
                                     </button>
                                 </div>
                             </div>
