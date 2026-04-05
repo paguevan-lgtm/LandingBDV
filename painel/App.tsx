@@ -2529,8 +2529,19 @@ const AppContent = () => {
 
                 const proceedSave = async (): Promise<boolean> => {
                     const id = formData.id || getNextId('passengers');
-                    const payload = { ...formData, id, date: formData.date || getTodayDate() };
+                    let payload = { ...formData, id, date: formData.date || getTodayDate() };
                     
+                    // Strip "site" tag and change source if manually scheduled
+                    if (payload.tags && payload.tags.toLowerCase().includes('site')) {
+                        payload.tags = payload.tags.split(',')
+                            .map((t: string) => t.trim())
+                            .filter((t: string) => t.toLowerCase() !== 'site')
+                            .join(', ');
+                    }
+                    if (payload.source === 'Site') {
+                        payload.source = 'Manual';
+                    }
+
                     await dbOp(formData.id ? 'update' : 'create', 'passengers', payload);
                     
                     if (!formData.id) { 
@@ -2596,11 +2607,27 @@ const AppContent = () => {
                 );
                 if (isAssigned) return notify("Este passageiro já está alocado em uma viagem!", "error");
 
-                await dbOp('update', 'passengers', { 
+                let updatePayload: any = { 
                     id: formData.id, 
                     time: formData.time, 
                     date: formData.date 
-                });
+                };
+
+                if (p) {
+                    // Strip "site" tag if present
+                    if (p.tags && p.tags.toLowerCase().includes('site')) {
+                        updatePayload.tags = p.tags.split(',')
+                            .map((t: string) => t.trim())
+                            .filter((t: string) => t.toLowerCase() !== 'site')
+                            .join(', ');
+                    }
+                    // Change source if it was Site
+                    if (p.source === 'Site') {
+                        updatePayload.source = 'Manual';
+                    }
+                }
+
+                await dbOp('update', 'passengers', updatePayload);
                 notify("Reagendado com sucesso!", "success");
             } else if (collection === 'rescheduleAll') {
                 if (!formData.sourceTime || !formData.newTime) return notify("Preencha o horário de origem e o novo horário!", "error");
@@ -2628,10 +2655,24 @@ const AppContent = () => {
                 if (passengersToReschedule.length === 0) return notify("Nenhum passageiro pendente encontrado para este horário!", "error");
                 
                 for (const p of passengersToReschedule) {
-                    await dbOp('update', 'passengers', {
+                    let updatePayload: any = {
                         id: p.id,
                         time: formData.newTime
-                    });
+                    };
+
+                    // Strip "site" tag if present
+                    if (p.tags && p.tags.toLowerCase().includes('site')) {
+                        updatePayload.tags = p.tags.split(',')
+                            .map((t: string) => t.trim())
+                            .filter((t: string) => t.toLowerCase() !== 'site')
+                            .join(', ');
+                    }
+                    // Change source if it was Site
+                    if (p.source === 'Site') {
+                        updatePayload.source = 'Manual';
+                    }
+
+                    await dbOp('update', 'passengers', updatePayload);
                 }
                 notify(`${passengersToReschedule.length} passageiros reagendados!`, "success");
                 setModal(null);
@@ -2648,11 +2689,26 @@ const AppContent = () => {
                             notify(`Passageiro BLOQUEADO: ${p.name}. Motivo: ${p.blockReason || 'Não informado'}`, "error");
                             continue;
                         }
-                        await dbOp('update', 'passengers', {
+
+                        let updatePayload: any = {
                             id: p.id,
                             date: formData.date,
                             time: formData.time
-                        });
+                        };
+
+                        // Strip "site" tag if present
+                        if (p.tags && p.tags.toLowerCase().includes('site')) {
+                            updatePayload.tags = p.tags.split(',')
+                                .map((t: string) => t.trim())
+                                .filter((t: string) => t.toLowerCase() !== 'site')
+                                .join(', ');
+                        }
+                        // Change source if it was Site
+                        if (p.source === 'Site') {
+                            updatePayload.source = 'Manual';
+                        }
+
+                        await dbOp('update', 'passengers', updatePayload);
                         foundAny = true;
                     } else {
                         notify(`Passageiro não encontrado: ${idOrName}`, "error");

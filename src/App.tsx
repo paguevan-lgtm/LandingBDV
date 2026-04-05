@@ -156,6 +156,8 @@ export default function App() {
 
   // Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [lastBookingInfo, setLastBookingInfo] = useState<{name: string, date: string, time: string} | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -917,7 +919,13 @@ export default function App() {
                       }
                       
                       setIsBookingModalOpen(false); 
-                      handleAction('Reserva finalizada com sucesso!'); 
+                      
+                      setLastBookingInfo({
+                        name: formData.name,
+                        date: date ? new Date(date).toLocaleDateString('pt-BR') : '',
+                        time: timeToSave
+                      });
+                      setIsSuccessModalOpen(true);
                       
                       // Reset form
                       setFormData({
@@ -936,6 +944,56 @@ export default function App() {
                 >
                   Finalizar Reserva
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSuccessModalOpen && lastBookingInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg shadow-2xl relative overflow-hidden"
+            >
+              <div className="p-8 md:p-12 text-center">
+                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-8">
+                  <CheckCircle2 className="text-green-400" size={48} />
+                </div>
+                
+                <h3 className="text-3xl md:text-4xl font-display font-extrabold text-white mb-6">Reserva Recebida!</h3>
+                
+                <p className="text-slate-300 text-lg leading-relaxed mb-10">
+                  Em minutos um de nossos atendentes vai chamar para confirmar disponibilidade e dar andamento na viagem.
+                </p>
+
+                <div className="space-y-4">
+                  <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Caso queira adiantar o processo chame nosso time no whatsapp</p>
+                  
+                  <a 
+                    href={`https://wa.me/551334711830?text=${encodeURIComponent(`Olá me chamo ${lastBookingInfo.name}, acabei de me auto agendar para fazer uma viagem no dia ${lastBookingInfo.date} as ${lastBookingInfo.time} e gostaria de confirmar a disponibilidade.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-3 w-full bg-[#25D366] hover:bg-[#20ba5a] text-white py-5 rounded-2xl font-extrabold text-xl shadow-xl shadow-green-500/20 transition-all hover:scale-[1.02] active:scale-95"
+                  >
+                    Chamar no WhatsApp
+                  </a>
+
+                  <button 
+                    onClick={() => setIsSuccessModalOpen(false)}
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-4 rounded-2xl font-bold transition-all"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
