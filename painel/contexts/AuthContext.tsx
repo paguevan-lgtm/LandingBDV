@@ -323,7 +323,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                                 system: foundUser.system,
                                 systems: foundUser.systems,
                                 createdBy: foundUser.createdBy,
-                                email: foundUser.username === 'Breno' ? 'breno0452@gmail.com' : foundUser.email
+                                email: foundUser.username === 'Breno' ? 'brenoxt2003@gmail.com' : foundUser.email
                             };
                         }
                     }
@@ -348,7 +348,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         system: system || localUser.systems[0],
                         systems: localUser.systems,
                         createdBy: localUser.createdBy,
-                        email: u === 'Breno' ? 'breno0452@gmail.com' : localUser.email
+                        email: u === 'Breno' ? 'brenoxt2003@gmail.com' : localUser.email
                     };
                 }
             }

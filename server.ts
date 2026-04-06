@@ -430,10 +430,9 @@ async function startServer() {
 
                 const pName = p.name.toLowerCase().trim();
                 const pPhone = p.phone.replace(/\D/g, '');
-                const pAddress = (p.address || '').toLowerCase().trim();
 
-                // Match by Name, Phone and Address
-                if (pName === normalizedName && pPhone === normalizedPhone && pAddress === normalizedAddress) {
+                // Match by Name and Phone (ignoring address as requested)
+                if (pName === normalizedName && pPhone === normalizedPhone) {
                     return { key, id: p.id, data: p };
                 }
             }
@@ -465,7 +464,7 @@ async function startServer() {
             }
             passengerData.system = systemToSave;
 
-            // 2. Check for existing passenger (Name, Phone, Address match)
+            // 2. Check for existing passenger (Name and Phone match)
             const existing = await findExistingPassenger(systemToSave, passengerData.name, passengerData.phone, passengerData.address || '', authParam);
             
             let displayId, firebaseKey;

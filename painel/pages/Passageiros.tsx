@@ -34,22 +34,71 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
         setModal('passenger');
     };
 
+    const exportVCF = () => {
+        if (data.passengers.length === 0) return notify("Nenhum passageiro para exportar.", "error");
+
+        let vcfContent = "";
+        data.passengers.forEach((p: any) => {
+            // Limpar telefone para o formato padrão se necessário, mas manter como está se já for válido
+            const phone = p.phone ? p.phone.replace(/\D/g, '') : '';
+            const displayId = String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`;
+            
+            vcfContent += "BEGIN:VCARD\n";
+            vcfContent += "VERSION:3.0\n";
+            vcfContent += `FN:${p.name} (${displayId})\n`;
+            vcfContent += `TEL;TYPE=CELL:${p.phone || ''}\n`;
+            vcfContent += "ORG:Bora de Van\n";
+            
+            let note = `Bairro: ${p.neighborhood || 'N/A'}`;
+            if (p.address) note += `\\nEndereço: ${p.address}`;
+            if (p.reference) note += `\\nReferência: ${p.reference}`;
+            if (p.system) note += `\\nSistema: ${p.system}`;
+            if (p.id) note += `\\nID Sistema: ${p.id}`;
+            
+            vcfContent += `NOTE:${note}\n`;
+            vcfContent += "END:VCARD\n";
+        });
+
+        const blob = new Blob([vcfContent], { type: "text/vcard" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `contatos_bora_de_van_${getTodayDate()}.vcf`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        notify(`${data.passengers.length} contatos exportados com sucesso!`, "success");
+    };
+
     return (
         <div className="space-y-3">
-            {/* Tab Switcher */}
-            <div className="flex p-1 bg-black/20 rounded-xl border border-white/10 mb-4">
-                <button 
-                    onClick={() => setActiveTab('ativos')}
-                    className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'ativos' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+            {/* Action Header */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="flex-1 flex p-1 bg-black/20 rounded-xl border border-white/10">
+                    <button 
+                        onClick={() => setActiveTab('ativos')}
+                        className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'ativos' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+                    >
+                        Ativos
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('bloqueados')}
+                        className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'bloqueados' ? 'bg-red-500/20 text-red-400 shadow-lg border border-red-500/30' : 'text-white/40 hover:text-white/60'}`}
+                    >
+                        Bloqueados
+                    </button>
+                </div>
+                <Button 
+                    theme={theme} 
+                    onClick={exportVCF} 
+                    variant="secondary" 
+                    className="sm:w-auto w-full py-2 px-4 text-sm font-bold flex items-center justify-center gap-2"
+                    icon={Icons.Download}
                 >
-                    Ativos
-                </button>
-                <button 
-                    onClick={() => setActiveTab('bloqueados')}
-                    className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'bloqueados' ? 'bg-red-500/20 text-red-400 shadow-lg border border-red-500/30' : 'text-white/40 hover:text-white/60'}`}
-                >
-                    Bloqueados
-                </button>
+                    Exportar Contatos (.vcf)
+                </Button>
             </div>
 
             {filteredList.map((item:any, i:number) => (

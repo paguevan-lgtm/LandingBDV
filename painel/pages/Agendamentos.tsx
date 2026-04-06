@@ -171,9 +171,6 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                 <div className="space-y-3 pl-2 border-l border-white/5">
                                     {grouped[time].map((p:any) => (
                                         <div key={p.id} className={`${theme.card} ${theme.radius} border border-yellow-500/30 p-4 relative bg-yellow-500/5 overflow-hidden`}>
-                                            <div className="absolute top-1 right-8 text-4xl font-bold opacity-[0.07] pointer-events-none">
-                                                {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
-                                            </div>
                                             {p.source === 'Site' && (
                                                 <div className="absolute top-0 right-0">
                                                     <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
@@ -181,7 +178,12 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                             )}
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
-                                                    <div className="font-bold text-lg">{p.name}</div>
+                                                    <div className="font-bold text-lg flex items-center gap-2">
+                                                        {p.name}
+                                                        <span className="text-xs opacity-40 font-mono">
+                                                            {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
+                                                        </span>
+                                                    </div>
                                                     <div className="text-xs opacity-70">{p.neighborhood} • {formatTime(p.time)}</div>
                                                 </div>
                                                 <div className="flex gap-2 items-center">
@@ -236,9 +238,6 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
 
                             return (
                                 <div key={p.id} className={`${theme.card} ${theme.radius} border border-white/5 p-3 relative opacity-60 hover:opacity-100 transition-opacity overflow-hidden`}>
-                                    <div className="absolute top-1 right-8 text-4xl font-bold opacity-[0.07] pointer-events-none">
-                                        {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
-                                    </div>
                                     {p.source === 'Site' && (
                                         <div className="absolute top-0 right-0">
                                             <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
@@ -246,7 +245,12 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                     )}
                                     <div className="flex justify-between items-center">
                                         <div>
-                                            <div className="font-bold">{p.name}</div>
+                                            <div className="font-bold flex items-center gap-2">
+                                                {p.name}
+                                                <span className="text-[10px] opacity-40 font-mono">
+                                                    {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
+                                                </span>
+                                            </div>
                                             <div className="text-xs opacity-70">
                                                 {p.neighborhood} • {displayTime}
                                             </div>

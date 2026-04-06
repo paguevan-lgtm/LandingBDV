@@ -125,7 +125,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 const user = users[0];
                 let targetEmail = user.email;
                 if (user.username.toLowerCase() === 'breno') {
-                    targetEmail = 'breno0452@gmail.com';
+                    targetEmail = 'brenoxt2003@gmail.com';
                 }
                 
                 if (!targetEmail) {
@@ -251,7 +251,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     for (const key of Object.keys(users)) {
                         const u = users[key];
                         // Exclude Breno, Sistema and specific email
-                        if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'breno0452@gmail.com') {
+                        if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'brenoxt2003@gmail.com') {
                             continue;
                         }
 
@@ -267,7 +267,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             // Search in local fallback if not found
             if (!foundUser) {
                 for (const u of USERS_DB) {
-                    if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'breno0452@gmail.com') {
+                    if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'brenoxt2003@gmail.com') {
                         continue;
                     }
                     if (u.username?.toLowerCase() === forgotPasswordInput.toLowerCase() || u.email?.toLowerCase() === forgotPasswordInput.toLowerCase()) {
@@ -618,7 +618,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                                             setShowSystemSelection(false);
                                             let targetEmail = u.email;
                                             if (u.username.toLowerCase() === 'breno') {
-                                                targetEmail = 'breno0452@gmail.com';
+                                                targetEmail = 'brenoxt2003@gmail.com';
                                             }
                                             if (!targetEmail) {
                                                 notify('Usuário não possui email cadastrado.', 'error');

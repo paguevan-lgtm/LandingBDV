@@ -222,7 +222,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
 
     const handleEdit = (u: any) => {
         const systems = u.systems || (u.system ? [u.system] : ['Pg']);
-        const email = u.username === 'Breno' ? 'breno0452@gmail.com' : u.email;
+        const email = u.username === 'Breno' ? 'brenoxt2003@gmail.com' : u.email;
         setFormUser({ ...u, systems, email });
         setIsEditing(u.id);
         setViewMode('form');

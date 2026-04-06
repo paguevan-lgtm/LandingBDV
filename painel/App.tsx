@@ -2635,7 +2635,18 @@ const AppContent = () => {
                 }
 
                 const proceedSave = async (): Promise<boolean> => {
-                    const id = formData.id || getNextId('passengers');
+                    let id = formData.id;
+                    let isSiteConversion = id && String(id).startsWith('SITE_');
+                    
+                    if (isSiteConversion) {
+                        // Delete the old SITE_ record
+                        await dbOp('delete', 'passengers', id);
+                        // Get a new numeric ID
+                        id = getNextId('passengers');
+                    } else if (!id) {
+                        id = getNextId('passengers');
+                    }
+                    
                     let payload = { ...formData, id, date: formData.date || getTodayDate() };
                     
                     // Strip "site" tag and change source if manually scheduled
@@ -2645,13 +2656,13 @@ const AppContent = () => {
                             .filter((t: string) => t.toLowerCase() !== 'site')
                             .join(', ');
                     }
-                    if (payload.source === 'Site') {
+                    if (payload.source === 'Site' || isSiteConversion) {
                         payload.source = 'Manual';
                     }
 
-                    await dbOp(formData.id ? 'update' : 'create', 'passengers', payload);
+                    await dbOp(isSiteConversion ? 'create' : (formData.id ? 'update' : 'create'), 'passengers', payload);
                     
-                    if (!formData.id) { 
+                    if (!formData.id || isSiteConversion) { 
                          autoAssignPassenger(payload);
                     }
 
@@ -2714,27 +2725,49 @@ const AppContent = () => {
                 );
                 if (isAssigned) return notify("Este passageiro já está alocado em uma viagem!", "error");
 
-                let updatePayload: any = { 
-                    id: formData.id, 
-                    time: formData.time, 
-                    date: formData.date 
-                };
-
-                if (p) {
-                    // Strip "site" tag if present
-                    if (p.tags && p.tags.toLowerCase().includes('site')) {
-                        updatePayload.tags = p.tags.split(',')
+                if (p && String(p.id).startsWith('SITE_')) {
+                    // Convert to numeric ID
+                    const newId = getNextId('passengers');
+                    const newPassenger = {
+                        ...p,
+                        id: newId,
+                        time: formData.time,
+                        date: formData.date,
+                        source: 'Manual'
+                    };
+                    // Strip site tag
+                    if (newPassenger.tags && newPassenger.tags.toLowerCase().includes('site')) {
+                        newPassenger.tags = newPassenger.tags.split(',')
                             .map((t: string) => t.trim())
                             .filter((t: string) => t.toLowerCase() !== 'site')
                             .join(', ');
                     }
-                    // Change source if it was Site
-                    if (p.source === 'Site') {
-                        updatePayload.source = 'Manual';
-                    }
-                }
+                    
+                    await dbOp('delete', 'passengers', p.id);
+                    await dbOp('create', 'passengers', newPassenger);
+                } else {
+                    let updatePayload: any = { 
+                        id: formData.id, 
+                        time: formData.time, 
+                        date: formData.date 
+                    };
 
-                await dbOp('update', 'passengers', updatePayload);
+                    if (p) {
+                        // Strip "site" tag if present
+                        if (p.tags && p.tags.toLowerCase().includes('site')) {
+                            updatePayload.tags = p.tags.split(',')
+                                .map((t: string) => t.trim())
+                                .filter((t: string) => t.toLowerCase() !== 'site')
+                                .join(', ');
+                        }
+                        // Change source if it was Site
+                        if (p.source === 'Site') {
+                            updatePayload.source = 'Manual';
+                        }
+                    }
+
+                    await dbOp('update', 'passengers', updatePayload);
+                }
                 notify("Reagendado com sucesso!", "success");
             } else if (collection === 'rescheduleAll') {
                 if (!formData.sourceTime || !formData.newTime) return notify("Preencha o horário de origem e o novo horário!", "error");
