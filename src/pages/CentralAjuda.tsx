@@ -4,15 +4,14 @@ import {
   ArrowLeft, 
   HelpCircle, 
   MessageCircle, 
-  Phone, 
   Clock, 
   ShieldCheck,
-  ChevronRight,
   Search,
   Bus,
   MapPin,
   CreditCard,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -31,7 +30,15 @@ export default function CentralAjuda() {
     { q: "Posso levar malas grandes?", a: "Sim, porém pedimos que informe no momento da reserva para garantirmos espaço no bagageiro. Malas pequenas e mochilas são liberadas." },
     { q: "Quais os horários de saída?", a: "As vans saem diariamente das 06:00 até as 21:00. O intervalo depende da demanda, mas geralmente temos saídas a cada 40-60 minutos." },
     { q: "Como funciona o pagamento?", a: "O pagamento pode ser feito via Pix antecipado ou diretamente com o motorista em dinheiro ou cartão (crédito/débito)." },
+    { q: "Como faço para cancelar uma reserva?", a: "Para cancelar, entre em contato com a central pelo WhatsApp com pelo menos 2 horas de antecedência." },
+    { q: "As vans possuem ar-condicionado?", a: "Sim, todas as nossas vans são equipadas com ar-condicionado para o seu conforto." },
+    { q: "Vocês fazem transporte para o aeroporto?", a: "Sim, realizamos trajetos que passam próximos aos principais pontos de conexão, consulte a central para detalhes." },
   ];
+
+  const filteredCategories = categories.filter(cat => 
+    cat.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    cat.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const filteredFaqs = faqs.filter(faq => 
     faq.q.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -68,42 +75,54 @@ export default function CentralAjuda() {
               <HelpCircle size={24} className="text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-brand-purple uppercase tracking-wider">Suporte Prioritário</p>
-              <p className="text-sm font-bold text-white">Atendimento 24/7</p>
+              <p className="text-[10px] font-bold text-brand-purple uppercase tracking-wider">Suporte Jabaquara</p>
+              <p className="text-sm font-bold text-white">06:00 - 21:00</p>
             </div>
           </div>
         </div>
 
         {/* Search Bar */}
-        <div className="relative mb-16">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={24} />
+        <div className="relative mb-16 max-w-2xl mx-auto group">
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-purple transition-colors pointer-events-none">
+            <Search size={20} />
+          </div>
           <input 
             type="text" 
-            placeholder="Busque por dúvidas, horários, pontos..." 
+            placeholder="Como podemos ajudar?" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-[2rem] py-6 pl-16 pr-8 text-white text-lg focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all placeholder:text-slate-600 shadow-2xl"
+            className="w-full bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-xl py-4 pl-14 pr-12 text-white text-base focus:ring-2 focus:ring-brand-purple/50 focus:border-brand-purple/50 outline-none transition-all placeholder:text-slate-500 shadow-lg"
           />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         {/* Categories Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-16">
-          {categories.map((cat, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-8 rounded-[2.5rem] hover:border-slate-700 transition-all group cursor-pointer"
-            >
-              <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                {cat.icon}
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">{cat.title}</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">{cat.description}</p>
-            </motion.div>
-          ))}
-        </div>
+        {filteredCategories.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-16">
+            {filteredCategories.map((cat, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-8 rounded-3xl hover:border-slate-700 transition-all group cursor-pointer"
+              >
+                <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {cat.icon}
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">{cat.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">{cat.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         {/* FAQ Section */}
         <div className="mb-16">
@@ -143,29 +162,28 @@ export default function CentralAjuda() {
             Nossa equipe de suporte está pronta para atender você. Fale diretamente com a central do Jabaquara.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex justify-center">
             <a 
               href="https://wa.me/5511956733789"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-4 bg-[#25D366] hover:bg-[#20ba5a] text-white py-6 rounded-[2rem] font-extrabold text-xl shadow-xl shadow-green-500/20 transition-all hover:scale-[1.02] active:scale-95"
+              className="flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 px-8 rounded-xl font-bold text-base shadow-lg shadow-green-500/10 transition-all hover:scale-[1.02] active:scale-95 min-h-[64px] w-full md:w-auto md:min-w-[280px]"
             >
-              <MessageCircle size={28} />
-              WhatsApp Jabaquara
-            </a>
-            <a 
-              href="tel:11956733789"
-              className="flex items-center justify-center gap-4 bg-white text-slate-950 py-6 rounded-[2rem] font-extrabold text-xl shadow-xl transition-all hover:scale-[1.02] active:scale-95"
-            >
-              <Phone size={28} />
-              Ligar Agora
+              <MessageCircle size={20} className="flex-shrink-0" />
+              <span className="text-center">WhatsApp Jabaquara</span>
             </a>
           </div>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-slate-400">
-            <div className="flex items-center gap-2">
-              <Clock size={16} className="text-brand-pink" />
-              <span className="text-xs font-bold uppercase tracking-widest">06:00 - 21:00</span>
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-brand-pink" />
+                <span className="text-xs font-bold uppercase tracking-widest">Jabaquara: 06:00 - 21:00</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-brand-purple" />
+                <span className="text-xs font-bold uppercase tracking-widest">Litoral: 06:00 - 20:00</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-brand-purple" />

@@ -172,7 +172,7 @@ export default function Contato() {
             </div>
             <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-1">Horários</h4>
             <p className="text-sm font-bold text-white">06:00 às 21:00</p>
-            <p className="text-[10px] text-slate-500 mt-1">Todos os dias</p>
+            <p className="text-[10px] text-slate-500 mt-1">Jabaquara (SP)</p>
             <div className="absolute -right-2 -bottom-2 opacity-5 group-hover:opacity-10 transition-opacity">
               <Clock size={64} />
             </div>
@@ -232,7 +232,7 @@ export default function Contato() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 + (idx * 0.1) }}
               onClick={() => handleWhatsApp(contact.phone)}
-              className="group relative w-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-5 rounded-[1.5rem] flex items-center gap-4 hover:bg-slate-800/80 hover:border-slate-700 transition-all hover:scale-[1.02] active:scale-95 text-left overflow-hidden shadow-lg"
+              className="group relative w-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-5 rounded-2xl flex items-center gap-4 hover:bg-slate-800/80 hover:border-slate-700 transition-all hover:scale-[1.02] active:scale-95 text-left overflow-hidden shadow-lg"
             >
               <div className={`w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center group-hover:scale-110 transition-transform relative`}>
                 {contact.icon}
@@ -268,7 +268,7 @@ export default function Contato() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.8 }}
-            className="group relative w-full bg-gradient-to-r from-purple-600 to-pink-600 p-5 rounded-[1.5rem] flex items-center gap-4 hover:shadow-lg hover:shadow-pink-500/20 transition-all hover:scale-[1.02] active:scale-95 text-left shadow-xl"
+            className="group relative w-full bg-gradient-to-r from-purple-600 to-pink-600 p-5 rounded-2xl flex items-center gap-4 hover:shadow-lg hover:shadow-pink-500/20 transition-all hover:scale-[1.02] active:scale-95 text-left shadow-xl"
           >
             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
               <Instagram size={24} className="text-white" />
@@ -382,7 +382,7 @@ export default function Contato() {
           </div>
           <div className="w-px h-8 bg-slate-900" />
           <div className="text-center">
-            <p className="text-2xl font-extrabold text-white">24/7</p>
+            <p className="text-2xl font-extrabold text-white">Diário</p>
             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Suporte</p>
           </div>
         </motion.div>
