@@ -14,6 +14,7 @@ import {
   Star, 
   ShieldCheck, 
   Clock, 
+  Mail,
   Map as MapIcon,
   Bus,
   ArrowRight,
@@ -696,16 +697,18 @@ function LandingPage() {
 
             <div>
               <h4 className="text-xl font-bold mb-6">Newsletter</h4>
-              <p className="text-slate-400 mb-4">Receba promoções e novos destinos no seu e-mail.</p>
-              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); handleAction('Inscrito na Newsletter!'); }}>
-                <input 
-                  type="email" 
-                  placeholder="Seu e-mail" 
-                  className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 w-full focus:ring-2 focus:ring-brand-purple outline-none text-white"
-                  required
-                />
-                <button type="submit" className="bg-gradient-brand p-3 rounded-xl hover:shadow-lg hover:scale-105 transition-all">
-                  <ArrowRight size={20} />
+              <p className="text-slate-400 mb-6 text-sm">Inscreva-se para receber novidades e promoções exclusivas.</p>
+              <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                  <input 
+                    type="email" 
+                    placeholder="Seu e-mail" 
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-white text-sm focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all"
+                  />
+                </div>
+                <button className="w-full bg-gradient-brand text-white py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-brand-purple/20 transition-all">
+                  Inscrever-se
                 </button>
               </form>
             </div>
