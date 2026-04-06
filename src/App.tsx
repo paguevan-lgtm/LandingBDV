@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Contato from './pages/Contato';
 import CentralAjuda from './pages/CentralAjuda';
 import TermosUso from './pages/TermosUso';
@@ -1278,16 +1278,15 @@ function ScrollToTop() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/contato" element={<Contato />} />
-        <Route path="/Contato" element={<Contato />} />
         <Route path="/central-ajuda" element={<CentralAjuda />} />
         <Route path="/termos-uso" element={<TermosUso />} />
         <Route path="/privacidade" element={<Privacidade />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
