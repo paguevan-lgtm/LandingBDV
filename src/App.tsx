@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import Contato from './pages/Contato';
 import { 
   MapPin, 
   Calendar, 
@@ -140,7 +142,7 @@ const isSlotPast = (selectedDate: Date, slotHour: number, slotMinute: number) =>
   return false;
 };
 
-export default function App() {
+function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -249,6 +251,9 @@ export default function App() {
                 {item.label}
               </a>
             ))}
+            <Link to="/contato" className="text-slate-300 hover:text-brand-pink font-medium transition-colors">
+              Contato
+            </Link>
             <button onClick={() => scrollToSection('reserva')} className="bg-gradient-brand text-white px-6 py-2.5 rounded-full font-bold shadow-md shadow-brand-purple/20 hover:shadow-lg hover:shadow-brand-purple/40 hover:scale-105 transition-all">
               Reserve Agora
             </button>
@@ -276,6 +281,9 @@ export default function App() {
                   {item.label}
                 </a>
               ))}
+              <Link to="/contato" onClick={() => setIsMenuOpen(false)} className="text-2xl font-display font-bold text-white">
+                Contato
+              </Link>
               <button onClick={() => scrollToSection('reserva')} className="bg-gradient-brand text-white py-4 rounded-2xl font-bold text-xl shadow-xl mt-4">
                 Reserve sua viagem agora
               </button>
@@ -679,7 +687,7 @@ export default function App() {
                 <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Central de Ajuda</a></li>
                 <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Termos de Uso</a></li>
                 <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Privacidade</a></li>
-                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Contato</a></li>
+                <li><Link to="/contato" className="hover:text-brand-pink transition-colors">Contato</Link></li>
               </ul>
             </div>
 
@@ -1249,5 +1257,16 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/contato" element={<Contato />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
