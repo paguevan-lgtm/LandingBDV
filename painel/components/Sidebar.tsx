@@ -139,7 +139,7 @@ export const Sidebar = ({
                     </div>
                     <div className="flex flex-col">
                         <h1 className="text-xl font-bold">Bora de Van</h1>
-                        <div className="text-xs font-bold uppercase tracking-widest opacity-50">{systemContext}</div>
+                        <div className="text-xs font-bold uppercase tracking-widest opacity-50">{systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext}</div>
                     </div>
                 </div>
                 {isMobile && <button onClick={() => setMenuOpen(false)}><Icons.X /></button>}

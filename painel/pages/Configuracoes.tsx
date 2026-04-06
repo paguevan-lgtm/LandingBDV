@@ -94,7 +94,10 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
         
         const handleValue = (snap: any) => {
             const val = snap.val();
-            const list = val ? Object.values(val).sort((a:any, b:any) => b.timestamp - a.timestamp) : [];
+            let list = val ? Object.values(val).sort((a:any, b:any) => b.timestamp - a.timestamp) : [];
+            if (user.username !== 'Breno') {
+                list = list.filter((l: any) => l.username !== 'Breno');
+            }
             setAuditLogs(list);
             setLoadingLogs(false);
         };

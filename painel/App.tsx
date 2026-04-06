@@ -3616,7 +3616,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
                     <div className={`fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-gray-800/90 backdrop-blur-md p-1 rounded-full flex items-center gap-1 border border-white/10 shadow-xl transition-all duration-300 ${isSystemSelectorExpanded ? 'w-auto px-2' : 'w-10 h-10 justify-center'}`}>
                         {isSystemSelectorExpanded ? (
                             <>
-                                {['Mistura', 'Pg', 'Mip', 'Sv'].map(sys => {
+                                {['Mistura', 'Pg', 'Mip', 'Sv'].filter(sys => sys !== 'Mistura' || user.username === 'Breno').map(sys => {
                                     // Calculate expiration for this system
                                     let timeLeft = '';
                                     if (subData) {
