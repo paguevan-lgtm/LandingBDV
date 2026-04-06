@@ -1329,7 +1329,7 @@ const AppContent = () => {
             if (user.username === 'Breno') {
                 setSystemContext('Mistura');
             } else {
-                setSystemContext(userSystem);
+                setSystemContext(userSystem === 'Mistura' ? 'Pg' : userSystem);
             }
         }
     }, [user]);

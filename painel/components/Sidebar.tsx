@@ -229,7 +229,7 @@ export const Sidebar = ({
                         <img src={getAvatarUrl(user?.username || 'User')} alt="User" />
                     </div>
                     <div className="flex-1 text-left">
-                        <div className="text-sm font-bold">{user?.username}</div>
+                        <div className="text-sm font-bold">{user?.displayName || user?.username}</div>
                         <div className="text-[10px] opacity-70">{user?.role === 'admin' ? 'Coordenação' : user?.role}</div>
                         {daysRemaining !== null && (
                             <div className={`text-[9px] font-bold mt-0.5 px-1.5 py-0.5 rounded-full inline-block ${daysRemaining === 'Expirado' || daysRemaining === 'Sem Assinatura' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>

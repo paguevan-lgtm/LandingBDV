@@ -410,7 +410,7 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
             <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} stagger-in d-5`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold flex items-center gap-2"><Icons.Clipboard size={20} className="text-purple-400"/> Bloco de Notas</h3>
-                    <span className="text-xs opacity-40 uppercase font-bold tracking-widest">{user.username}</span>
+                    <span className="text-xs opacity-40 uppercase font-bold tracking-widest">{user.displayName || user.username}</span>
                 </div>
                 
                 <div className="flex gap-2 mb-4">

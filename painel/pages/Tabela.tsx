@@ -267,7 +267,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
     const onPrint = async (targetId: string, filename: string, title: string, options: any = {}) => {
         try {
             // Use user.username if available, otherwise fallback to 'Usuário'
-            const currentUserName = user?.username || 'Usuário';
+            const currentUserName = user?.displayName || user?.username || 'Usuário';
             await handlePrint(targetId, filename, title, { ...options, userName: currentUserName });
         } catch (error: any) {
             notify(error.message, 'error');

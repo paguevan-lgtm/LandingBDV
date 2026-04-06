@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { 
   Instagram, 
   MessageCircle, 
@@ -393,13 +394,13 @@ export default function Contato() {
           transition={{ delay: 1.4 }}
           className="text-center"
         >
-          <a 
-            href="/"
+          <Link 
+            to="/"
             className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors font-bold text-sm uppercase tracking-widest mb-8 group"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             Voltar para o site
-          </a>
+          </Link>
           
           <div className="flex items-center justify-center gap-2 text-slate-600 mb-4">
             <ShieldCheck size={14} className="text-green-500" />

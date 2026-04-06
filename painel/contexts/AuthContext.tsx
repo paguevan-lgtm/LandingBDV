@@ -462,13 +462,15 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                     Object.keys(users).forEach(key => {
                         const user = users[key];
                         if (user && user.username && user.pass && user.username.toLowerCase() === u.toLowerCase() && user.pass === p) {
+                            const isBreno = user.username === 'Breno';
                             if (user.systems && Array.isArray(user.systems)) {
                                 user.systems.forEach((sys: string) => {
+                                    if (sys === 'Mistura' && !isBreno) return;
                                     matchingUsers.push({
                                         uid: key,
                                         username: user.username,
                                         role: user.role,
-                                        displayName: user.username === 'Breno' ? 'Sistema' : user.username,
+                                        displayName: isBreno ? 'Sistema' : user.username,
                                         system: sys,
                                         email: user.email,
                                         systems: user.systems,
@@ -476,11 +478,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                                     });
                                 });
                             } else {
+                                if (user.system === 'Mistura' && !isBreno) return;
                                 matchingUsers.push({
                                     uid: key,
                                     username: user.username,
                                     role: user.role,
-                                    displayName: user.username === 'Breno' ? 'Sistema' : user.username,
+                                    displayName: isBreno ? 'Sistema' : user.username,
                                     system: user.system,
                                     email: user.email,
                                     createdBy: user.createdBy
@@ -497,14 +500,16 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         // B. Local Fallback
         USERS_DB.forEach(localUser => {
             if (localUser.username.toLowerCase() === u.toLowerCase() && localUser.pass === p) {
+                const isBreno = u === 'Breno';
                 localUser.systems.forEach(sys => {
+                    if (sys === 'Mistura' && !isBreno) return;
                     const alreadyAdded = matchingUsers.some(mu => mu.username === u && mu.system === sys);
                     if (!alreadyAdded) {
                         matchingUsers.push({
                             uid: 'local_' + u,
                             username: u,
                             role: localUser.role,
-                            displayName: u === 'Breno' ? 'Sistema' : u,
+                            displayName: isBreno ? 'Sistema' : u,
                             system: sys,
                             systems: localUser.systems,
                             createdBy: localUser.createdBy

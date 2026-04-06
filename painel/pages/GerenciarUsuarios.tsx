@@ -300,7 +300,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                         <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 ${u.role === 'admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
                                     </div>
                                     <div className="min-w-0">
-                                        <h4 className="font-black text-xl leading-none mb-1 truncate">{u.username}</h4>
+                                        <h4 className="font-black text-xl leading-none mb-1 truncate">{u.displayName || u.username}</h4>
                                         <p className="text-xs opacity-40 font-medium mb-2 truncate">{u.email || 'Sem e-mail cadastrado'}</p>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`text-[9px] uppercase font-black px-2.5 py-1 rounded-lg border ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>
