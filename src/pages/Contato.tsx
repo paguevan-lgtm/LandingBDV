@@ -21,6 +21,7 @@ import {
 
 export default function Contato() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [showCopyToast, setShowCopyToast] = useState(false);
 
   const contacts = [
     {
@@ -91,15 +92,11 @@ export default function Contato() {
   };
 
   const handleSaveContact = () => {
-    const vcard = "BEGIN:VCARD\nVERSION:3.0\nFN:Bora de Van\nTEL;TYPE=CELL:1334711830\nURL:https://boradevan.com.br\nEND:VCARD";
-    const blob = new Blob([vcard], { type: "text/vcard" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "BoraDeVan.vcf");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const phoneNumber = "1334711830";
+    navigator.clipboard.writeText(phoneNumber).then(() => {
+      setShowCopyToast(true);
+      setTimeout(() => setShowCopyToast(false), 4000);
+    });
   };
 
   return (
@@ -414,6 +411,21 @@ export default function Contato() {
           </p>
         </motion.div>
       </div>
+
+      {/* Copy Toast */}
+      <AnimatePresence>
+        {showCopyToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-brand-pink text-white px-6 py-3 rounded-2xl font-bold shadow-2xl shadow-brand-pink/40 flex items-center gap-3 border border-white/20"
+          >
+            <CheckCircle2 size={20} />
+            Número de telefone copiado
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
