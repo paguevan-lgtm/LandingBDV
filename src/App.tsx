@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Contato from './pages/Contato';
+import CentralAjuda from './pages/CentralAjuda';
+import TermosUso from './pages/TermosUso';
+import Privacidade from './pages/Privacidade';
 import { 
   MapPin, 
   Calendar, 
@@ -684,9 +687,9 @@ function LandingPage() {
             <div>
               <h4 className="text-xl font-bold mb-6">Suporte</h4>
               <ul className="space-y-4 text-slate-400">
-                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Central de Ajuda</a></li>
-                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Termos de Uso</a></li>
-                <li><a href="https://wa.me/551334711830" target="_blank" rel="noopener noreferrer" className="hover:text-brand-pink transition-colors">Privacidade</a></li>
+                <li><Link to="/central-ajuda" className="hover:text-brand-pink transition-colors">Central de Ajuda</Link></li>
+                <li><Link to="/termos-uso" className="hover:text-brand-pink transition-colors">Termos de Uso</Link></li>
+                <li><Link to="/privacidade" className="hover:text-brand-pink transition-colors">Privacidade</Link></li>
                 <li><Link to="/contato" className="hover:text-brand-pink transition-colors">Contato</Link></li>
               </ul>
             </div>
@@ -1278,6 +1281,9 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/contato" element={<Contato />} />
         <Route path="/Contato" element={<Contato />} />
+        <Route path="/central-ajuda" element={<CentralAjuda />} />
+        <Route path="/termos-uso" element={<TermosUso />} />
+        <Route path="/privacidade" element={<Privacidade />} />
       </Routes>
     </BrowserRouter>
   );
