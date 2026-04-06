@@ -13,13 +13,9 @@ import {
   Share2,
   CheckCircle2,
   Star,
-  Phone,
   UserPlus,
   ChevronDown,
   HelpCircle,
-  Wifi,
-  Wind,
-  Tv,
   Quote
 } from 'lucide-react';
 
@@ -69,7 +65,7 @@ export default function Contato() {
     },
     {
       q: "Como faço o pagamento?",
-      a: "Aceitamos Pix, Cartão de Crédito e Débito diretamente com o motorista ou pelo site."
+      a: "Aceitamos Pix, Cartão de Crédito e Débito diretamente com o motorista."
     }
   ];
 
@@ -82,10 +78,6 @@ export default function Contato() {
   const handleWhatsApp = (phone: string) => {
     const cleanPhone = phone.replace(/\D/g, '');
     window.open(`https://wa.me/55${cleanPhone}`, '_blank');
-  };
-
-  const handleCall = () => {
-    window.open('tel:1334711830', '_self');
   };
 
   const handleShare = () => {
@@ -157,21 +149,12 @@ export default function Contato() {
         </motion.div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 w-full mb-8">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleCall}
-            className="flex items-center justify-center gap-2 bg-slate-900/60 border border-slate-800 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg"
-          >
-            <Phone size={18} className="text-brand-purple" />
-            Ligar Agora
-          </motion.button>
+        <div className="w-full mb-8">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSaveContact}
-            className="flex items-center justify-center gap-2 bg-slate-900/60 border border-slate-800 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg"
+            className="flex items-center justify-center gap-2 bg-slate-900/60 border border-slate-800 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg w-full"
           >
             <UserPlus size={18} className="text-brand-pink" />
             Salvar Contato
@@ -215,33 +198,13 @@ export default function Contato() {
           </motion.div>
         </div>
 
-        {/* Fleet Features */}
-        <div className="w-full mb-8">
-          <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-4 rounded-3xl flex items-center justify-around">
-            <div className="flex flex-col items-center gap-1">
-              <Wind size={20} className="text-blue-400" />
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Ar Cond.</span>
-            </div>
-            <div className="w-px h-6 bg-slate-800" />
-            <div className="flex flex-col items-center gap-1">
-              <Wifi size={20} className="text-green-400" />
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Wi-Fi Grátis</span>
-            </div>
-            <div className="w-px h-6 bg-slate-800" />
-            <div className="flex flex-col items-center gap-1">
-              <Tv size={20} className="text-purple-400" />
-              <span className="text-[9px] font-bold text-slate-400 uppercase">TV/DVD</span>
-            </div>
-          </div>
-        </div>
-
         {/* Main Departure Card */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="w-full bg-gradient-to-br from-slate-900/60 to-slate-950/60 backdrop-blur-md border border-slate-800 p-5 rounded-[2rem] mb-8 flex items-center justify-between group cursor-pointer hover:border-brand-pink/30 transition-all shadow-xl"
-          onClick={() => window.open('https://maps.app.goo.gl/YourGoogleMapsLink', '_blank')}
+          onClick={() => window.open('https://maps.app.goo.gl/T64Fou8qUTKthZTeA', '_blank')}
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-brand-pink/50 transition-colors">
@@ -447,7 +410,7 @@ export default function Contato() {
           </div>
           
           <p className="text-slate-700 text-[9px] font-bold uppercase tracking-tighter">
-            © {new Date().getFullYear()} Bora de Van • CNPJ: 00.000.000/0001-00
+            © {new Date().getFullYear()} Bora de Van
           </p>
         </motion.div>
       </div>
