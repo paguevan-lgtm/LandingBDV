@@ -3553,9 +3553,14 @@ const AppContent = () => {
     };
 
     const sendBillingMessage = (trip: any) => {
+        const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
+        const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
+            ? `\n\n💰 *Dados para Pagamento (Pix)*\n👤 Nome: ${currentUserData.pixName}\n🔑 Chave: ${currentUserData.pixKey}` 
+            : '';
+
         if (trip.isExtra) {
             if (!trip.extraPhone) return notify("Motorista sem telefone", "error");
-            const msg = `Olá ${trip.driverName}, referente ao ${trip.extraType || 'Frete'} do dia ${formatDisplayDate(trip.date)} às ${trip.time}. Valor: R$ ${Number(trip.value).toFixed(2).replace('.', ',')}. Status: ${trip.isPaid ? 'PAGO' : 'PENDENTE'}.`;
+            const msg = `Olá ${trip.driverName}, referente ao ${trip.extraType || 'Frete'} do dia ${formatDisplayDate(trip.date)} às ${trip.time}. Valor: R$ ${Number(trip.value).toFixed(2).replace('.', ',')}. Status: ${trip.isPaid ? 'PAGO' : 'PENDENTE'}.${pixInfo}`;
             window.open(`https://wa.me/55${trip.extraPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
             return;
         }
@@ -3567,7 +3572,7 @@ const AppContent = () => {
         
         if (phones.length === 0) return notify("Motorista sem telefone", "error");
         
-        const msg = `Olá ${d.name}, referente à viagem #${trip.id} do dia ${formatDisplayDate(trip.date)} às ${trip.time}. Valor: R$ ${Number(trip.value).toFixed(2).replace('.', ',')}. Status: ${trip.isPaid ? 'PAGO' : 'PENDENTE'}.`;
+        const msg = `Olá ${d.name}, referente à viagem #${trip.id} do dia ${formatDisplayDate(trip.date)} às ${trip.time}. Valor: R$ ${Number(trip.value).toFixed(2).replace('.', ',')}. Status: ${trip.isPaid ? 'PAGO' : 'PENDENTE'}.${pixInfo}`;
         
         if (phones.length === 1) {
             window.open(`https://wa.me/55${phones[0].phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -3585,6 +3590,11 @@ const AppContent = () => {
     const sendPranchetaBillingMessage = (vaga: string, driverName: string, phone: string) => {
         if (!phone) return notify("Motorista sem telefone", "error");
         
+        const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
+        const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
+            ? `\n\n💰 *Dados para Pagamento (Pix)*\n👤 Nome: ${currentUserData.pixName}\n🔑 Chave: ${currentUserData.pixKey}` 
+            : '';
+
         const template = `📢 AVISO DE VENCIMENTO
 
 Olá ${driverName}, Informamos que o valor da prancheta é de R$ ${pranchetaValue}
@@ -3593,7 +3603,7 @@ Caso o pagamento não seja efetuado até sexta-feira, dentro do horário de func
 
 ⚠️ Importante: enquanto o débito não for quitado, não será possível marcar a vaga,não adiantará insistir!
 
-Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
+Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
 
         const encodedMsg = encodeURIComponent(template)
             .replace(/%F0%9F%93%A2/g, '📢')

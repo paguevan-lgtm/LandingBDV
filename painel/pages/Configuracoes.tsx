@@ -116,6 +116,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
 
     const tabs = [
         { id: 'geral', label: 'Geral', icon: Icons.Settings },
+        { id: 'pix', label: 'Pix', icon: Icons.Dollar },
         { id: 'financeiro', label: 'Financeiro', icon: Icons.Dollar },
         { id: 'sistema', label: 'Sistema & IA', icon: Icons.Stars },
         { id: 'novidades', label: 'Novidades', icon: Icons.Bell },
@@ -141,6 +142,19 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const [isVerifyingToken, setIsVerifyingToken] = useState(false);
     const [resendTimer, setResendTimer] = useState(0);
     const [isBlocked, setIsBlocked] = useState(false);
+
+    // Pix States
+    const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
+    const [pixName, setPixName] = useState(currentUserData?.pixName || '');
+    const [pixKey, setPixKey] = useState(currentUserData?.pixKey || '');
+
+    const savePixInfo = () => {
+        if (!pixName || !pixKey) return notify("Preencha o nome e a chave Pix.", "error");
+        
+        const updatedUser = { ...currentUserData, pixName, pixKey };
+        dbOp('update', 'users', updatedUser);
+        notify("Dados do Pix salvos com sucesso!", "success");
+    };
 
     // Timer effect
     useEffect(() => {
@@ -801,6 +815,45 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${siteNotificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB: PIX */}
+                {activeTab === 'pix' && (
+                    <div className="max-w-md mx-auto">
+                        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg space-y-4`}>
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                <Icons.Dollar className={theme.accent}/> Configuração do Pix
+                            </h3>
+                            <p className="text-sm opacity-60">Esses dados serão enviados automaticamente nas mensagens de cobrança.</p>
+                            
+                            <div className="space-y-4">
+                                <Input 
+                                    theme={theme} 
+                                    label="Nome do Titular" 
+                                    placeholder="Ex: João Silva" 
+                                    value={pixName} 
+                                    onChange={(e: any) => setPixName(e.target.value)} 
+                                />
+                                <Input 
+                                    theme={theme} 
+                                    label="Chave Pix" 
+                                    placeholder="CPF, E-mail, Celular ou Chave Aleatória" 
+                                    value={pixKey} 
+                                    onChange={(e: any) => setPixKey(e.target.value)} 
+                                />
+                                
+                                <Button 
+                                    theme={theme} 
+                                    onClick={savePixInfo} 
+                                    variant="primary" 
+                                    className="w-full py-4"
+                                    icon={Icons.CheckCircle}
+                                >
+                                    Salvar Dados do Pix
+                                </Button>
                             </div>
                         </div>
                     </div>
