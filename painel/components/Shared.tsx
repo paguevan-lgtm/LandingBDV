@@ -708,25 +708,60 @@ export const CommandPalette = ({ isOpen, onClose, theme, actions }: any) => {
 export const QuickCalculator = ({ isOpen, onClose, theme }: any) => {
     const [expr, setExpr] = useState('');
 
-    if (!isOpen) return null;
-
     const handleBtn = (v: string) => {
         if (v === 'C') setExpr('');
+        else if (v === 'back') setExpr(prev => prev.slice(0, -1));
         else if (v === '=') {
+            if (!expr) return;
             try {
-                // Use Function constructor instead of eval to avoid some build warnings
-                // and provide a slightly more isolated execution context.
-                const result = new Function(`return ${expr}`)();
+                // Sanitize expression: only allow numbers and operators
+                const sanitized = expr.replace(/[^-+*/.0-9]/g, '');
+                const result = new Function(`return ${sanitized}`)();
                 setExpr(result.toString());
             } catch {
                 setExpr('Erro');
             }
         } else {
-            setExpr(prev => prev + v);
+            // Prevent multiple dots in a row or multiple operators if needed
+            // For simplicity, just append
+            setExpr(prev => {
+                if (prev === 'Erro') return v;
+                return prev + v;
+            });
         }
     };
 
-    const btns = ['7','8','9','/','4','5','6','*','1','2','3','-','C','0','=','+'];
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const key = e.key;
+
+            if (/[0-9]/.test(key)) handleBtn(key);
+            else if (['+', '-', '*', '/'].includes(key)) handleBtn(key);
+            else if (key === '.' || key === ',') handleBtn('.');
+            else if (key === 'Enter') {
+                e.preventDefault();
+                handleBtn('=');
+            }
+            else if (key === 'Backspace') handleBtn('back');
+            else if (key === 'Escape') onClose();
+            else if (key.toLowerCase() === 'c') handleBtn('C');
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, expr, onClose]);
+
+    if (!isOpen) return null;
+
+    const btns = [
+        'C', '/', '*', 'back',
+        '7', '8', '9', '-',
+        '4', '5', '6', '+',
+        '1', '2', '3', '.',
+        '0', '='
+    ];
 
     return (
         <motion.div 
@@ -746,7 +781,7 @@ export const QuickCalculator = ({ isOpen, onClose, theme }: any) => {
                 </button>
             </div>
             <div 
-                className="bg-black/40 rounded-xl p-4 mb-4 text-right text-2xl font-mono overflow-x-auto whitespace-nowrap select-text cursor-default"
+                className="bg-black/40 rounded-xl p-4 mb-4 text-right text-2xl font-mono overflow-x-auto whitespace-nowrap select-text cursor-default min-h-[64px] flex items-center justify-end"
                 onPointerDown={e => e.stopPropagation()}
             >
                 {expr || '0'}
@@ -756,9 +791,15 @@ export const QuickCalculator = ({ isOpen, onClose, theme }: any) => {
                     <button 
                         key={b} 
                         onClick={() => handleBtn(b)}
-                        className={`p-4 rounded-xl font-bold text-lg hover:bg-white/10 transition-colors ${b === '=' ? 'bg-amber-600 text-white col-span-1' : 'bg-white/5'}`}
+                        className={`p-4 rounded-xl font-bold text-lg hover:bg-white/10 transition-colors flex items-center justify-center ${
+                            b === '=' ? 'bg-amber-600 text-white col-span-3' : 'bg-white/5'
+                        } ${
+                            b === 'C' ? 'text-red-400' : 
+                            b === 'back' ? 'text-amber-400' : 
+                            ''
+                        }`}
                     >
-                        {b}
+                        {b === 'back' ? <Icons.Back size={18} /> : b}
                     </button>
                 ))}
             </div>

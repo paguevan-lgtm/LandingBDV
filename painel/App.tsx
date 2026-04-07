@@ -2963,11 +2963,6 @@ const AppContent = () => {
 
         const driverCapacity = driverObj.capacity ? parseInt(driverObj.capacity, 10) : 15;
 
-        if (formData.isMadrugada) {
-             setSuggestedTrip({ driver: driverObj, time: formData.time, passengers: [], occupancy: 0, date: formData.date || getTodayDate() });
-             return;
-        }
-        
         const time = formData.time;
         if (!time) return notify("Selecione um horário", "error");
 
@@ -2999,7 +2994,7 @@ const AppContent = () => {
             return h * 60 + m;
         };
 
-        const tripTimeMins = timeToMinutes(tripTime);
+        const tripTimeMins = tripTime.includes('/') ? -1 : timeToMinutes(tripTime);
         // Se for MIP e viagem temporária (ou nova), aplica intervalo de 30 min. 
         // Se não, busca exata.
         // O usuário disse "As viagens temporárias na MIP somente devem aparecer com horario de x + 30"
@@ -3007,7 +3002,17 @@ const AppContent = () => {
         const isMipContext = systemContext === 'Mip';
         
         const isTimeMatch = (pTime: string) => {
+            if (!pTime) return false;
             const pTimeMins = timeToMinutes(pTime);
+
+            // Se o horário da viagem for um intervalo (ex: 04:00/04:45)
+            if (tripTime.includes('/')) {
+                const [start, end] = tripTime.split('/');
+                const startMins = timeToMinutes(start);
+                const endMins = timeToMinutes(end);
+                return pTimeMins >= startMins && pTimeMins <= endMins;
+            }
+
             if (isMipContext) {
                 // Intervalo [tripTime, tripTime + 30]
                 return pTimeMins >= tripTimeMins && pTimeMins <= (tripTimeMins + 30);
@@ -3089,6 +3094,12 @@ const AppContent = () => {
             notify(`${selectedPassengers.length} grupos adicionados.`, "success");
         }
     };
+
+    useEffect(() => {
+        if (modal === 'trip' && formData.isMadrugada && formData.time && formData.driverId && !editingTripId && !suggestedTrip) {
+            simulate();
+        }
+    }, [formData.time, formData.isMadrugada, formData.driverId, formData.date, modal, editingTripId, suggestedTrip]);
     
     const addById = () => {
         if (!searchId || !suggestedTrip) return;

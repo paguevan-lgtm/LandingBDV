@@ -30,6 +30,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
         currentExpiration: null
     });
     const [securityTab, setSecurityTab] = useState('timeline'); // timeline | blocked
+    const [financeiroTab, setFinanceiroTab] = useState('cobranca'); // cobranca | pix
     const [activeTab, setActiveTab] = useState('geral');
     const [selectedLog, setSelectedLog] = useState<any>(null);
     const [trustedDevices, setTrustedDevices] = useState<any>({});
@@ -116,7 +117,6 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
 
     const tabs = [
         { id: 'geral', label: 'Geral', icon: Icons.Settings },
-        { id: 'pix', label: 'Pix', icon: Icons.Dollar },
         { id: 'financeiro', label: 'Financeiro', icon: Icons.Dollar },
         { id: 'sistema', label: 'Sistema & IA', icon: Icons.Stars },
         { id: 'novidades', label: 'Novidades', icon: Icons.Bell },
@@ -820,45 +820,6 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                     </div>
                 )}
 
-                {/* TAB: PIX */}
-                {activeTab === 'pix' && (
-                    <div className="max-w-md mx-auto">
-                        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg space-y-4`}>
-                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                <Icons.Dollar className={theme.accent}/> Configuração do Pix
-                            </h3>
-                            <p className="text-sm opacity-60">Esses dados serão enviados automaticamente nas mensagens de cobrança.</p>
-                            
-                            <div className="space-y-4">
-                                <Input 
-                                    theme={theme} 
-                                    label="Nome do Titular" 
-                                    placeholder="Ex: João Silva" 
-                                    value={pixName} 
-                                    onChange={(e: any) => setPixName(e.target.value)} 
-                                />
-                                <Input 
-                                    theme={theme} 
-                                    label="Chave Pix" 
-                                    placeholder="CPF, E-mail, Celular ou Chave Aleatória" 
-                                    value={pixKey} 
-                                    onChange={(e: any) => setPixKey(e.target.value)} 
-                                />
-                                
-                                <Button 
-                                    theme={theme} 
-                                    onClick={savePixInfo} 
-                                    variant="primary" 
-                                    className="w-full py-4"
-                                    icon={Icons.CheckCircle}
-                                >
-                                    Salvar Dados do Pix
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* TAB: SEGURANÇA */}
                 {activeTab === 'seguranca' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -964,35 +925,87 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
 
                 {/* TAB: FINANCEIRO */}
                 {activeTab === 'financeiro' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* CONFIGURAÇÃO DE COBRANÇA */}
-                        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg`}>
-                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                <Icons.Dollar className={theme.accent}/> Valores de Cobrança
-                            </h3>
-                            <div className="space-y-3">
-                                <p className="text-sm opacity-70">Defina o valor padrão por passageiro para o sistema atual.</p>
-                                
-                                {isSuperAdmin ? (
-                                    <div className="space-y-4">
-                                        {['Pg', 'Mip', 'Sv'].map(sys => (
-                                            <div key={sys} className="space-y-3">
+                    <div className="space-y-6">
+                        {/* Sub-tabs switcher */}
+                        <div className="flex items-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/10 w-fit mx-auto md:mx-0">
+                            <button 
+                                onClick={() => setFinanceiroTab('cobranca')}
+                                className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${financeiroTab === 'cobranca' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'opacity-40 hover:opacity-100'}`}
+                            >
+                                Cobrança
+                            </button>
+                            <button 
+                                onClick={() => setFinanceiroTab('pix')}
+                                className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${financeiroTab === 'pix' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'opacity-40 hover:opacity-100'}`}
+                            >
+                                Pix
+                            </button>
+                        </div>
+
+                        {financeiroTab === 'cobranca' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* CONFIGURAÇÃO DE COBRANÇA */}
+                                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg`}>
+                                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                        <Icons.Dollar className={theme.accent}/> Valores de Cobrança
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <p className="text-sm opacity-70">Defina o valor padrão por passageiro para o sistema atual.</p>
+                                        
+                                        {isSuperAdmin ? (
+                                            <div className="space-y-4">
+                                                {['Pg', 'Mip', 'Sv'].map(sys => (
+                                                    <div key={sys} className="space-y-3">
+                                                        <div className="flex flex-col gap-1">
+                                                            <label className="text-xs font-bold uppercase opacity-60">{sys} - Passageiro</label>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-lg font-bold">R$</span>
+                                                                <Input 
+                                                                    theme={theme} 
+                                                                    type="number"
+                                                                    placeholder="4.00"
+                                                                    value={prices[sys] === 0 ? '' : (prices[sys] || 4)}
+                                                                    onChange={(e: any) => updatePrice(sys, Number(e.target.value))}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        {sys === 'Pg' && (
+                                                            <div className="flex flex-col gap-1">
+                                                                <label className="text-xs font-bold uppercase opacity-60">{sys} - Prancheta</label>
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-lg font-bold">R$</span>
+                                                                    <Input 
+                                                                        theme={theme} 
+                                                                        type="number"
+                                                                        placeholder="20.00"
+                                                                        value={pranchetaValue === 0 ? '' : pranchetaValue}
+                                                                        onChange={(e: any) => setPranchetaValue(Number(e.target.value))}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
                                                 <div className="flex flex-col gap-1">
-                                                    <label className="text-xs font-bold uppercase opacity-60">{sys} - Passageiro</label>
+                                                    <label className="text-xs font-bold uppercase opacity-60">Valor por Passageiro</label>
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-lg font-bold">R$</span>
                                                         <Input 
                                                             theme={theme} 
                                                             type="number"
                                                             placeholder="4.00"
-                                                            value={prices[sys] === 0 ? '' : (prices[sys] || 4)}
-                                                            onChange={(e: any) => updatePrice(sys, Number(e.target.value))}
+                                                            value={data.pricePerPassenger === 0 ? '' : (data.pricePerPassenger || 4)}
+                                                            onChange={(e: any) => updatePrice(systemContext, Number(e.target.value))}
                                                         />
                                                     </div>
                                                 </div>
-                                                {sys === 'Pg' && (
+
+                                                {systemContext === 'Pg' && (
                                                     <div className="flex flex-col gap-1">
-                                                        <label className="text-xs font-bold uppercase opacity-60">{sys} - Prancheta</label>
+                                                        <label className="text-xs font-bold uppercase opacity-60">Valor da Prancheta</label>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-lg font-bold">R$</span>
                                                             <Input 
@@ -1006,95 +1019,99 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                     </div>
                                                 )}
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs font-bold uppercase opacity-60">Valor por Passageiro</label>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-lg font-bold">R$</span>
-                                                <Input 
-                                                    theme={theme} 
-                                                    type="number"
-                                                    placeholder="4.00"
-                                                    value={data.pricePerPassenger === 0 ? '' : (data.pricePerPassenger || 4)}
-                                                    onChange={(e: any) => updatePrice(systemContext, Number(e.target.value))}
-                                                />
-                                            </div>
-                                        </div>
+                                </div>
 
-                                        {systemContext === 'Pg' && (
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-xs font-bold uppercase opacity-60">Valor da Prancheta</label>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-lg font-bold">R$</span>
-                                                    <Input 
-                                                        theme={theme} 
-                                                        type="number"
-                                                        placeholder="20.00"
-                                                        value={pranchetaValue === 0 ? '' : pranchetaValue}
-                                                        onChange={(e: any) => setPranchetaValue(Number(e.target.value))}
-                                                    />
+                                {/* ASSINATURA */}
+                                {!isSuperAdmin && (
+                                    <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg`}>
+                                        <h3 className={`font-bold text-lg mb-4 flex items-center gap-2 ${theme.accent}`}>
+                                            <Icons.CreditCard className={theme.accent}/> Plano e Assinatura
+                                        </h3>
+                                        
+                                        <div className={`${theme.inner} p-4 rounded-xl border ${theme.divider} mb-4`}>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <h4 className={`font-bold text-sm ${theme.text}`}>Sistema {systemContext}</h4>
+                                                    <p className="text-[10px] opacity-60">Status da conta</p>
+                                                </div>
+                                                <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${daysRemaining === 'Expirado' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                    {daysRemaining === 'Expirado' ? 'Expirado' : 'Ativo'}
                                                 </div>
                                             </div>
-                                        )}
+                                            <div className={`text-sm font-bold ${theme.text} opacity-90`}>{daysRemaining}</div>
+                                        </div>
+
+                                        <div className={`flex items-center justify-between ${theme.inner} p-3 rounded-xl border ${theme.divider}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-lg ${ isRecurringActive ? 'bg-purple-500/20 text-purple-400' : 'opacity-30' }`}>
+                                                    <Icons.Refresh size={18} className={isRecurringActive ? 'animate-spin-slow' : ''} />
+                                                </div>
+                                                <div>
+                                                    <div className={`text-sm font-bold ${theme.text}`}>Renovação Automática</div>
+                                                    <div className="text-[10px] opacity-60">Cobrança mensal recorrente</div>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    if (isSuperAdmin && !isRecurringActive) {
+                                                        triggerEarlyRenewal();
+                                                    } else {
+                                                        if (!isRecurringActive) notify("Para ativar, use a tela de bloqueio ou aguarde o vencimento.", "warning");
+                                                        else if (db) {
+                                                            requestConfirm("Desativar Renovação?", "Você terá que renovar manualmente.", () => {
+                                                                const updates: any = {};
+                                                                updates[`isRecurring_${systemContext}`] = false;
+                                                                db.ref('system_settings/subscription').update(updates);
+                                                                notify("Renovação Automática Desativada", 'success');
+                                                            });
+                                                        }
+                                                    }
+                                                }}
+                                                disabled={!isSuperAdmin}
+                                                className={`w-10 h-5 rounded-full transition-colors relative ${!isSuperAdmin ? 'bg-gray-500 opacity-50 cursor-not-allowed' : (isRecurringActive ? 'bg-purple-600' : 'bg-white/10')}`}
+                                            >
+                                                <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${ isRecurringActive ? 'left-6' : 'left-1' }`}></div>
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>
-                        </div>
-
-                        {/* ASSINATURA */}
-                        {!isSuperAdmin && (
-                            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg`}>
-                                <h3 className={`font-bold text-lg mb-4 flex items-center gap-2 ${theme.accent}`}>
-                                    <Icons.CreditCard className={theme.accent}/> Plano e Assinatura
-                                </h3>
-                                
-                                <div className={`${theme.inner} p-4 rounded-xl border ${theme.divider} mb-4`}>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <h4 className={`font-bold text-sm ${theme.text}`}>Sistema {systemContext}</h4>
-                                            <p className="text-[10px] opacity-60">Status da conta</p>
-                                        </div>
-                                        <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${daysRemaining === 'Expirado' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                                            {daysRemaining === 'Expirado' ? 'Expirado' : 'Ativo'}
-                                        </div>
+                        ) : (
+                            <div className="max-w-md mx-auto">
+                                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg space-y-4`}>
+                                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                        <Icons.Dollar className={theme.accent}/> Configuração do Pix
+                                    </h3>
+                                    <p className="text-sm opacity-60">Esses dados serão enviados automaticamente nas mensagens de cobrança.</p>
+                                    
+                                    <div className="space-y-4">
+                                        <Input 
+                                            theme={theme} 
+                                            label="Nome do Titular" 
+                                            placeholder="Ex: João Silva" 
+                                            value={pixName} 
+                                            onChange={(e: any) => setPixName(e.target.value)} 
+                                        />
+                                        <Input 
+                                            theme={theme} 
+                                            label="Chave Pix" 
+                                            placeholder="CPF, E-mail, Celular ou Chave Aleatória" 
+                                            value={pixKey} 
+                                            onChange={(e: any) => setPixKey(e.target.value)} 
+                                        />
+                                        
+                                        <Button 
+                                            theme={theme} 
+                                            onClick={savePixInfo} 
+                                            variant="primary" 
+                                            className="w-full py-4"
+                                            icon={Icons.CheckCircle}
+                                        >
+                                            Salvar Dados do Pix
+                                        </Button>
                                     </div>
-                                    <div className={`text-sm font-bold ${theme.text} opacity-90`}>{daysRemaining}</div>
-                                </div>
-
-                                <div className={`flex items-center justify-between ${theme.inner} p-3 rounded-xl border ${theme.divider}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${ isRecurringActive ? 'bg-purple-500/20 text-purple-400' : 'opacity-30' }`}>
-                                            <Icons.Refresh size={18} className={isRecurringActive ? 'animate-spin-slow' : ''} />
-                                        </div>
-                                        <div>
-                                            <div className={`text-sm font-bold ${theme.text}`}>Renovação Automática</div>
-                                            <div className="text-[10px] opacity-60">Cobrança mensal recorrente</div>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => {
-                                            if (isSuperAdmin && !isRecurringActive) {
-                                                triggerEarlyRenewal();
-                                            } else {
-                                                if (!isRecurringActive) notify("Para ativar, use a tela de bloqueio ou aguarde o vencimento.", "warning");
-                                                else if (db) {
-                                                    requestConfirm("Desativar Renovação?", "Você terá que renovar manualmente.", () => {
-                                                        const updates: any = {};
-                                                        updates[`isRecurring_${systemContext}`] = false;
-                                                        db.ref('system_settings/subscription').update(updates);
-                                                        notify("Renovação Automática Desativada", 'success');
-                                                    });
-                                                }
-                                            }
-                                        }}
-                                        disabled={!isSuperAdmin}
-                                        className={`w-10 h-5 rounded-full transition-colors relative ${!isSuperAdmin ? 'bg-gray-500 opacity-50 cursor-not-allowed' : (isRecurringActive ? 'bg-purple-600' : 'bg-white/10')}`}
-                                    >
-                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${ isRecurringActive ? 'left-6' : 'left-1' }`}></div>
-                                    </button>
                                 </div>
                             </div>
                         )}
