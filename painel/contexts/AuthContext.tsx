@@ -113,7 +113,28 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             parsed.lastActivity = now;
             localStorage.setItem('nexflow_session', JSON.stringify(parsed));
         }
+
+        // Atualizar presença no Firebase
+        if (db) {
+            const presenceRef = db.ref(`presence/${user.uid}`);
+            presenceRef.update({
+                lastActivity: now,
+                username: user.username,
+                system: user.system,
+                loginTime: JSON.parse(localStorage.getItem('nexflow_session') || '{}').loginTime || now
+            });
+        }
     };
+
+    // Presence Cleanup on Disconnect
+    useEffect(() => {
+        if (!user || !db) return;
+        const presenceRef = db.ref(`presence/${user.uid}`);
+        presenceRef.onDisconnect().remove();
+        
+        // Initial presence update
+        updateActivity();
+    }, [user, db]);
 
     // Timer de verificação forçada (sem refresh)
     useEffect(() => {

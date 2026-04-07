@@ -553,6 +553,44 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
 
     const [prices, setPrices] = useState<any>({ Pg: 4, Mip: 4, Sv: 4 });
     const [blocks, setBlocks] = useState<any>({ Pg: false, Mip: false, Sv: false });
+    const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!db || !isSuperAdmin) return;
+        const presenceRef = db.ref('presence');
+
+        // Auto-cleanup stale presence data (older than 1 hour)
+        presenceRef.once('value').then(snap => {
+            const val = snap.val();
+            if (val) {
+                const now = Date.now();
+                const updates: any = {};
+                Object.keys(val).forEach(key => {
+                    if (now - val[key].lastActivity > 3600000) { // 1 hour
+                        updates[key] = null;
+                    }
+                });
+                if (Object.keys(updates).length > 0) {
+                    presenceRef.update(updates);
+                }
+            }
+        });
+
+        const callback = presenceRef.on('value', (snap) => {
+            const val = snap.val();
+            if (val) {
+                const now = Date.now();
+                const list = Object.values(val).filter((u: any) => {
+                    // Consider online if active in last 5 minutes
+                    return (now - u.lastActivity) < (5 * 60 * 1000);
+                });
+                setOnlineUsers(list);
+            } else {
+                setOnlineUsers([]);
+            }
+        });
+        return () => presenceRef.off('value', callback);
+    }, [isSuperAdmin, db]);
 
     useEffect(() => {
         if (!db) return;
@@ -1232,6 +1270,8 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         }
                                     }
                                     const isBlocked = blocks[sys];
+                                    const onlineInSystem = onlineUsers.filter(u => u.system === sys);
+
                                     return (
                                         <div key={sys} className={`${theme.inner} p-4 rounded-2xl border ${theme.divider} flex flex-col gap-4`}>
                                             <div className="flex justify-between items-start">
@@ -1241,6 +1281,32 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                 </span>
                                             </div>
                                             <div className="text-xs opacity-50">Expira em: <span className={`${theme.text} opacity-100`}>{statusText}</span></div>
+                                            
+                                            {/* Online Users Section */}
+                                            {onlineInSystem.length > 0 && (
+                                                <div className="mt-2 space-y-2">
+                                                    <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider opacity-40">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                                        Online ({onlineInSystem.length})
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        {onlineInSystem.map((u, idx) => {
+                                                            const sessionTime = Math.floor((Date.now() - u.loginTime) / 60000);
+                                                            const hours = Math.floor(sessionTime / 60);
+                                                            const mins = sessionTime % 60;
+                                                            const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                                                            
+                                                            return (
+                                                                <div key={idx} className="flex items-center justify-between bg-black/10 p-2 rounded-lg border border-white/5">
+                                                                    <span className="text-[10px] font-bold truncate max-w-[80px]">{u.username}</span>
+                                                                    <span className="text-[9px] opacity-40 font-mono">{timeStr}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="flex gap-2">
                                                 <IconButton theme={theme} onClick={() => setEditExpModal({ isOpen: true, system: sys, currentExpiration: expiresAtStr })} icon={Icons.Calendar} className="flex-1" />
                                                 <button 
