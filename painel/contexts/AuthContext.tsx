@@ -195,6 +195,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
     // 2. Função de Login (DB First, Fallback to Constant)
     const login = async (u: string, p: string, coords: any, system?: string): Promise<boolean> => {
+        const usernameTrimmed = u.trim();
         try {
             // --- GATHER DEVICE AND LOCATION INFO ---
             const deviceId = await getDeviceFingerprint();
@@ -226,7 +227,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         }
 
                         // Check Same Username
-                        const isSameUser = blocked.username && blocked.username.toLowerCase() === u.toLowerCase();
+                        const isSameUser = blocked.username && blocked.username.toLowerCase() === usernameTrimmed.toLowerCase();
 
                         // Check Similarity: Same GPU, Same OS, Same City, Distance
                         const isSameGpu = blocked.deviceInfo?.gpu && blocked.deviceInfo.gpu === currentDeviceInfo.gpu && currentDeviceInfo.gpu !== 'Unknown GPU';
@@ -296,7 +297,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         const matchingUsers: any[] = [];
                         
                         allUsers.forEach(user => {
-                            if (user && user.username && user.pass && user.username.toLowerCase() === u.toLowerCase() && user.pass === p) {
+                            if (user && user.username && user.pass && user.username.toLowerCase() === usernameTrimmed.toLowerCase() && user.pass === p) {
                                 if (user.systems && Array.isArray(user.systems)) {
                                     user.systems.forEach((sys: string) => {
                                         matchingUsers.push({ ...user, system: sys });
@@ -335,20 +336,20 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             // B. Fallback para USERS_DB (Constante Local) se não achou no DB
             if (!userData) {
                 const localUser = USERS_DB.find(u_item => 
-                    u_item.username.toLowerCase() === u.toLowerCase() && 
+                    u_item.username.toLowerCase() === usernameTrimmed.toLowerCase() && 
                     u_item.pass === p &&
                     (!system || u_item.systems.includes(system))
                 );
                 if (localUser) {
                     userData = { 
-                        uid: 'local_' + u,
-                        username: u, 
+                        uid: 'local_' + usernameTrimmed,
+                        username: usernameTrimmed, 
                         role: localUser.role, 
-                        displayName: u === 'Breno' ? 'Sistema' : u,
+                        displayName: usernameTrimmed === 'Breno' ? 'Sistema' : usernameTrimmed,
                         system: system || localUser.systems[0],
                         systems: localUser.systems,
                         createdBy: localUser.createdBy,
-                        email: u === 'Breno' ? 'brenoxt2003@gmail.com' : localUser.email
+                        email: usernameTrimmed === 'Breno' ? 'brenoxt2003@gmail.com' : localUser.email
                     };
                 }
             }
@@ -451,6 +452,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     };
 
     const findUsersByCredentials = async (u: string, p: string): Promise<User[]> => {
+        const usernameTrimmed = u.trim();
         const matchingUsers: User[] = [];
 
         // A. Firebase
@@ -461,7 +463,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                 if (users) {
                     Object.keys(users).forEach(key => {
                         const user = users[key];
-                        if (user && user.username && user.pass && user.username.toLowerCase() === u.toLowerCase() && user.pass === p) {
+                        if (user && user.username && user.pass && user.username.toLowerCase() === usernameTrimmed.toLowerCase() && user.pass === p) {
                             const isBreno = user.username === 'Breno';
                             if (user.systems && Array.isArray(user.systems)) {
                                 user.systems.forEach((sys: string) => {
@@ -499,17 +501,17 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
         // B. Local Fallback
         USERS_DB.forEach(localUser => {
-            if (localUser.username.toLowerCase() === u.toLowerCase() && localUser.pass === p) {
-                const isBreno = u === 'Breno';
+            if (localUser.username.toLowerCase() === usernameTrimmed.toLowerCase() && localUser.pass === p) {
+                const isBreno = usernameTrimmed === 'Breno';
                 localUser.systems.forEach(sys => {
                     if (sys === 'Mistura' && !isBreno) return;
-                    const alreadyAdded = matchingUsers.some(mu => mu.username === u && mu.system === sys);
+                    const alreadyAdded = matchingUsers.some(mu => mu.username === usernameTrimmed && mu.system === sys);
                     if (!alreadyAdded) {
                         matchingUsers.push({
-                            uid: 'local_' + u,
-                            username: u,
+                            uid: 'local_' + usernameTrimmed,
+                            username: usernameTrimmed,
                             role: localUser.role,
-                            displayName: isBreno ? 'Sistema' : u,
+                            displayName: isBreno ? 'Sistema' : usernameTrimmed,
                             system: sys,
                             systems: localUser.systems,
                             createdBy: localUser.createdBy

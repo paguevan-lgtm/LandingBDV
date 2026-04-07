@@ -3092,42 +3092,67 @@ const AppContent = () => {
     
     const addById = () => {
         if (!searchId || !suggestedTrip) return;
-        const normalizedSearchId = searchId.replace(/ /g, '').replace('#', '_').toUpperCase();
-        const p = data.passengers.find((x:any) => x.id === searchId || x.realId === searchId || String(x.id).toUpperCase() === normalizedSearchId || String(x.realId).toUpperCase() === normalizedSearchId);
-        if (!p) return notify("Passageiro não encontrado", "error");
         
-        if (p.status === 'Bloqueado') {
-            return notify(`Passageiro BLOQUEADO! Motivo: ${p.blockReason || 'Não informado'}`, "error");
+        const identifiers = searchId.split(',').map(s => s.trim()).filter(Boolean);
+        let currentTrip = { ...suggestedTrip };
+        let addedCount = 0;
+
+        for (const idOrName of identifiers) {
+            const normalizedId = idOrName.replace(/ /g, '').replace('#', '_').toUpperCase();
+            const p = data.passengers.find((x:any) => 
+                String(x.id) === idOrName || 
+                String(x.realId) === idOrName || 
+                String(x.id).toUpperCase() === normalizedId || 
+                String(x.realId).toUpperCase() === normalizedId ||
+                x.name.toLowerCase() === idOrName.toLowerCase()
+            );
+
+            if (!p) {
+                notify(`Passageiro "${idOrName}" não encontrado`, "error");
+                continue;
+            }
+            
+            if (p.status === 'Bloqueado') {
+                notify(`Passageiro BLOQUEADO: ${p.name}. Motivo: ${p.blockReason || 'Não informado'}`, "error");
+                continue;
+            }
+
+            const pId = p.realId || p.id;
+            if (currentTrip.passengers.some((x:any) => (x.realId || x.id) === pId)) {
+                notify(`${p.name} já está na lista atual`, "info");
+                continue;
+            }
+            
+            const paxCount = parseInt(p.passengerCount || 1, 10);
+            const currentCap = currentTrip.driver.capacity ? parseInt(currentTrip.driver.capacity, 10) : 15;
+
+            // Check overlap at same time
+            const isOccupiedSameTime = data.trips.some((t:any) => 
+                t.date === currentTrip.date && 
+                t.status !== 'Cancelada' && 
+                t.time === currentTrip.time &&
+                t.passengerIds && 
+                t.passengerIds.includes(pId)
+            );
+
+            if (isOccupiedSameTime) {
+                notify(`Aviso: ${p.name} já está em outra viagem neste mesmo horário!`, "info");
+            }
+            
+            if (currentTrip.occupancy + paxCount > currentCap) {
+                notify(`Capacidade excedida para ${p.name}! Restam ${currentCap - currentTrip.occupancy} lugares.`, "error");
+                continue;
+            }
+
+            currentTrip.passengers = [...currentTrip.passengers, p].sort((a,b)=>getBairroIdx(a.neighborhood)-getBairroIdx(b.neighborhood));
+            currentTrip.occupancy += paxCount;
+            addedCount++;
         }
 
-        const pId = p.realId || p.id;
-        if (suggestedTrip.passengers.some((x:any) => (x.realId || x.id) === pId)) return notify("Já está na lista atual", "info");
-        
-        const paxCount = parseInt(p.passengerCount || 1, 10);
-        const currentCap = suggestedTrip.driver.capacity ? parseInt(suggestedTrip.driver.capacity, 10) : 15;
-
-        // Check overlap at same time
-        const isOccupiedSameTime = data.trips.some((t:any) => 
-            t.date === suggestedTrip.date && 
-            t.status !== 'Cancelada' && 
-            t.time === suggestedTrip.time &&
-            t.passengerIds && 
-            t.passengerIds.includes(pId)
-        );
-
-        if (isOccupiedSameTime) {
-            notify(`Aviso: Passageiro já está em outra viagem neste mesmo horário!`, "info");
+        if (addedCount > 0) {
+            setSuggestedTrip(currentTrip);
+            setSearchId('');
         }
-        
-        if (suggestedTrip.occupancy + paxCount > currentCap) {
-            return notify(`Capacidade excedida! Restam ${currentCap - suggestedTrip.occupancy} lugares.`, "error");
-        }
-
-        const newPassList = [...suggestedTrip.passengers, p].sort((a,b)=>getBairroIdx(a.neighborhood)-getBairroIdx(b.neighborhood));
-        const newOcc = suggestedTrip.occupancy + paxCount;
-        
-        setSuggestedTrip({ ...suggestedTrip, passengers: newPassList, occupancy: newOcc });
-        setSearchId('');
     };
     
     const autoFill = () => { simulate(); };
@@ -3605,12 +3630,6 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!`;
             <div className={`h-[100dvh] w-full overflow-hidden ${theme.bg} ${theme.text} font-sans flex`} 
                  onTouchStart={handleGlobalTouchStart} 
                  onTouchEnd={handleGlobalTouchEnd}
-                 onContextMenu={(e) => { 
-                     if (window.matchMedia('(pointer: fine)').matches) {
-                         e.preventDefault(); 
-                         setCmdOpen(true); 
-                     }
-                 }} // ACESSO RÁPIDO (BOTÃO DIREITO)
             >
                  {user && user.username === 'Breno' && (
                     <div className={`fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-gray-800/90 backdrop-blur-md p-1 rounded-full flex items-center gap-1 border border-white/10 shadow-xl transition-all duration-300 ${isSystemSelectorExpanded ? 'w-auto px-2' : 'w-10 h-10 justify-center'}`}>

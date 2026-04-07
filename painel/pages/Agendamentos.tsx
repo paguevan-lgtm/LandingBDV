@@ -22,6 +22,12 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
         notify("Resumo do dia copiado!", "success");
     };
 
+    const copyPassengerData = (p: any) => {
+        const text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📍 Bairro: ${p.neighborhood}\n⏰ Horário: ${formatTime(p.time)}\n👥 Passageiros: ${p.passengerCount}\n🎒 Malas: ${p.luggageCount || 0}${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n📱 Telefone: ${p.phone || 'Não informado'}`;
+        navigator.clipboard.writeText(text);
+        notify("Dados do passageiro copiados!", "success");
+    };
+
     const handleCreateTripFromPass = (p: any) => {
         setFormData({ driverId: '', time: p.time, date: p.date });
         setSuggestedTrip({ driver: { name: 'Selecione', capacity: 0, id: '' }, time: p.time, passengers: [p], occupancy: parseInt(p.passengerCount || 1), date: p.date });
@@ -210,6 +216,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                 </div>
                                             </div>
                                             <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
+                                                <button onClick={() => copyPassengerData(p)} className="flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> Copiar</button>
                                                 <button onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Message size={16}/> WhatsApp</button>
                                                 <button onClick={() => handleCreateTripFromPass(p)} className="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Plus size={16}/> Criar Viagem</button>
                                             </div>

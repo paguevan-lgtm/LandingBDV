@@ -50,7 +50,6 @@ const SortableMenuItem = ({ item, isMobile, view, setView, setMenuOpen, theme }:
             ref={setNodeRef} 
             style={style}
             className="relative rounded-xl mb-1 group cursor-grab active:cursor-grabbing select-none"
-            onContextMenu={(e) => e.preventDefault()}
             {...attributes}
             {...listeners}
         >

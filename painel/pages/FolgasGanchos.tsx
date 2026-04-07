@@ -48,7 +48,6 @@ function SortableVaga({ vaga, isSwapped, theme }: any) {
         <div
             ref={setNodeRef}
             style={style}
-            onContextMenu={(e) => e.preventDefault()}
             {...attributes}
             {...listeners}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-grab active:cursor-grabbing select-none transition-colors ${

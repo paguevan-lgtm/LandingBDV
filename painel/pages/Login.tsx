@@ -108,12 +108,13 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     };
 
     const handlePreLogin = async () => {
-        if(!username || !password) return notify("Preencha usuário e senha", "error");
+        const trimmedUsername = username.trim();
+        if(!trimmedUsername || !password) return notify("Preencha usuário e senha", "error");
         
         setLoading(true);
         
         try {
-            const users = await findUsersByCredentials(username, password);
+            const users = await findUsersByCredentials(trimmedUsername, password);
             
             if (users.length === 0) {
                 setLoading(false);
@@ -237,7 +238,8 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     };
 
     const handleForgotPasswordSearch = async () => {
-        if (!forgotPasswordInput) return notify("Preencha o usuário ou email", "error");
+        const trimmedInput = forgotPasswordInput.trim();
+        if (!trimmedInput) return notify("Preencha o usuário ou email", "error");
         setLoading(true);
         try {
             let foundUser = null;
@@ -255,7 +257,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                             continue;
                         }
 
-                        if (u.username?.toLowerCase() === forgotPasswordInput.toLowerCase() || u.email?.toLowerCase() === forgotPasswordInput.toLowerCase()) {
+                        if (u.username?.toLowerCase() === trimmedInput.toLowerCase() || u.email?.toLowerCase() === trimmedInput.toLowerCase()) {
                             foundUser = { ...u, uid: key };
                             targetEmail = u.email;
                             break;
@@ -270,7 +272,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'brenoxt2003@gmail.com') {
                         continue;
                     }
-                    if (u.username?.toLowerCase() === forgotPasswordInput.toLowerCase() || u.email?.toLowerCase() === forgotPasswordInput.toLowerCase()) {
+                    if (u.username?.toLowerCase() === trimmedInput.toLowerCase() || u.email?.toLowerCase() === trimmedInput.toLowerCase()) {
                         foundUser = { ...u, uid: 'local_' + u.username };
                         targetEmail = u.email;
                         break;
@@ -387,7 +389,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         setIsZooming(true); 
 
         setTimeout(async () => {
-            await login(username, password, coords, system || selectedSystem || undefined);
+            await login(username.trim(), password, coords, system || selectedSystem || undefined);
         }, 1200); 
     };
 

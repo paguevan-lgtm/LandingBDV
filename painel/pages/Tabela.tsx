@@ -50,7 +50,6 @@ const SortableRow = ({ id, children, disabled, hideGrip }: any) => {
             ref={setNodeRef} 
             style={style} 
             className="relative group cursor-grab active:cursor-grabbing select-none" 
-            onContextMenu={(e) => e.preventDefault()}
             {...attributes} 
             {...listeners}
         >
