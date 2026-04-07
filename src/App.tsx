@@ -912,19 +912,20 @@ function LandingPage() {
 
                 <div>
                   <label className={`block text-sm font-bold mb-2 ${formErrors.includes('paymentMethod') ? 'text-red-400' : 'text-slate-400'}`}>Forma de Pagamento</label>
-                  <select 
+                  <CustomSelect 
+                    options={[
+                      { value: 'Dinheiro', label: 'Dinheiro' },
+                      { value: 'Pix', label: 'Pix' },
+                      { value: 'Cartão', label: 'Cartão' }
+                    ]}
                     value={formData.paymentMethod}
-                    onChange={(e) => {
-                      setFormData({...formData, paymentMethod: e.target.value});
+                    onChange={(value) => {
+                      setFormData({...formData, paymentMethod: value});
                       setFormErrors(prev => prev.filter(err => err !== 'paymentMethod'));
                     }}
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-brand-purple/50 outline-none transition-all appearance-none ${formErrors.includes('paymentMethod') ? 'border-red-500/50' : 'border-slate-800'}`}
-                  >
-                    <option value="" disabled>Selecione uma forma de pagamento</option>
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="Pix">Pix</option>
-                    <option value="Cartão">Cartão</option>
-                  </select>
+                    placeholder="Selecione uma forma de pagamento"
+                    error={formErrors.includes('paymentMethod')}
+                  />
                 </div>
 
                 <div>

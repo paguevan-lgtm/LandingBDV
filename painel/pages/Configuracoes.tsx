@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
 import { Icons, Input, Button, IconButton } from '../components/Shared';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 import { EditExpirationModal } from '../components/EditExpirationModal';
 import { THEMES } from '../constants';
 import { getAvatarUrl, generateUniqueId, getTodayDate, compressImage, parseUserAgent } from '../utils';
@@ -1429,11 +1430,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             </div>
                             
                             <div className="flex items-center gap-2">
-                                <input 
-                                    type="date" 
+                                <CustomDatePicker 
                                     value={historyDate}
-                                    onChange={(e) => setHistoryDate(e.target.value)}
-                                    className={`w-full ${theme.inner} border ${theme.divider} ${theme.text} rounded-xl px-4 py-2 text-sm outline-none focus:border-opacity-50`}
+                                    onChange={(date) => setHistoryDate(date)}
+                                    theme={theme}
+                                    themeKey={themeKey}
                                 />
                             </div>
                         </div>
