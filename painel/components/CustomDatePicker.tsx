@@ -143,7 +143,7 @@ export function CustomDatePicker({ value, onChange, theme, themeKey, placeholder
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className={`absolute z-[100] right-0 mt-2 w-72 ${theme.card} border ${theme.border} rounded-2xl shadow-2xl p-4 overflow-hidden`}
+            className={`absolute z-[100] left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-72 max-w-[calc(100vw-2rem)] ${theme.card} border ${theme.border} rounded-2xl shadow-2xl p-4 overflow-hidden`}
           >
             {renderHeader()}
             {renderDays()}
