@@ -342,8 +342,8 @@ export default function FolgasGanchos({ data, theme, dbOp, notify, swaps, gancho
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 200,
-                tolerance: 20,
+                delay: 300,
+                tolerance: 5,
             },
         }),
         useSensor(KeyboardSensor, {
