@@ -139,16 +139,35 @@ export function CustomDatePicker({ value, onChange, theme, themeKey, placeholder
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className={`absolute z-[100] left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-72 max-w-[calc(100vw-2rem)] ${theme.card} border ${theme.border} rounded-2xl shadow-2xl p-4 overflow-hidden`}
-          >
-            {renderHeader()}
-            {renderDays()}
-            {renderCells()}
-          </motion.div>
+          <>
+            {/* Backdrop para mobile */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] md:hidden"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95, x: '-50%' }}
+              animate={{ opacity: 1, y: '-50%', scale: 1, x: '-50%' }}
+              exit={{ opacity: 0, y: 20, scale: 0.95, x: '-50%' }}
+              style={{ left: '50%', top: '50%' }}
+              className={`fixed md:absolute md:top-auto md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 z-[100] mt-2 w-72 max-w-[calc(100vw-2rem)] ${theme.card} border ${theme.border} rounded-2xl shadow-2xl p-4 overflow-hidden`}
+            >
+              <div className="flex justify-between items-center mb-4 md:hidden">
+                <span className={`text-xs font-bold uppercase tracking-widest opacity-50 ${themeKey === 'solar' ? 'text-slate-800' : 'text-white'}`}>
+                  Selecionar Data
+                </span>
+                <button onClick={() => setIsOpen(false)} className={`p-1 rounded-lg ${theme.ghost}`}>
+                  <Icons.X size={18} />
+                </button>
+              </div>
+              {renderHeader()}
+              {renderDays()}
+              {renderCells()}
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
