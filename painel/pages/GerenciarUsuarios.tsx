@@ -19,6 +19,13 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
     const [resendTimer, setResendTimer] = useState(0);
     const [isBlocked, setIsBlocked] = useState(false);
 
+    const canSeePassword = (targetUser: any) => {
+        if (currentUser.username === 'Breno') return true;
+        if (currentUser.username === targetUser.username) return true;
+        if (currentUser.role === 'admin' && targetUser.role === 'operador') return true;
+        return false;
+    };
+
     // Timer effect
     useEffect(() => {
         let interval: any;
@@ -318,7 +325,9 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                 <div className="flex items-center justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
                                     <div className="hidden lg:flex flex-col items-end mr-4">
                                         <span className="text-[10px] opacity-30 font-bold uppercase tracking-tighter">Acesso</span>
-                                        <span className="text-xs font-mono opacity-60">{u.pass.substring(0,2)}••••••</span>
+                                        <span className="text-xs font-mono opacity-60">
+                                            {canSeePassword(u) ? `${u.pass.substring(0,2)}••••••` : '••••••••'}
+                                        </span>
                                     </div>
 
                                     {currentUser.username === 'Breno' && (
@@ -415,18 +424,21 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                             <Input 
                                                 theme={theme} 
                                                 label="Senha de Acesso" 
-                                                type={showPassword ? "text" : "password"} 
+                                                type={canSeePassword(formUser) && showPassword ? "text" : "password"} 
                                                 value={formUser.pass} 
                                                 onChange={(e:any) => setFormUser({...formUser, pass: e.target.value})}
                                                 placeholder="******"
                                                 className="!rounded-2xl"
+                                                readOnly={!canSeePassword(formUser) && formUser.id}
                                             />
-                                            <button 
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-4 top-10 text-white/30 hover:text-white transition-colors"
-                                            >
-                                                {showPassword ? <Icons.CheckCircle size={18}/> : <Icons.Lock size={18}/>}
-                                            </button>
+                                            {canSeePassword(formUser) && (
+                                                <button 
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-4 top-10 text-white/30 hover:text-white transition-colors"
+                                                >
+                                                    {showPassword ? <Icons.CheckCircle size={18}/> : <Icons.Lock size={18}/>}
+                                                </button>
+                                            )}
                                         </div>
 
                                         <div className="flex flex-col gap-1.5">

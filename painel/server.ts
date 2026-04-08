@@ -133,6 +133,108 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
     }
 }
 
+// --- Cron Job: Prancheta Auto-Riscar ---
+const getWeekNumber = (date: Date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+let lastPranchetaAutoRun = '';
+
+async function checkPranchetaAutoRiscar() {
+    try {
+        const now = new Date();
+        // Check time in Brazil (America/Sao_Paulo)
+        const brTimeStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+        const brDate = new Date(brTimeStr);
+        
+        const day = brDate.getDay(); // 5 = Friday
+        const hours = brDate.getHours();
+        const minutes = brDate.getMinutes();
+        const todayStr = brDate.toISOString().split('T')[0];
+
+        // Trigger at 19:55 on Fridays
+        if (day === 5 && hours === 19 && minutes === 55 && lastPranchetaAutoRun !== todayStr) {
+            console.log(`[Cron] Triggered Prancheta Auto-Riscar at ${brTimeStr}`);
+            lastPranchetaAutoRun = todayStr;
+
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const baseUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+
+            // 1. Get current week ID
+            const weekNum = getWeekNumber(brDate);
+            const weekId = `${brDate.getFullYear()}-W${weekNum}`;
+
+            // 2. Fetch drivers_table_list for PG
+            const driversUrl = `${baseUrl}drivers_table_list.json${authParam}`;
+            const driversRes = await fetchWithRetry(driversUrl);
+            const driversList = await driversRes.json();
+
+            if (!Array.isArray(driversList)) {
+                console.error("[Cron] drivers_table_list is not an array or not found");
+                return;
+            }
+
+            // 3. Fetch prancheta data for the week
+            const pranchetaUrl = `${baseUrl}prancheta/${weekId}.json${authParam}`;
+            const pranchetaRes = await fetchWithRetry(pranchetaUrl);
+            const pranchetaData = await pranchetaRes.json() || {};
+
+            // 4. Update drivers who haven't paid
+            let updatedCount = 0;
+            const newList = driversList.map((driver: any) => {
+                if (driver && driver.vaga) {
+                    const payment = pranchetaData[driver.vaga];
+                    if (!payment || !payment.paid) {
+                        if (!driver.riscado) {
+                            updatedCount++;
+                            return { ...driver, riscado: true };
+                        }
+                    }
+                }
+                return driver;
+            });
+
+            if (updatedCount > 0) {
+                // 5. Save updated list
+                await fetchWithRetry(driversUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newList)
+                });
+
+                // 6. Log action to audit_logs
+                const logUrl = `${baseUrl}audit_logs.json${authParam}`;
+                const logEntry = {
+                    username: 'Sistema (Auto)',
+                    action: 'Auto-Riscar Prancheta',
+                    details: `Sexta-feira 19:55 - ${updatedCount} vagas não pagas foram riscadas para a semana ${weekId}`,
+                    timestamp: Date.now(),
+                    date: todayStr
+                };
+                await fetchWithRetry(logUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logEntry)
+                });
+
+                console.log(`[Cron] Prancheta Auto-Riscar completed: ${updatedCount} drivers riscados for ${weekId}`);
+            } else {
+                console.log(`[Cron] No drivers needed to be riscados for ${weekId}`);
+            }
+        }
+    } catch (error) {
+        console.error("[Cron] Error in checkPranchetaAutoRiscar:", error);
+    }
+}
+
+// Run check every 30 seconds
+setInterval(checkPranchetaAutoRiscar, 30000);
+
 async function startServer() {
     const app = express();
     const PORT = Number(process.env.PORT) || 3000;

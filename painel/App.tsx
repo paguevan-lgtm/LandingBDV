@@ -854,7 +854,8 @@ const AppContent = () => {
         }
 
         if (targetSystem === 'Mistura' && ['passengers', 'drivers', 'trips', 'lostFound'].includes(node)) {
-            return notify("Selecione um sistema (Pg, Mip, Sv) para criar ou editar.", "error");
+            // Se estiver no modo Mistura, tenta inferir o sistema do payload ou usa 'Pg' como fallback para o Breno
+            targetSystem = (payload && payload.system && ['Pg', 'Mip', 'Sv'].includes(payload.system)) ? payload.system : 'Pg';
         }
 
         const getPath = (system: string, nodeName: string) => {
@@ -2270,7 +2271,7 @@ const AppContent = () => {
                 const tripsPath = `Mip/trips`;
 
                 // We need to track used IDs in this batch to avoid collisions
-                const existingIds = new Set((data.trips || []).map((t: any) => parseInt(t.id)).filter((n: number) => !isNaN(n)));
+                const existingIds = new Set((data.trips || []).map((t: any) => parseInt(t.realId || t.id)).filter((n: number) => !isNaN(n)));
                 let nextIdCandidate = 1;
                 
                 const getNextIdLocal = () => {
@@ -2296,7 +2297,7 @@ const AppContent = () => {
                     if (hasData) {
                         if (existingTrip) {
                             if (existingTrip.status !== 'Finalizada' && existingTrip.status !== 'Cancelada') {
-                                db.ref(tripsPath).child(existingTrip.id).update({
+                                db.ref(tripsPath).child(existingTrip.realId || existingTrip.id).update({
                                     time: time || '',
                                     tripNumber: num || '',
                                     driverName: driverName,
@@ -2396,7 +2397,7 @@ const AppContent = () => {
                                 t.isTemp && t.date === currentOpDate && t.vaga === vaga && t.tripSuffix === '2'
                             );
                             if (existingTrip2 && existingTrip2.status !== 'Finalizada' && existingTrip2.status !== 'Cancelada') {
-                                db.ref(tripsPath).child(existingTrip2.id).remove();
+                                db.ref(tripsPath).child(existingTrip2.realId || existingTrip2.id).remove();
                             }
                         }
                     } else {
@@ -2405,7 +2406,7 @@ const AppContent = () => {
                             t.isTemp && t.date === currentOpDate && t.vaga === vaga && t.tripSuffix === '2'
                         );
                         if (existingTrip2 && existingTrip2.status !== 'Finalizada' && existingTrip2.status !== 'Cancelada') {
-                            db.ref(tripsPath).child(existingTrip2.id).remove();
+                            db.ref(tripsPath).child(existingTrip2.realId || existingTrip2.id).remove();
                         }
                     }
                 }
@@ -2594,7 +2595,8 @@ const AppContent = () => {
             
             await dbOp('update', 'trips', { 
                 id: trip.id, 
-                passengerIds: newPassIds 
+                passengerIds: newPassIds,
+                isTemp: false // Se tem passageiro, deixa de ser temporária
             });
             notify(`Passageiro alocado na viagem de ${trip.driverName}`, "success");
         }
@@ -2671,9 +2673,11 @@ const AppContent = () => {
 
                 // Check for duplicates
                 const existing = data.passengers.find((p: any) => {
-                    const nameSim = calculateSimilarity(p.name, formData.name);
-                    const phoneSim = p.phone && formData.phone ? calculateSimilarity(p.phone, formData.phone) : 0;
-                    return (nameSim > 0.8 || phoneSim > 0.8) && p.id !== formData.id;
+                    const nameMatch = p.name?.trim().toLowerCase() === formData.name?.trim().toLowerCase();
+                    const phoneMatch = (p.phone || '').replace(/\D/g, '') === (formData.phone || '').replace(/\D/g, '');
+                    const addressMatch = (p.address || '').trim().toLowerCase() === (formData.address || '').trim().toLowerCase();
+                    
+                    return nameMatch && phoneMatch && addressMatch && p.id !== formData.id;
                 });
 
                 if (existing) {
@@ -3096,6 +3100,13 @@ const AppContent = () => {
     };
 
     useEffect(() => {
+        if (modal === 'trip' && !editingTripId && suggestedTrip) {
+            // Se mudar a data em uma viagem nova, limpa o resumo para permitir re-gerar (auto ou manual)
+            setSuggestedTrip(null);
+        }
+    }, [formData.date]);
+
+    useEffect(() => {
         if (modal === 'trip' && formData.isMadrugada && formData.time && formData.driverId && !editingTripId && !suggestedTrip) {
             simulate();
         }
@@ -3311,13 +3322,22 @@ const AppContent = () => {
     };
     
     const updateTripStatus = (id: string, status: string) => {
-        dbOp('update', 'trips', { id, status });
+        // Ao mudar o status (especialmente ao reabrir), limpamos os snapshots para a viagem voltar a ser "live"
+        const payload: any = { id, status };
+        if (status !== 'Finalizada') {
+            payload.passengersSnapshot = null;
+            payload.pCountSnapshot = null;
+        }
+        
+        dbOp('update', 'trips', payload);
+        
         const trip = data.trips.find((t:any) => t.id === id);
         if (trip && status === 'Finalizada') {
             if (!trip.passengersSnapshot && trip.passengerIds) {
                 const pax = data.passengers.filter((p:any) => trip.passengerIds.includes(p.realId || p.id));
                 const tripSystem = trip.system || systemContext;
-                db.ref(tripSystem === 'Pg' ? `trips/${id}` : `${tripSystem}/trips/${id}`).update({ passengersSnapshot: pax });
+                const realId = trip.realId || id;
+                db.ref(tripSystem === 'Pg' ? `trips/${realId}` : `${tripSystem}/trips/${realId}`).update({ passengersSnapshot: pax });
             }
         }
     };
