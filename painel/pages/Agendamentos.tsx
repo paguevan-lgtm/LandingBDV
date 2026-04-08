@@ -132,7 +132,8 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
             t.date === selectedDate && 
             t.status !== 'Cancelada' && 
             (t.system || 'Pg') === (pSystem === 'Mistura' ? 'Pg' : pSystem) &&
-            (t.passengerIds||[]).some((id:any) => String(id) === String(pId))
+            (t.passengerIds||[]).some((id:any) => String(id) === String(pId)) &&
+            t.time === p.time
         ); 
 
         if (isAssigned) assigned.push(p); 

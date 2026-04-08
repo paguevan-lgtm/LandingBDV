@@ -2673,23 +2673,25 @@ const AppContent = () => {
 
                 // Check for duplicates
                 const existing = data.passengers.find((p: any) => {
-                    const nameMatch = p.name?.trim().toLowerCase() === formData.name?.trim().toLowerCase();
-                    const phoneMatch = (p.phone || '').replace(/\D/g, '') === (formData.phone || '').replace(/\D/g, '');
-                    const addressMatch = (p.address || '').trim().toLowerCase() === (formData.address || '').trim().toLowerCase();
+                    const nameMatch = p.name?.toLowerCase().trim() === formData.name?.toLowerCase().trim();
+                    const phoneMatch = p.phone?.replace(/\D/g, '') === formData.phone?.replace(/\D/g, '');
+                    const addressMatch = p.address?.toLowerCase().trim() === formData.address?.toLowerCase().trim();
+                    const dateMatch = p.date === (formData.date || getTodayDate());
+                    const timeMatch = p.time === formData.time;
                     
-                    return nameMatch && phoneMatch && addressMatch && p.id !== formData.id;
+                    return nameMatch && phoneMatch && addressMatch && dateMatch && timeMatch && p.id !== formData.id;
                 });
 
                 if (existing) {
                     if (aiPassengerQueueRef.current.length > 0) {
-                        addPersistentNotification(`Passageiro pulado, ID ${existing.id} é idêntico`);
+                        addPersistentNotification(`Passageiro pulado, ID ${existing.id} é idêntico para este dia e horário`);
                         advanceQueue();
                         return;
                     }
                     setConfirmState({
                         isOpen: true,
-                        title: "Passageiro similar encontrado",
-                        message: `Verifique o ID ${existing.id} pois estes dados parecem já estar cadastrados. Deseja cadastrar mesmo assim?`,
+                        title: "Passageiro idêntico encontrado",
+                        message: `O passageiro ${existing.name} já está cadastrado para este mesmo dia e horário (ID ${existing.id}). Deseja cadastrar novamente?`,
                         onConfirm: async () => {
                             setConfirmState({ ...confirmState, isOpen: false });
                             await proceedSave();
@@ -2721,14 +2723,6 @@ const AppContent = () => {
                     return notify(`Passageiro BLOQUEADO: ${p.name}. Motivo: ${p.blockReason || 'Não informado'}`, "error");
                 }
                 
-                // Verificar se já está em uma viagem
-                const isAssigned = data.trips.some((t: any) => 
-                    t.date === formData.date && 
-                    t.status !== 'Cancelada' && 
-                    (t.passengerIds || []).some((pid: any) => String(pid) === String(formData.id))
-                );
-                if (isAssigned) return notify("Este passageiro já está alocado em uma viagem!", "error");
-
                 if (p && String(p.id).startsWith('SITE_')) {
                     // Convert to numeric ID
                     const newId = getNextId('passengers');
@@ -2776,11 +2770,11 @@ const AppContent = () => {
             } else if (collection === 'rescheduleAll') {
                 if (!formData.sourceTime || !formData.newTime) return notify("Preencha o horário de origem e o novo horário!", "error");
                 
-                // Identificar passageiros já alocados neste dia para não reagendá-los
-                const assignedOnDate = new Set();
+                // Identificar passageiros em viagens ativas ou finalizadas para não reagendá-los
+                const busyOnDate = new Set();
                 data.trips.forEach((t: any) => {
-                    if (t.date === formData.date && t.status !== 'Cancelada') {
-                        (t.passengerIds || []).forEach((pid: any) => assignedOnDate.add(String(pid)));
+                    if (t.date === formData.date && (t.status === 'Em Andamento' || t.status === 'Finalizada')) {
+                        (t.passengerIds || []).forEach((pid: any) => busyOnDate.add(String(pid)));
                     }
                 });
 
@@ -2788,12 +2782,12 @@ const AppContent = () => {
                     const isSameTime = p.time === formData.sourceTime;
                     const isSameDate = p.date === formData.date;
                     const isNotBlocked = p.status !== 'Bloqueado';
-                    const isNotAssigned = !assignedOnDate.has(String(p.realId || p.id));
+                    const isNotBusy = !busyOnDate.has(String(p.realId || p.id));
                     
                     // Se não for Mistura, filtra pelo sistema atual
                     const systemMatch = systemContext === 'Mistura' || (p.system || 'Pg') === systemContext;
 
-                    return isSameTime && isSameDate && isNotBlocked && isNotAssigned && systemMatch;
+                    return isSameTime && isSameDate && isNotBlocked && isNotBusy && systemMatch;
                 });
                 
                 if (passengersToReschedule.length === 0) return notify("Nenhum passageiro pendente encontrado para este horário!", "error");
@@ -3030,8 +3024,7 @@ const AppContent = () => {
             return p.status === 'Ativo' && 
                    p.date === tripDate && 
                    isTimeMatch(p.time) &&
-                   systemMatch &&
-                   !occupiedPassOnDate.has(String(p.realId || p.id));
+                   systemMatch;
         });
 
         if (candidates.length === 0) return notify("Nenhum passageiro livre encontrado para este horário.", "info");
@@ -3238,16 +3231,6 @@ const AppContent = () => {
             const pSystem = p.system || systemContext;
             const pId = p.realId || p.id;
             db.ref(pSystem === 'Pg' ? `passengers/${pId}` : `${pSystem}/passengers/${pId}`).update({ time: finalTime, date: finalDate });
-            
-            // REMOVE PASSAGEIRO DE OUTRAS VIAGENS DO MESMO DIA (EVITA DUPLICIDADE)
-            data.trips.forEach((t:any) => {
-                if (t.id === tripId) return; // Pula a própria viagem
-                if (t.date === finalDate && t.status !== 'Cancelada' && t.passengerIds && t.passengerIds.includes(pId)) {
-                    const newIds = t.passengerIds.filter((pid:string) => pid !== pId);
-                    const newSnapshot = (t.passengersSnapshot || []).filter((ps:any) => (ps.realId || ps.id) !== pId);
-                    dbOp('update', 'trips', { id: t.id, passengerIds: newIds, passengersSnapshot: newSnapshot });
-                }
-            });
         });
         
         payload.ticketPrice = pricePerPassenger;
