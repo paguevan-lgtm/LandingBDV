@@ -348,13 +348,24 @@ function LandingPage() {
                 {/* Road Shadow */}
                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[80%] h-8 bg-black/40 blur-xl rounded-full" />
                 
-                {/* Stylized Van (Image) */}
+                {/* Stylized Van (Placeholder Area) */}
                 <div className="relative">
                   <motion.div
                     animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   >
-                    <img src={bdvImage} alt="Bora de Van" className="w-full h-auto drop-shadow-2xl" referrerPolicy="no-referrer" />
+                    <div className="w-full aspect-[16/10] bg-transparent border-2 border-dashed border-white/5 rounded-[40px] flex flex-col items-center justify-center text-white/0 group hover:border-white/20 hover:text-white/20 transition-all cursor-help relative overflow-hidden">
+                       <Bus size={48} className="mb-2 opacity-0 group-hover:opacity-50 transition-opacity" />
+                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity">Área da Van (BDV.png)</span>
+                       {/* A imagem fica aqui, mas como o arquivo pode estar ausente, o box acima serve de guia */}
+                       <img 
+                         src={bdvImage} 
+                         alt="Bora de Van" 
+                         className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl z-10" 
+                         onError={(e) => (e.currentTarget.style.display = 'none')}
+                         referrerPolicy="no-referrer" 
+                       />
+                    </div>
                   </motion.div>
                 </div>
 

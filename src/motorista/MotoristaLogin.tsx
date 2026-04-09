@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { MapPin, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { MapPin, Loader2, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 
 export default function MotoristaLogin() {
   const [name, setName] = useState('');
@@ -93,28 +93,45 @@ export default function MotoristaLogin() {
     }
 
     try {
-      const driversRef = db.ref('drivers');
-      driversRef.once('value', (snapshot: any) => {
-        const driversData = snapshot.val();
-        const drivers = driversData ? Object.values(driversData) : [];
-        console.log('Fetched drivers:', drivers);
-        
-        const sanitizedInputCpf = cpf.replace(/\D/g, '');
-        const driver = drivers.find((d: any) => {
-          console.log('Checking driver object:', d);
-          const sanitizedStoredCpf = (d.cpf || '').replace(/\D/g, '');
-          console.log('Comparing:', d.name, 'with', name, '| CPF:', sanitizedStoredCpf, 'with', sanitizedInputCpf);
-          return d.name === name && sanitizedStoredCpf.substring(0, 6) === sanitizedInputCpf;
-        });
-        
-        if (driver) {
-          const sessionData = { ...driver, lastLocation: locationData };
-          localStorage.setItem('motorista_session', JSON.stringify(sessionData));
-          navigate('/motorista/dashboard');
-        } else {
-          setError('Nome ou CPF inválido.');
+      const snapshot = await db.ref('drivers').once('value');
+      const driversData = snapshot.val();
+      const drivers = driversData ? Object.values(driversData) : [];
+      console.log('Fetched drivers:', drivers);
+      
+      const sanitizedInputCpf = cpf.replace(/\D/g, '');
+      const driver = drivers.find((d: any) => {
+        console.log('Checking driver object:', d);
+        const sanitizedStoredCpf = (d.cpf || '').replace(/\D/g, '');
+        console.log('Comparing:', d.name, 'with', name, '| CPF:', sanitizedStoredCpf, 'with', sanitizedInputCpf);
+        return d.name === name && sanitizedStoredCpf.substring(0, 6) === sanitizedInputCpf;
+      }) as any;
+      
+      if (driver) {
+        const sessionData = { ...driver, lastLocation: locationData };
+        localStorage.setItem('motorista_session', JSON.stringify(sessionData));
+
+        // Log de Acesso do Motorista
+        try {
+          const logId = db.ref('audit_logs').push().key;
+          if (logId) {
+            await db.ref(`audit_logs/${logId}`).set({
+              username: driver.name,
+              action: 'Login Motorista',
+              details: `Motorista ${driver.name} entrou no sistema.`,
+              timestamp: Date.now(),
+              location: locationData ? { coords: { lat: locationData.latitude, lng: locationData.longitude } } : null,
+              device: navigator.userAgent,
+              date: new Date().toISOString().split('T')[0]
+            });
+          }
+        } catch (logErr) {
+          console.warn("Erro ao gerar log de motorista:", logErr);
         }
-      });
+
+        navigate('/motorista/dashboard');
+      } else {
+        setError('Nome ou CPF inválido.');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError('Erro ao fazer login.');
@@ -191,7 +208,7 @@ export default function MotoristaLogin() {
               <div className="mt-4 space-y-4">
                 <div className="bg-slate-800/80 p-5 rounded-2xl border border-white/10 shadow-inner">
                   <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Icons.Info size={14} className="text-blue-400" /> Como ativar a localização:
+                    <Info size={14} className="text-blue-400" /> Como ativar a localização:
                   </h4>
                   
                   <div className="space-y-4">

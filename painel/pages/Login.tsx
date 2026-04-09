@@ -438,7 +438,13 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         setIsZooming(true); 
 
         setTimeout(async () => {
-            await login(username.trim(), password, coords, system || selectedSystem || undefined);
+            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined);
+            if (!success) {
+                setIsZooming(false);
+                setLoading(false);
+                setGeoStatus('');
+                notify("Acesso negado. Verifique suas credenciais ou se seu dispositivo está bloqueado.", "error");
+            }
         }, 1200); 
     };
 
