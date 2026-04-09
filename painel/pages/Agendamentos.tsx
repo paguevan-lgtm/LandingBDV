@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
 import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime, sendPassWhatsapp } from '../utils';
 
-export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext }: any) {
+export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext, isTutorialActive }: any) {
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [calendarDate, setCalendarDate] = useState(new Date());
 
@@ -198,9 +198,10 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                     <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded">{p.passengerCount} pass</div>
                                                     <button 
                                                         id="tut-btn-reschedule-pass"
-                                                        onClick={(e) => handleQuickReschedule(e, p)}
-                                                        className="ml-1 p-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors active:scale-95 cursor-pointer"
-                                                        title="Reagendar Passageiro"
+                                                        onClick={(e) => !isTutorialActive && handleQuickReschedule(e, p)}
+                                                        className={`ml-1 p-1.5 bg-blue-500/20 text-blue-400 rounded-lg transition-colors active:scale-95 ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-500/30 cursor-pointer'}`}
+                                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Reagendar Passageiro"}
+                                                        disabled={isTutorialActive}
                                                     >
                                                         <Icons.Clock size={16} />
                                                     </button>
@@ -208,11 +209,13 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                     <button 
                                                         id="tut-btn-cancel-app"
                                                         onClick={(e) => {
+                                                            if (isTutorialActive) return;
                                                             e.stopPropagation();
                                                             clearPassSchedule(p.id);
                                                         }} 
-                                                        className="ml-1 p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors active:scale-95 cursor-pointer"
-                                                        title="Remover Agendamento"
+                                                        className={`ml-1 p-1.5 bg-red-500/20 text-red-400 rounded-lg transition-colors active:scale-95 ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-red-500/30 cursor-pointer'}`}
+                                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Remover Agendamento"}
+                                                        disabled={isTutorialActive}
                                                     >
                                                         <Icons.CalendarX size={16} />
                                                     </button>
@@ -300,7 +303,15 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                             <span>👥 {pCount} pass</span>
                                         </div>
                                     </div>
-                                    <IconButton theme={theme} onClick={()=>openEditTrip(t)} icon={Icons.Edit} variant="default" />
+                                    <IconButton 
+                                        theme={theme} 
+                                        onClick={()=> !isTutorialActive && openEditTrip(t)} 
+                                        icon={Icons.Edit} 
+                                        variant="default" 
+                                        disabled={isTutorialActive}
+                                        className={isTutorialActive ? 'opacity-30 cursor-not-allowed' : ''}
+                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Editar Viagem"}
+                                    />
                                 </div>
                             ); 
                         })

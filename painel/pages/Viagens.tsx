@@ -43,7 +43,7 @@ const TempTripTimer = ({ date, time }: any) => {
     return <span>{timeLeft}</span>;
 };
 
-export default function Viagens({ data, theme, searchTerm, setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue }: any) {
+export default function Viagens({ data, theme, searchTerm, setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue, isTutorialActive }: any) {
     const [historyDate, setHistoryDate] = useState(new Date());
     const [expandedDays, setExpandedDays] = useState<any>({});
 
@@ -245,8 +245,26 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
                                     <div className={`${theme.accent} font-bold text-sm mt-1`}>{calculateTimeSlot(t.time, systemContext === 'Mip' ? 30 : 45)}</div>
                                 </div>
                                 <div className="flex gap-2 flex-shrink-0">
-                                    <IconButton id="tut-btn-trip-edit" theme={theme} onClick={()=>openEditTrip(t)} icon={Icons.Edit} variant="default" />
-                                    <IconButton id="tut-btn-trip-del" theme={theme} onClick={()=>del('trips', t.id)} icon={Icons.Trash} variant="danger" />
+                                    <IconButton 
+                                        id="tut-btn-trip-edit" 
+                                        theme={theme} 
+                                        onClick={()=> !isTutorialActive && openEditTrip(t)} 
+                                        icon={Icons.Edit} 
+                                        variant="default" 
+                                        disabled={isTutorialActive}
+                                        className={isTutorialActive ? 'opacity-30 cursor-not-allowed' : ''}
+                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Editar Viagem"}
+                                    />
+                                    <IconButton 
+                                        id="tut-btn-trip-del" 
+                                        theme={theme} 
+                                        onClick={()=> !isTutorialActive && del('trips', t.id)} 
+                                        icon={Icons.Trash} 
+                                        variant="danger" 
+                                        disabled={isTutorialActive}
+                                        className={isTutorialActive ? 'opacity-30 cursor-not-allowed' : ''}
+                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Excluir Viagem"}
+                                    />
                                 </div>
                             </div>
                             <div className={`bg-black/20 p-3 rounded-lg mb-4 flex justify-between items-center border ${theme.border}`}>
@@ -257,9 +275,32 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
                                 </div>
                             </div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                                <Button id="tut-btn-trip-finish" theme={theme} onClick={()=>updateTripStatus(t.id, 'Finalizada')} variant="success" size="sm" icon={Icons.Check}>Finalizar</Button>
+                                <Button 
+                                    id="tut-btn-trip-finish" 
+                                    theme={theme} 
+                                    onClick={()=> !isTutorialActive && updateTripStatus(t.id, 'Finalizada')} 
+                                    variant="success" 
+                                    size="sm" 
+                                    icon={Icons.Check}
+                                    disabled={isTutorialActive}
+                                    className={isTutorialActive ? 'opacity-30 cursor-not-allowed' : ''}
+                                    title={isTutorialActive ? "Desativado durante o tutorial" : "Finalizar Viagem"}
+                                >
+                                    Finalizar
+                                </Button>
                                 <Button theme={theme} disabled={true} className="opacity-50" variant="secondary" size="sm">Andamento</Button>
-                                <Button theme={theme} onClick={()=>updateTripStatus(t.id, 'Cancelada')} variant="danger" size="sm" icon={Icons.X}>Cancelar</Button>
+                                <Button 
+                                    theme={theme} 
+                                    onClick={()=> !isTutorialActive && updateTripStatus(t.id, 'Cancelada')} 
+                                    variant="danger" 
+                                    size="sm" 
+                                    icon={Icons.X}
+                                    disabled={isTutorialActive}
+                                    className={isTutorialActive ? 'opacity-30 cursor-not-allowed' : ''}
+                                    title={isTutorialActive ? "Desativado durante o tutorial" : "Cancelar Viagem"}
+                                >
+                                    Cancelar
+                                </Button>
                             </div>
                             
                             <div className="flex gap-2">
@@ -331,9 +372,30 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
                                                                 </div>
                                                         </div>
                                                         <div className="flex gap-2 flex-shrink-0 ml-auto sm:ml-0">
-                                                            <button onClick={()=>updateTripStatus(t.id, 'Em andamento')} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20" title="Reabrir"><Icons.Back size={16}/></button>
-                                                            <button onClick={()=>openEditTrip(t)} className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20" title="Ver/Editar"><Icons.Edit size={16}/></button>
-                                                            <button onClick={()=>del('trips', t.id)} className="p-2 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20" title="Excluir Permanentemente"><Icons.Trash size={16}/></button>
+                                                            <button 
+                                                                onClick={()=> !isTutorialActive && updateTripStatus(t.id, 'Em andamento')} 
+                                                                className={`p-2 bg-blue-500/10 text-blue-400 rounded-lg transition-colors ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-500/20'}`} 
+                                                                title={isTutorialActive ? "Desativado durante o tutorial" : "Reabrir"}
+                                                                disabled={isTutorialActive}
+                                                            >
+                                                                <Icons.Back size={16}/>
+                                                            </button>
+                                                            <button 
+                                                                onClick={()=> !isTutorialActive && openEditTrip(t)} 
+                                                                className={`p-2 bg-white/10 text-white rounded-lg transition-colors ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-white/20'}`} 
+                                                                title={isTutorialActive ? "Desativado durante o tutorial" : "Ver/Editar"}
+                                                                disabled={isTutorialActive}
+                                                            >
+                                                                <Icons.Edit size={16}/>
+                                                            </button>
+                                                            <button 
+                                                                onClick={()=> !isTutorialActive && del('trips', t.id)} 
+                                                                className={`p-2 bg-red-500/10 text-red-400 rounded-lg transition-colors ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-red-500/20'}`} 
+                                                                title={isTutorialActive ? "Desativado durante o tutorial" : "Excluir Permanentemente"}
+                                                                disabled={isTutorialActive}
+                                                            >
+                                                                <Icons.Trash size={16}/>
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 );

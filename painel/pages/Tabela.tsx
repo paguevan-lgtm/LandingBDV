@@ -907,7 +907,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         </span> 
                                                         {isCancelled && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded uppercase font-bold opacity-100">Cancelada</span>}
                                                         {isFinished && <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded uppercase font-bold opacity-100">Finalizada</span>}
-                                                        {mData.riscado && mData.comment && ( <div className="text-[12px] text-red-300 bg-red-900/30 px-2 py-1 rounded w-fit flex items-center justify-center leading-tight whitespace-nowrap overflow-visible max-w-full relative top-[3px] font-bold opacity-100">{mData.comment}</div> )} 
+                                                        {mData.riscado && mData.comment && ( <div className="text-[12px] text-red-300 bg-red-900/30 px-2 py-1 rounded w-fit flex items-center justify-center leading-tight whitespace-nowrap overflow-visible max-w-full font-bold opacity-100">{mData.comment}</div> )} 
                                                     </div>
                                                 </div> 
                                             </div> 

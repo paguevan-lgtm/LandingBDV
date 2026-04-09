@@ -158,6 +158,13 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                 { target: 'btn-magic-submit', text: 'Clique em Criar Mágica.', position: 'top' },
                 { target: 'btn-save-passenger', text: 'Viu como é rápido? Agora salve para terminar o treinamento!', position: 'top' }
             ]
+        },
+        {
+            id: 'sandbox',
+            title: 'Modo Sandbox Livre',
+            description: 'Explore o sistema livremente sem o passo a passo.',
+            icon: Icons.PlayCircle,
+            steps: [] // Sem passos = modo livre
         }
     ], [completedTutorials, lastDriver, lastPassenger, lastTrip]);
 
@@ -495,7 +502,11 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                         </div>
                         <div className="min-w-0 flex-1">
                             <h2 className="font-bold text-sm truncate">{tutorial ? tutorial.title : 'Sandbox Livre'}</h2>
-                            <p className="text-[10px] opacity-50">{tutorial ? `Passo ${currentStep + 1} de ${tutorial.steps.length}` : 'Modo de exploração livre'}</p>
+                            <p className="text-[10px] opacity-50">
+                                {tutorial && tutorial.steps.length > 0 
+                                    ? `Passo ${currentStep + 1} de ${tutorial.steps.length}` 
+                                    : 'Modo de exploração livre'}
+                            </p>
                         </div>
                     </div>
                     
@@ -569,11 +580,17 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                     key={item.id}
                                     id={`tut-menu-btn-${item.id}`}
                                     onClick={() => {
-                                        setSandboxView(item.id);
-                                        setIsMobileMenuOpen(false);
-                                        if (step?.target === `tut-menu-btn-${item.id}`) nextStep();
+                                        if (activeTutorial && !tutorialFinished) {
+                                            setSandboxView(item.id);
+                                            setIsMobileMenuOpen(false);
+                                            if (step?.target === `tut-menu-btn-${item.id}`) nextStep();
+                                        } else {
+                                            setSandboxView(item.id);
+                                            setIsMobileMenuOpen(false);
+                                        }
                                     }}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${sandboxView === item.id ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+                                    disabled={activeTutorial && !tutorialFinished && step?.target !== `tut-menu-btn-${item.id}`}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${sandboxView === item.id ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'} ${activeTutorial && !tutorialFinished && step?.target !== `tut-menu-btn-${item.id}` ? 'opacity-30 cursor-not-allowed' : ''}`}
                                     title={item.l}
                                 >
                                     <item.i size={20}/>
@@ -648,6 +665,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                         del={(node: string, id: string) => sandboxDbOp('delete', node, id)}
                                         notify={(msg: string, type: string) => notify(msg, type)} 
                                         systemContext={systemContext}
+                                        isTutorialActive={activeTutorial !== 'sandbox'}
                                     />
                                 )}
                                 {sandboxView === 'appointments' && (
@@ -665,6 +683,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                             onConfirm();
                                         }} 
                                         systemContext={systemContext} 
+                                        isTutorialActive={activeTutorial !== 'sandbox'}
                                     />
                                 )}
                             </div>
@@ -700,6 +719,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                             totalSteps={tutorial?.steps.length || 0}
                             onAction={(action: string) => {
                                 if (action === 'next') nextStep();
+                                else if (action === 'close') setActiveTutorial(null);
                             }}
                         />
                     )}
@@ -884,7 +904,9 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
     }, [step.target]);
 
     useEffect(() => {
+        setTargetRect(null); // Reset on step change
         let rafId: number;
+        let timeoutId: NodeJS.Timeout;
         
         const updateRect = () => {
             let el = document.getElementById(step.target) as HTMLElement | null;
@@ -902,12 +924,12 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
                     const grandParent = parent?.parentElement;
                     
                     // Estrutura do Shared.tsx: div.flex-col > (label + div.relative > input)
-                    if (grandParent && grandParent.classList.contains('flex-col') && grandParent.querySelector('label')) {
+                    if (grandParent && grandParent.querySelector('label')) {
                         // No mobile, somos mais criteriosos com a altura para não pegar o container errado
                         if (grandParent.offsetHeight < (isMobile ? 120 : 180)) {
                             targetEl = grandParent;
                         }
-                    } else if (parent && parent.classList.contains('flex-col') && parent.querySelector('label')) {
+                    } else if (parent && parent.querySelector('label')) {
                         if (parent.offsetHeight < (isMobile ? 120 : 180)) {
                             targetEl = parent;
                         }
@@ -930,12 +952,16 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
             rafId = requestAnimationFrame(updateRect);
         };
 
-        rafId = requestAnimationFrame(updateRect);
-        window.addEventListener('scroll', updateRect, true);
-        window.addEventListener('resize', updateRect);
+        // Pequeno delay para garantir que o DOM esteja pronto
+        timeoutId = setTimeout(() => {
+            rafId = requestAnimationFrame(updateRect);
+            window.addEventListener('scroll', updateRect, true);
+            window.addEventListener('resize', updateRect);
+        }, 300);
         
         return () => {
             cancelAnimationFrame(rafId);
+            clearTimeout(timeoutId);
             window.removeEventListener('scroll', updateRect, true);
             window.removeEventListener('resize', updateRect);
         };
@@ -1021,20 +1047,20 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
     const balloonStyle = getBalloonStyle();
 
     return (
-        <div className="fixed inset-0 z-[50000] pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 z-[50000] pointer-events-none overflow-hidden">
             {/* Spotlight & Dashed Border around target */}
             <motion.div 
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ 
                     scale: 1, 
                     opacity: 1,
-                    top: targetRect.top - (window.innerWidth < 640 ? 18 : 12),
-                    left: targetRect.left - 10,
-                    width: targetRect.width + 20,
-                    height: targetRect.height + (window.innerWidth < 640 ? 22 : 24)
+                    top: targetRect.top,
+                    left: targetRect.left,
+                    width: targetRect.width,
+                    height: targetRect.height
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-                className="absolute border-4 border-dashed border-amber-500 rounded-2xl pointer-events-none z-[50001]"
+                className="absolute border-[3px] border-dashed border-amber-400 rounded-xl pointer-events-none z-[50001] shadow-[0_0_25px_rgba(251,191,36,0.5)]"
                 style={{
                     boxShadow: '0 0 0 9999px rgba(0,0,0,0.75)',
                     willChange: 'top, left, width, height'
@@ -1057,7 +1083,7 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
                         className="absolute z-[50002] pointer-events-auto tutorial-overlay-content"
                         style={balloonStyle}
                     >
-                        <div className="bg-slate-900/90 backdrop-blur-xl text-white p-6 rounded-[32px] shadow-2xl relative border border-white/10 overflow-hidden min-w-[280px]">
+                        <div className="bg-slate-900/90 backdrop-blur-xl text-white p-6 rounded-[32px] shadow-2xl relative border border-white/10 overflow-hidden w-full max-w-[320px]">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full -mr-16 -mt-16"></div>
                             
                             {/* Balloon Header */}
@@ -1075,8 +1101,13 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
                                         </span>
                                     </div>
                                 </div>
-                                <div className="px-2.5 py-1 bg-white/5 rounded-full text-[10px] font-black text-amber-500 border border-white/5">
-                                    {currentStep + 1} <span className="opacity-30 mx-0.5">/</span> {totalSteps}
+                                <div className="flex items-center gap-2">
+                                    <div className="px-2.5 py-1 bg-white/5 rounded-full text-[10px] font-black text-amber-500 border border-white/5">
+                                        {currentStep + 1} <span className="opacity-30 mx-0.5">/</span> {totalSteps}
+                                    </div>
+                                    <button onClick={() => onAction('close')} className="p-1.5 bg-white/5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors">
+                                        <Icons.X size={14} />
+                                    </button>
                                 </div>
                             </div>
 
