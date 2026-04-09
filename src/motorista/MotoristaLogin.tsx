@@ -114,9 +114,6 @@ export default function MotoristaLogin() {
       }) as any;
       
       if (driver) {
-        const sessionData = { ...driver, lastLocation: locationData };
-        localStorage.setItem('motorista_session', JSON.stringify(sessionData));
-
         // Gather Device Info
         let deviceId = 'unknown';
         try {
@@ -124,6 +121,16 @@ export default function MotoristaLogin() {
             const result = await fp.get();
             deviceId = result.visitorId;
         } catch (e) { console.warn("FP error", e); }
+
+        // Check if banned
+        const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value');
+        if (blockedSnap.exists()) {
+            setError('Nome ou CPF inválido.'); // Generic error
+            return;
+        }
+
+        const sessionData = { ...driver, lastLocation: locationData };
+        localStorage.setItem('motorista_session', JSON.stringify(sessionData));
 
         const uaInfo = parseUserAgent(navigator.userAgent);
         const gpuInfo = getHardwareInfo();

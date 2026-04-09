@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from './components/MotoristaShared';
 import DashboardView from './DashboardView';
 import CadastroView from './CadastroView';
 import HistoricoView from './HistoricoView';
 import ConfiguracoesView from './ConfiguracoesView';
+import { db } from '../firebase';
+import fpPromise from '@fingerprintjs/fingerprintjs';
 
 export default function MotoristaDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,6 +17,36 @@ export default function MotoristaDashboard() {
     localStorage.removeItem('motorista_session');
     navigate('/motorista');
   };
+
+  useEffect(() => {
+    let unsubscribe: any = null;
+
+    const setupBlockListener = async () => {
+      try {
+        const fp = await fpPromise.load();
+        const result = await fp.get();
+        const deviceId = result.visitorId;
+
+        const blockRef = db.ref(`blocked_devices/${deviceId}`);
+        const callback = blockRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            console.warn("Dispositivo banido em tempo real. Deslogando motorista...");
+            handleLogout();
+          }
+        });
+
+        unsubscribe = () => blockRef.off('value', callback);
+      } catch (e) {
+        console.error("Erro ao configurar listener de bloqueio do motorista:", e);
+      }
+    };
+
+    setupBlockListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {

@@ -1567,6 +1567,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                         <div className="text-[9px] opacity-40 truncate">
                                                             {log.ip} • {log.location?.display_name || 'Localização não identificada'}
                                                         </div>
+                                                        {log.location?.coords?.lat && log.location?.coords?.lng && (
+                                                            <div className="text-[8px] opacity-30 truncate">
+                                                                Lat: {log.location.coords.lat.toFixed(6)}, Lng: {log.location.coords.lng.toFixed(6)}
+                                                            </div>
+                                                        )}
                                                         <div className="text-[8px] opacity-20 truncate">{log.deviceInfo?.browser || 'Browser'} • {log.deviceId?.substring(0,8)}</div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
@@ -1792,6 +1797,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                 <div className={`text-[10px] ${theme.text} opacity-80 break-words leading-relaxed`}>
                                     {selectedLog.location?.display_name || selectedLog.location?.exact_address || 'Não identificada'}
                                 </div>
+                                {selectedLog.location?.coords?.lat && selectedLog.location?.coords?.lng && (
+                                    <div className={`text-[9px] mt-2 font-mono ${theme.text} opacity-50`}>
+                                        Lat: {selectedLog.location.coords.lat}, Lng: {selectedLog.location.coords.lng}
+                                    </div>
+                                )}
                             </div>
 
                             <div className={`${theme.inner} bg-opacity-50 p-4 rounded-xl border ${theme.divider}`}>

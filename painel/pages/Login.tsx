@@ -473,7 +473,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 setIsZooming(false);
                 setLoading(false);
                 setGeoStatus('');
-                notify("Acesso negado. Verifique suas credenciais ou se seu dispositivo está bloqueado.", "error");
+                notify("Acesso negado. Verifique suas credenciais.", "error");
             }
         }, 1200); 
     };
