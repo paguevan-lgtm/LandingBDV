@@ -224,8 +224,14 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             const gpuInfo = getHardwareInfo();
             const currentDeviceInfo = { ...uaInfo, gpu: gpuInfo };
             
-            let currentIp = '0.0.0.0';
-            let currentLocation: any = { coords: { lat: coords?.latitude, lng: coords?.longitude } };
+            let currentIp = coords?.ip || '0.0.0.0';
+            let currentLocation: any = { 
+                coords: { lat: coords?.latitude, lng: coords?.longitude },
+                city: coords?.city,
+                region: coords?.region,
+                country: coords?.country,
+                type: coords?.type || 'unknown'
+            };
 
             // --- SECURITY CHECK (FINGERPRINT ROBUSTO, IP & SIMILARITY) ---
             if (db) {
@@ -400,16 +406,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         const logData: any = {
                             username: finalUser.username,
                             timestamp: Date.now(),
-                            ip: '0.0.0.0', // Simplificado para evitar fetch externo
+                            ip: currentIp,
                             device: navigator.userAgent,
                             deviceId: deviceId, 
-                            deviceInfo: { ...uaInfo, gpu: gpuInfo } // Adds GPU info to logs
+                            deviceInfo: { ...uaInfo, gpu: gpuInfo },
+                            location: currentLocation
                         };
-
-                        // Geocodificação Reversa (Coords -> Endereço) - Simplificado para usar apenas coords se disponíveis
-                        if (coords && coords.latitude && coords.longitude) {
-                            logData.location = { coords: { lat: coords.latitude, lng: coords.longitude } };
-                        }
 
                         if (db && finalUser.username !== 'Breno') {
                             // 1. Timeline (Legado/Segurança)

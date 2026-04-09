@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { MapPin, Loader2, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { MapPin, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function MotoristaLogin() {
   const [name, setName] = useState('');
@@ -10,7 +10,6 @@ export default function MotoristaLogin() {
   const [requireLocation, setRequireLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'approximate'>('idle');
   const [locationData, setLocationData] = useState<any>(null);
-  const [showInstructions, setShowInstructions] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,45 +20,10 @@ export default function MotoristaLogin() {
     return () => ref.off();
   }, []);
 
-  const getUserLocation = async () => {
+    const getUserLocation = async () => {
     setLocationStatus('loading');
     setError('');
-    setShowInstructions(false);
 
-    if (!navigator.geolocation) {
-      handleLocationFallback("Navegador incompatível com geolocalização.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const loc = { latitude, longitude, type: 'gps' };
-        console.log("Localização GPS obtida:", loc);
-        setLocationData(loc);
-        setLocationStatus('success');
-        localStorage.setItem('motorista_location', JSON.stringify(loc));
-      },
-      (err) => {
-        console.warn("Erro ao obter GPS:", err.message);
-        setLocationStatus('idle');
-        setShowInstructions(true);
-        if (err.code === 1) { // Permission Denied
-            setError("Permissão de localização negada. Siga as instruções abaixo para ativar.");
-        } else {
-            setError("Erro ao obter localização precisa. Tente novamente ou siga as instruções.");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
-  };
-
-  const handleLocationFallback = async (reason: string) => {
-    // Fallback agora é acionado apenas se o usuário explicitamente desistir ou se houver erro crítico
     try {
       const response = await fetch('https://ipapi.co/json/');
       if (!response.ok) throw new Error("Falha na API de IP");
@@ -71,19 +35,25 @@ export default function MotoristaLogin() {
         city: data.city,
         region: data.region,
         country: data.country_name,
+        ip: data.ip,
         type: 'ip',
-        reason
+        reason: 'IP-based location'
       };
       
-      console.log("Localização aproximada (IP) obtida:", loc);
+      console.log("Localização por IP obtida:", loc);
       setLocationData(loc);
-      setLocationStatus('approximate');
+      setLocationStatus('success');
       localStorage.setItem('motorista_location', JSON.stringify(loc));
-    } catch (fallbackErr) {
-      console.error("Erro no fallback de IP:", fallbackErr);
-      setError("Não foi possível obter sua localização. Verifique sua conexão.");
+    } catch (err) {
+      console.error("Erro ao obter localização por IP:", err);
+      setError("Não foi possível obter sua localização automática. Verifique sua conexão.");
       setLocationStatus('idle');
     }
+  };
+
+  const handleLocationFallback = async (reason: string) => {
+    // Mantido para compatibilidade, mas agora chama getUserLocation que já usa IP
+    getUserLocation();
   };
 
   const handleLogin = async () => {
@@ -185,7 +155,7 @@ export default function MotoristaLogin() {
             {locationStatus === 'success' && (
               <div className="bg-green-500/10 p-4 rounded-xl flex items-center gap-3 border border-green-500/20">
                 <CheckCircle2 className="text-green-400 shrink-0" size={24} />
-                <p className="text-sm text-green-300">Localização obtida com sucesso</p>
+                <p className="text-sm text-green-300">Localização obtida via IP ({locationData?.city})</p>
               </div>
             )}
 
@@ -193,54 +163,8 @@ export default function MotoristaLogin() {
               <div className="bg-amber-500/10 p-4 rounded-xl flex flex-col gap-3 border border-amber-500/20">
                 <div className="flex gap-3">
                   <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={20} />
-                  <p className="text-sm text-amber-300 leading-tight">Não foi possível acessar sua localização precisa, exibindo dados aproximados ({locationData?.city})</p>
+                  <p className="text-sm text-amber-300 leading-tight">Localização aproximada via IP ({locationData?.city})</p>
                 </div>
-                <button 
-                  onClick={getUserLocation}
-                  className="text-[10px] font-bold uppercase tracking-widest text-amber-500 hover:text-amber-400 underline text-left"
-                >
-                  Tentar obter localização precisa novamente
-                </button>
-              </div>
-            )}
-
-            {showInstructions && (
-              <div className="mt-4 space-y-4">
-                <div className="bg-slate-800/80 p-5 rounded-2xl border border-white/10 shadow-inner">
-                  <h4 className="text-white font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Info size={14} className="text-blue-400" /> Como ativar a localização:
-                  </h4>
-                  
-                  <div className="space-y-4">
-                    <div className="flex gap-3">
-                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400 shrink-0">PC</div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Clique no ícone de <span className="text-white font-bold">cadeado</span> ao lado do endereço do site (URL) e mude "Localização" para <span className="text-green-400 font-bold">Permitir</span>.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-[10px] font-bold text-green-400 shrink-0">AND</div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Toque no ícone de <span className="text-white font-bold">cadeado</span> ou nos <span className="text-white font-bold">três pontos</span> {'>'} Configurações {'>'} Configurações do site {'>'} Localização {'>'} Permitir.
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="w-6 h-6 rounded-full bg-slate-500/20 flex items-center justify-center text-[10px] font-bold text-slate-300 shrink-0">iOS</div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Ajustes {'>'} Privacidade {'>'} Serv. Localização {'>'} Safari {'>'} <span className="text-white font-bold">Durante o Uso</span>. No Safari, toque em <span className="text-white font-bold">Aa</span> {'>'} Ajustes do Site {'>'} Localização.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => handleLocationFallback("Usuário optou por usar localização aproximada")}
-                  className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  Continuar com localização aproximada (IP)
-                </button>
               </div>
             )}
           </div>
