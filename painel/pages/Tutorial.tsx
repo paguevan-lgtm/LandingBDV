@@ -894,13 +894,23 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
 
             if (el) {
                 let targetEl = el;
+                const isMobile = window.innerWidth < 640;
                 
                 // Heurística para incluir o Label se for um campo de formulário
-                // Procuramos por um container que tenha um label como filho direto ou indireto próximo
                 if (['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName)) {
-                    const container = el.closest('.flex-col');
-                    if (container && container.querySelector('label')) {
-                        targetEl = container as HTMLElement;
+                    const parent = el.parentElement;
+                    const grandParent = parent?.parentElement;
+                    
+                    // Estrutura do Shared.tsx: div.flex-col > (label + div.relative > input)
+                    if (grandParent && grandParent.classList.contains('flex-col') && grandParent.querySelector('label')) {
+                        // No mobile, somos mais criteriosos com a altura para não pegar o container errado
+                        if (grandParent.offsetHeight < (isMobile ? 120 : 180)) {
+                            targetEl = grandParent;
+                        }
+                    } else if (parent && parent.classList.contains('flex-col') && parent.querySelector('label')) {
+                        if (parent.offsetHeight < (isMobile ? 120 : 180)) {
+                            targetEl = parent;
+                        }
                     }
                 }
 
@@ -1018,10 +1028,10 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
                 animate={{ 
                     scale: 1, 
                     opacity: 1,
-                    top: targetRect.top - 20,
-                    left: targetRect.left - 15,
-                    width: targetRect.width + 30,
-                    height: targetRect.height + 40
+                    top: targetRect.top - (window.innerWidth < 640 ? 18 : 12),
+                    left: targetRect.left - 10,
+                    width: targetRect.width + 20,
+                    height: targetRect.height + (window.innerWidth < 640 ? 22 : 24)
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 40 }}
                 className="absolute border-4 border-dashed border-amber-500 rounded-2xl pointer-events-none z-[50001]"
