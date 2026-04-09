@@ -131,6 +131,7 @@ export const Icons = {
     Mail: (p:any) => <Icon {...p}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></Icon>,
     ArrowRight: (p:any) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></Icon>,
     ArrowRightLeft: (p:any) => <Icon {...p}><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></Icon>,
+    MoreVertical: (p:any) => <Icon {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></Icon>,
     Screenshot: (p:any) => <Icon {...p}><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><polyline points="16 3 21 3 21 8"/><line x1="14" y1="10" x2="21" y2="3"/></Icon>
 };
 
@@ -158,7 +159,7 @@ export const Button = ({ onClick, children, theme, variant='primary', icon:IconC
     );
 };
 
-export const IconButton = ({ onClick, icon:IconComp, theme, variant='default', className='', title, disabled, size=20 }: any) => {
+export const IconButton = ({ onClick, icon:IconComp, theme, variant='default', className='', title, disabled, size=20, id='' }: any) => {
     let baseClass = `p-2 rounded-lg transition-all active:scale-90 flex items-center justify-center `;
     if (variant === 'danger') baseClass += 'bg-red-500/10 text-red-400 hover:bg-red-500/20';
     else if (variant === 'success') baseClass += 'bg-green-500/10 text-green-400 hover:bg-green-500/20';
@@ -168,13 +169,13 @@ export const IconButton = ({ onClick, icon:IconComp, theme, variant='default', c
     if (disabled) baseClass += ' opacity-50 cursor-not-allowed';
 
     return (
-        <button className={`${baseClass} ${className}`} onClick={onClick} title={title} disabled={disabled}>
+        <button id={id} className={`${baseClass} ${className}`} onClick={onClick} title={title} disabled={disabled}>
             <IconComp size={size} />
         </button>
     );
 };
 
-export const Input = ({ label, value, onChange, type='text', placeholder, theme, themeKey, autoFocus, onFocus, onBlur, autoCapitalize, mask, maxLength, speech }: any) => {
+export const Input = ({ label, value, onChange, type='text', placeholder, theme, themeKey, autoFocus, onFocus, onBlur, autoCapitalize, mask, maxLength, speech, id='' }: any) => {
     // If theme not provided but themeKey is, get from THEMES
     const t = theme || (themeKey ? THEMES[themeKey] : THEMES.default);
     
@@ -296,6 +297,7 @@ export const Input = ({ label, value, onChange, type='text', placeholder, theme,
             {label && <label className="text-xs font-bold opacity-60 ml-1">{label}</label>}
             <div className="relative">
                 <input 
+                    id={id}
                     type={type} 
                     lang="pt-BR"
                     className={`${t.inner || 'bg-black/20'} ${t.border || 'border border-white/10'} ${t.radius || 'rounded-xl'} px-4 py-3 text-sm outline-none focus:border-amber-500 transition-colors w-full ${speech ? 'pr-12' : ''}`}

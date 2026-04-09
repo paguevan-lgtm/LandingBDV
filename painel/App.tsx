@@ -24,6 +24,7 @@ import Financeiro from './pages/Financeiro';
 import Achados from './pages/Achados';
 import Configuracoes from './pages/Configuracoes';
 import FolgasGanchos from './pages/FolgasGanchos';
+import Tutorial from './pages/Tutorial';
 import GerenciarUsuarios from './pages/GerenciarUsuarios';
 
 import { SubscriptionLock } from './components/SubscriptionLock';
@@ -457,7 +458,8 @@ const AppContent = () => {
             {id:'trips',l:'Viagens',i:Icons.Map}, 
             {id:'billing', l:'Cobrança', i:Icons.Dollar}, 
             {id:'lostFound', l:'Achados e Perdidos', i:Icons.Box},
-            {id:'folgasGanchos', l:'Folgas e Ganchos', i:Icons.Calendar}
+            {id:'folgasGanchos', l:'Folgas e Ganchos', i:Icons.Calendar},
+            {id:'tutorial', l:'Tutorial', i:Icons.PlayCircle}
         ];
 
         return items;
@@ -2967,21 +2969,6 @@ const AppContent = () => {
         let tripDate = formData.date || getTodayDate();
         let tripTime = time;
 
-        // 0. Identificar passageiros já alocados neste dia (em qualquer horário)
-        const occupiedPassOnDate = new Set();
-        const currentTripId = editingTripId ? String(editingTripId) : null;
-
-        data.trips.forEach((t:any) => {
-            if (String(t.id) === currentTripId) return; // PULA A PRÓPRIA VIAGEM
-            if (t.date === tripDate && t.status !== 'Cancelada') {
-                if (t.passengerIds && Array.isArray(t.passengerIds)) {
-                    t.passengerIds.forEach((pid:any) => {
-                        occupiedPassOnDate.add(String(pid));
-                    });
-                }
-            }
-        });
-
         // Helper para normalizar hora
         const normalizeTime = (t: string) => t ? t.trim() : '';
         
@@ -3018,13 +3005,29 @@ const AppContent = () => {
             return normalizeTime(pTime) === normalizeTime(tripTime);
         };
 
-        // 1. Filtrar Candidatos (Livres no dia)
+        // 0. Identificar passageiros já alocados neste dia e horário
+        const occupiedPassInSlot = new Set();
+        const currentTripId = editingTripId ? String(editingTripId) : null;
+
+        data.trips.forEach((t:any) => {
+            if (String(t.id) === currentTripId) return; // PULA A PRÓPRIA VIAGEM
+            if (t.date === tripDate && t.status !== 'Cancelada' && isTimeMatch(t.time)) {
+                if (t.passengerIds && Array.isArray(t.passengerIds)) {
+                    t.passengerIds.forEach((pid:any) => {
+                        occupiedPassInSlot.add(String(pid));
+                    });
+                }
+            }
+        });
+
+        // 1. Filtrar Candidatos (Livres no dia e horário)
         const candidates = data.passengers.filter((p:any) => {
             const systemMatch = systemContext === 'Mistura' || (p.system || 'Pg') === systemContext;
             return p.status === 'Ativo' && 
                    p.date === tripDate && 
                    isTimeMatch(p.time) &&
-                   systemMatch;
+                   systemMatch &&
+                   !occupiedPassInSlot.has(String(p.id));
         });
 
         if (candidates.length === 0) return notify("Nenhum passageiro livre encontrado para este horário.", "info");
@@ -3932,6 +3935,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             />}
                             {view === 'achados' && <Achados data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
                             {view === 'lostFound' && <Achados data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
+                            {view === 'tutorial' && <Tutorial theme={theme} systemContext={systemContext} notify={notify} />}
                             {view === 'settings' && <Configuracoes 
                                 user={user} 
                                 theme={theme} 

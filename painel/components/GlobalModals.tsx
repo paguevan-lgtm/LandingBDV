@@ -108,6 +108,7 @@ export const GlobalModals = ({
                     <p className="text-sm opacity-60 mb-4">Fale ou digite (ex: "João está no Boqueirão rua Jaú 336, telefone XX e vai pagar no Pix")</p>
                     
                     <textarea 
+                        id="textarea-magic-input"
                         className="w-full h-32 bg-black/20 p-4 rounded-xl border border-white/10 mb-4 text-base text-white outline-none focus:border-white/30 transition-colors" 
                         value={aiInput} 
                         onChange={(e:any)=>setAiInput(e.target.value)} 
@@ -125,6 +126,7 @@ export const GlobalModals = ({
                             <button onClick={()=>setAiModal(false)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors font-bold text-sm">Cancelar</button>
                             <button 
                                 onClick={handleSmartCreate} 
+                                id="btn-magic-submit"
                                 disabled={aiLoading}
                                 className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 rounded-lg font-bold text-white shadow-lg flex items-center gap-2"
                             >
@@ -148,19 +150,19 @@ export const GlobalModals = ({
                 </div>
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-5 pb-10">
                     <div className={modal === 'reschedule' || modal === 'driver' ? 'hidden' : ''}>
-                        <Input theme={theme} label="Data" type="text" mask="date" placeholder="DD/MM/YYYY" maxLength={10} value={formData.date || getTodayDate()} onChange={(e:any)=>setFormData({...formData, date:e.target.value})} />
+                        <Input theme={theme} id="input-global-date" label="Data" type="text" mask="date" placeholder="DD/MM/YYYY" maxLength={10} value={formData.date || getTodayDate()} onChange={(e:any)=>setFormData({...formData, date:e.target.value})} />
                     </div>
                     
                     {modal === 'appointment' && (
                         <div className="space-y-4">
                             <div className="flex flex-col gap-1.5">
-                                <Input theme={theme} label="Passageiros (ID ou Nome, separados por vírgula)" placeholder="Ex: 123, João, 456, Maria" value={formData.passengerInput || ''} onChange={(e:any)=>setFormData({...formData, passengerInput:e.target.value})} />
+                                <Input theme={theme} id="input-appointment-passengers" label="Passageiros (ID ou Nome, separados por vírgula)" placeholder="Ex: 123, João, 456, Maria" value={formData.passengerInput || ''} onChange={(e:any)=>setFormData({...formData, passengerInput:e.target.value})} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Input theme={theme} label="Data" type="text" mask="date" placeholder="DD/MM/YYYY" maxLength={10} value={formData.date || ''} onChange={(e:any)=>setFormData({...formData, date:e.target.value})} />
-                                <Input theme={theme} label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />
+                                <Input theme={theme} id="input-appointment-date" label="Data" type="text" mask="date" placeholder="DD/MM/YYYY" maxLength={10} value={formData.date || ''} onChange={(e:any)=>setFormData({...formData, date:e.target.value})} />
+                                <Input theme={theme} id="input-appointment-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />
                             </div>
-                            <div className="pt-4"><Button theme={theme} onClick={()=>save('appointments')}>Salvar Agendamento</Button></div>
+                            <div className="pt-4"><Button theme={theme} id="btn-save-appointment" onClick={()=>save('appointments')}>Salvar Agendamento</Button></div>
                         </div>
                     )}
                     
@@ -212,35 +214,78 @@ export const GlobalModals = ({
                                 Cadastro Mágico: {aiPassengerIndex + 1} / {aiPassengerQueue.length} passageiros
                             </div>
                         )}
-                        <Input themeKey={themeKey} label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:e.target.value})} speech={true} />
-                        <Input themeKey={themeKey} label="Telefone" type="tel" value={formData.phone||''} onChange={(e:any)=>setFormData({...formData, phone:e.target.value})} speech={true} />
-                        <Input themeKey={themeKey} label="Endereço" value={formData.address||''} onChange={(e:any)=>setFormData({...formData, address:e.target.value})} speech={true} />
-                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Bairro</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.neighborhood || ''} onChange={(e:any)=>setFormData({...formData, neighborhood:e.target.value})}>{bairrosList.map(b=><option key={b} value={b} className="bg-slate-900">{b}</option>)}</select></div>
-                        <Input themeKey={themeKey} label="Referência" value={formData.reference||''} onChange={(e:any)=>setFormData({...formData, reference:e.target.value})} speech={true} />
-                        <div className="grid grid-cols-2 gap-4"><Input themeKey={themeKey} label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} /><Input themeKey={themeKey} label="Qtd Pass" type="number" value={formData.passengerCount||''} onChange={(e:any)=>setFormData({...formData, passengerCount:e.target.value})} /></div>
-                        <Input themeKey={themeKey} label="Qtd Malas" type="number" value={formData.luggageCount||''} onChange={(e:any)=>setFormData({...formData, luggageCount:e.target.value})} />
-                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Pagamento</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.payment || ''} onChange={(e:any)=>setFormData({...formData, payment:e.target.value})}>{['Dinheiro','Pix','Cartão'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
-                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Status</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.status || ''} onChange={(e:any)=>setFormData({...formData, status:e.target.value})}>{['Ativo','Inativo'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
-                        <div className="pt-4"><Button themeKey={themeKey} onClick={()=>save('passengers')}>Salvar</Button></div>
+                        <Input themeKey={themeKey} id="input-passenger-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:e.target.value})} speech={true} />
+                        <Input themeKey={themeKey} id="input-passenger-phone" label="Telefone" type="tel" value={formData.phone||''} onChange={(e:any)=>setFormData({...formData, phone:e.target.value})} speech={true} />
+                        <Input themeKey={themeKey} id="input-passenger-address" label="Endereço" value={formData.address||''} onChange={(e:any)=>setFormData({...formData, address:e.target.value})} speech={true} />
+                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Bairro</label><select id="input-passenger-neighborhood" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.neighborhood || ''} onChange={(e:any)=>setFormData({...formData, neighborhood:e.target.value})}>{bairrosList.map(b=><option key={b} value={b} className="bg-slate-900">{b}</option>)}</select></div>
+                        <Input themeKey={themeKey} id="input-passenger-reference" label="Referência" value={formData.reference||''} onChange={(e:any)=>setFormData({...formData, reference:e.target.value})} speech={true} />
+                        <div className="grid grid-cols-2 gap-4"><Input themeKey={themeKey} id="input-passenger-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} /><Input themeKey={themeKey} id="input-passenger-count" label="Qtd Pass" type="number" value={formData.passengerCount||''} onChange={(e:any)=>setFormData({...formData, passengerCount:e.target.value})} /></div>
+                        <Input themeKey={themeKey} id="input-passenger-luggage" label="Qtd Malas" type="number" value={formData.luggageCount||''} onChange={(e:any)=>setFormData({...formData, luggageCount:e.target.value})} />
+                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Pagamento</label><select id="input-passenger-payment" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.payment || ''} onChange={(e:any)=>setFormData({...formData, payment:e.target.value})}>{['Dinheiro','Pix','Cartão'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
+                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Status</label><select id="input-passenger-status" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.status || ''} onChange={(e:any)=>setFormData({...formData, status:e.target.value})}>{['Ativo','Inativo'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
+                        <div className="pt-4"><Button themeKey={themeKey} id="btn-save-passenger" onClick={()=>save('passengers')}>Salvar</Button></div>
                     </>)}
                     
                     {modal === 'trip' && (
                         <>
                             {!suggestedTrip ? (
                                 <div className="space-y-6">
-                                    <div className={`p-4 rounded-xl flex items-center gap-3 cursor-pointer transition-colors border ${formData.isMadrugada ? 'bg-indigo-500/20 border-indigo-500' : 'bg-white/5 border-white/10 hover:bg-white/10'}`} onClick={() => setFormData((prev:any) => ({...prev, isMadrugada: !prev.isMadrugada, driverId: ''}))}>
+                                    <div id="btn-trip-madrugada" className={`p-4 rounded-xl flex items-center gap-3 cursor-pointer transition-colors border ${formData.isMadrugada ? 'bg-indigo-500/20 border-indigo-500' : 'bg-white/5 border-white/10 hover:bg-white/10'}`} onClick={() => setFormData((prev:any) => ({...prev, isMadrugada: !prev.isMadrugada, driverId: ''}))}>
                                         <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.isMadrugada ? 'bg-indigo-500 border-indigo-500' : 'border-white/30'}`}>{formData.isMadrugada && <Icons.Check size={14} className="text-white"/>}</div>
                                         <div><div className={`font-bold text-sm ${formData.isMadrugada ? 'text-indigo-300' : 'text-white'}`}>Viagem da Madrugada</div><div className="text-xs opacity-50">Filtra motoristas da tabela de madrugada</div></div>
                                     </div>
-                                    <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Motorista</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.driverId||''} onChange={(e:any)=>setFormData({...formData, driverId:e.target.value})}>
+                                    <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Motorista</label><select id="select-trip-driver" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.driverId||''} onChange={(e:any)=>setFormData({...formData, driverId:e.target.value})}>
                                         <option value="" className="bg-slate-900">Selecione...</option>
                                         {data.drivers.filter((d:any) => { if (formData.isMadrugada) { const sp = spList.find((s:any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); return sp && madrugadaList.includes(sp.vaga); } return d.status==='Ativo'; }).map((d:any) => { let label = `${d.name} (${d.capacity} lug)`; if (formData.isMadrugada) { const sp = spList.find((s:any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); if (sp) label = `[Vaga ${sp.vaga}] ${label}`; } return <option key={d.id} value={d.id} className="bg-slate-900">{label}</option>; })}
                                     </select></div>
-                                    {formData.isMadrugada ? (<div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Horário</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})}><option value="" className="bg-slate-900">Selecione...</option><option value="04:00/04:45" className="bg-slate-900">4:00 as 4:45</option><option value="05:00/05:45" className="bg-slate-900">5:00 as 5:45</option><option value="06:00/06:45" className="bg-slate-900">6:00 as 6:45</option></select></div>) : (<Input themeKey={themeKey} label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />)}
-                                    <Button themeKey={themeKey} onClick={simulate} icon={Icons.Zap}>Gerar Rota</Button>
+                                    {formData.isMadrugada ? (<div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Horário</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})}><option value="" className="bg-slate-900">Selecione...</option><option value="04:00/04:45" className="bg-slate-900">4:00 as 4:45</option><option value="05:00/05:45" className="bg-slate-900">5:00 as 5:45</option><option value="06:00/06:45" className="bg-slate-900">6:00 as 6:45</option></select></div>) : (<Input themeKey={themeKey} id="input-trip-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />)}
+                                    <Button themeKey={themeKey} id="btn-generate-route" onClick={simulate} icon={Icons.Zap}>Gerar Rota</Button>
                                 </div>
                             ) : (
-                                <div className="flex flex-col h-full"><div className="bg-black/10 p-5 rounded-xl border border-white/10 flex-1 flex flex-col"><div className="flex flex-col gap-1 mb-4"><label className="text-xs font-bold opacity-60">Motorista</label><select className="bg-black/20 border border-white/10 text-white rounded-xl px-3 py-2 w-full font-bold outline-none focus:border-white/30 transition-colors" value={suggestedTrip.driver?.id || ''} onChange={(e: any) => { const drId = e.target.value; const dr = data.drivers.find((d: any) => d.id === drId); if (dr) { setFormData((prev: any) => ({ ...prev, driverId: drId })); setSuggestedTrip((prev: any) => ({ ...prev, driver: dr })); } }}><option value="" disabled>Selecione...</option>{data.drivers.filter((d: any) => { if (formData.isMadrugada) { const sp = spList.find((s: any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); return sp && madrugadaList.includes(sp.vaga); } return d.status === 'Ativo'; }).map((d: any) => { let label = `${d.name} (${d.capacity} lug)`; if (formData.isMadrugada) { const sp = spList.find((s: any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); if (sp) label = `[Vaga ${sp.vaga}] ${label}`; } return <option key={d.id} value={d.id} className="bg-slate-900">{label}</option>; })}</select></div><div className="flex justify-between items-center mb-4"><span className="font-bold text-lg">Resumo</span><span className={`text-sm px-3 py-1 rounded-full font-bold ${suggestedTrip.occupancy > (suggestedTrip.driver?.capacity || 0) ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>{suggestedTrip.occupancy} / {suggestedTrip.driver?.capacity}</span></div><div className="flex gap-2 mb-4"><input className="bg-black/20 border border-white/10 rounded-xl px-4 flex-1 h-12" placeholder="ID ou Nome (separados por vírgula)" value={searchId} onChange={(e:any)=>setSearchId(e.target.value)} /><button onClick={addById} className="bg-white/10 px-4 rounded-xl font-bold h-12">Add</button></div><button onClick={autoFill} className={`w-full mb-4 py-3 bg-white/5 border border-white/10 rounded-xl font-bold flex items-center justify-center gap-2 active:bg-white/10 anim-fade ${theme.accent}`}><Icons.Refresh size={20}/> 🤖 Puxar Passageiros (Auto)</button><div className="space-y-3 overflow-y-auto flex-1 pr-1 overflow-y-auto max-h-[35vh]">{suggestedTrip.passengers.map((p:any, i:number) => (<div key={p.id} className={`${theme.bg} p-3 rounded-xl border ${theme.border} flex justify-between items-center shadow-sm`}><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${theme.primary}`}>{i+1}</div><div><div className="text-base font-bold flex items-center gap-2">{p.name} <span className="text-[10px] opacity-40 font-mono">{String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}</span></div><div className="text-xs opacity-60">{p.neighborhood}</div></div></div><div className="flex items-center gap-3"><span className={`${theme.accent} font-bold text-base`}>{p.passengerCount} pass</span>{p.luggageCount > 0 && <span className="text-xs bg-white/10 px-2 py-1 rounded font-bold">{p.luggageCount} 🎒</span>}<button onClick={()=>removePass(p.id)} className="text-red-400 p-2"><Icons.Trash size={20}/></button></div></div>))}</div></div><div className="grid grid-cols-2 gap-3 pt-4"><Button themeKey={themeKey} variant="secondary" onClick={()=>setSuggestedTrip(null)}>Voltar</Button><Button themeKey={themeKey} onClick={confirmTrip} variant="success">Confirmar</Button></div></div>
+                                <div className="flex flex-col h-full">
+                                    <div className="bg-black/10 p-5 rounded-xl border border-white/10 flex-1 flex flex-col">
+                                        <div className="flex flex-col gap-1 mb-4">
+                                            <label className="text-xs font-bold opacity-60">Motorista</label>
+                                            <select className="bg-black/20 border border-white/10 text-white rounded-xl px-3 py-2 w-full font-bold outline-none focus:border-white/30 transition-colors" value={suggestedTrip.driver?.id || ''} onChange={(e: any) => { const drId = e.target.value; const dr = data.drivers.find((d: any) => d.id === drId); if (dr) { setFormData((prev: any) => ({ ...prev, driverId: drId })); setSuggestedTrip((prev: any) => ({ ...prev, driver: dr })); } }}>
+                                                <option value="" disabled>Selecione...</option>
+                                                {data.drivers.filter((d: any) => { if (formData.isMadrugada) { const sp = spList.find((s: any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); return sp && madrugadaList.includes(sp.vaga); } return d.status === 'Ativo'; }).map((d: any) => { let label = `${d.name} (${d.capacity} lug)`; if (formData.isMadrugada) { const sp = spList.find((s: any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); if (sp) label = `[Vaga ${sp.vaga}] ${label}`; } return <option key={d.id} value={d.id} className="bg-slate-900">{label}</option>; })}
+                                            </select>
+                                        </div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="font-bold text-lg">Resumo</span>
+                                            <span className={`text-sm px-3 py-1 rounded-full font-bold ${suggestedTrip.occupancy > (suggestedTrip.driver?.capacity || 0) ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>{suggestedTrip.occupancy} / {suggestedTrip.driver?.capacity}</span>
+                                        </div>
+                                        <div className="flex gap-2 mb-4">
+                                            <input className="bg-black/20 border border-white/10 rounded-xl px-4 flex-1 h-12" placeholder="ID ou Nome (separados por vírgula)" value={searchId} onChange={(e:any)=>setSearchId(e.target.value)} />
+                                            <button onClick={addById} className="bg-white/10 px-4 rounded-xl font-bold h-12">Add</button>
+                                        </div>
+                                        <button id="btn-trip-autofill" onClick={autoFill} className={`w-full mb-4 py-3 bg-white/5 border border-white/10 rounded-xl font-bold flex items-center justify-center gap-2 active:bg-white/10 anim-fade ${theme.accent}`}>
+                                            <Icons.Refresh size={20}/> 🤖 Puxar Passageiros (Auto)
+                                        </button>
+                                        <div className="space-y-3 overflow-y-auto flex-1 pr-1 overflow-y-auto max-h-[35vh]">
+                                            {suggestedTrip.passengers.map((p:any, i:number) => (
+                                                <div key={p.id} className={`${theme.bg} p-3 rounded-xl border ${theme.border} flex justify-between items-center shadow-sm`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${theme.primary}`}>{i+1}</div>
+                                                        <div>
+                                                            <div className="text-base font-bold flex items-center gap-2">{p.name} <span className="text-[10px] opacity-40 font-mono">{String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}</span></div>
+                                                            <div className="text-xs opacity-60">{p.neighborhood}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`${theme.accent} font-bold text-base`}>{p.passengerCount} pass</span>
+                                                        {p.luggageCount > 0 && <span className="text-xs bg-white/10 px-2 py-1 rounded font-bold">{p.luggageCount} 🎒</span>}
+                                                        <button onClick={()=>removePass(p.id)} className="text-red-400 p-2"><Icons.Trash size={20}/></button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 pt-4">
+                                        <Button themeKey={themeKey} variant="secondary" onClick={()=>setSuggestedTrip(null)}>Voltar</Button>
+                                        <Button themeKey={themeKey} id="btn-confirm-trip" onClick={confirmTrip} variant="success">Confirmar</Button>
+                                    </div>
+                                </div>
                             )}
                         </>
                     )}
@@ -256,18 +301,18 @@ export const GlobalModals = ({
                                     </div>
                                 </div>
                             )}
-                            <Input themeKey={themeKey} label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:e.target.value})} />
+                            <Input themeKey={themeKey} id="input-driver-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:e.target.value})} />
                              <div className="flex flex-col gap-4">
                                  <div className="flex flex-col gap-2">
                                      <label className="text-xs font-bold opacity-60 ml-1">Telefones</label>
                                      {(formData.phones || [{name: '', phone: ''}]).map((p: any, i: number) => (
                                          <div key={i} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center">
-                                             <input className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14 w-full" placeholder="Nome" value={p.name} onChange={(e:any) => {
+                                             <input id={`input-driver-phone-name-${i}`} className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14 w-full" placeholder="Nome" value={p.name} onChange={(e:any) => {
                                                  const newPhones = [...(formData.phones || [{name: '', phone: ''}])];
                                                  newPhones[i].name = e.target.value;
                                                  setFormData({...formData, phones: newPhones});
                                              }} />
-                                             <input className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14 w-full" placeholder="Telefone" value={p.phone} onChange={(e:any) => {
+                                             <input id={`input-driver-phone-val-${i}`} className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14 w-full" placeholder="Telefone" value={p.phone} onChange={(e:any) => {
                                                  const newPhones = [...(formData.phones || [{name: '', phone: ''}])];
                                                  newPhones[i].phone = e.target.value;
                                                  setFormData({...formData, phones: newPhones});
@@ -278,26 +323,26 @@ export const GlobalModals = ({
                                              }}><Icons.Trash size={16}/></Button>
                                          </div>
                                      ))}
-                                     <Button themeKey={themeKey} variant="secondary" className="h-14" onClick={() => setFormData({...formData, phones: [...(formData.phones || [{name: '', phone: ''}]), {name: '', phone: ''}]})}><Icons.Plus size={16}/> Adicionar Telefone</Button>
+                                     <Button themeKey={themeKey} id="btn-driver-add-phone" variant="secondary" className="h-14" onClick={() => setFormData({...formData, phones: [...(formData.phones || [{name: '', phone: ''}]), {name: '', phone: ''}]})}><Icons.Plus size={16}/> Adicionar Telefone</Button>
                                  </div>
-                                 <Input themeKey={themeKey} label="CPF" type="text" mask="cpf" placeholder="000.000.000-00" value={formData.cpf||''} onChange={(e:any)=>setFormData({...formData, cpf:e.target.value})} />
+                                 <Input themeKey={themeKey} id="input-driver-cpf" label="CPF" type="text" mask="cpf" placeholder="000.000.000-00" value={formData.cpf||''} onChange={(e:any)=>setFormData({...formData, cpf:e.target.value})} />
                              </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Input themeKey={themeKey} label="Placa" value={formData.plate||''} onChange={(e:any)=>setFormData({...formData, plate:e.target.value})} />
-                                <Input themeKey={themeKey} label="Capacidade" type="number" value={formData.capacity||''} onChange={(e:any)=>setFormData({...formData, capacity:e.target.value})} />
+                                <Input themeKey={themeKey} id="input-driver-plate" label="Placa" value={formData.plate||''} onChange={(e:any)=>setFormData({...formData, plate:e.target.value})} />
+                                <Input themeKey={themeKey} id="input-driver-capacity" label="Capacidade" type="number" value={formData.capacity||''} onChange={(e:any)=>setFormData({...formData, capacity:e.target.value})} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <Input themeKey={themeKey} label="CNH" value={formData.cnh||''} onChange={(e:any)=>setFormData({...formData, cnh:e.target.value})} />
-                                <Input themeKey={themeKey} label="Validade CNH" type="date" value={formData.cnhValidity||''} onChange={(e:any)=>setFormData({...formData, cnhValidity:e.target.value})} />
+                                <Input themeKey={themeKey} id="input-driver-cnh" label="CNH" value={formData.cnh||''} onChange={(e:any)=>setFormData({...formData, cnh:e.target.value})} />
+                                <Input themeKey={themeKey} id="input-driver-cnh-validity" label="Validade CNH" type="date" value={formData.cnhValidity||''} onChange={(e:any)=>setFormData({...formData, cnhValidity:e.target.value})} />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold opacity-60 ml-1">Status</label>
-                                <select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.status || ''} onChange={(e:any)=>setFormData({...formData, status:e.target.value})}>
+                                <select id="input-driver-status" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.status || ''} onChange={(e:any)=>setFormData({...formData, status:e.target.value})}>
                                     {['Ativo','Inativo'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}
                                 </select>
                             </div>
                             <div className="pt-4">
-                                <Button themeKey={themeKey} onClick={()=>save('drivers')}>Salvar</Button>
+                                <Button themeKey={themeKey} id="btn-save-driver" onClick={()=>save('drivers')}>Salvar</Button>
                             </div>
                         </>
                     )}

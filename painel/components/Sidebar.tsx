@@ -53,15 +53,15 @@ const SortableMenuItem = ({ item, isMobile, view, setView, setMenuOpen, theme }:
             {...attributes}
             {...listeners}
         >
-            <button 
-                id={`menu-btn-${item.id}${isMobile ? '-mobile' : ''}`} 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setView(item.id);
-                    if(isMobile) setMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative z-10 ${view === item.id ? `${theme.primary} shadow-lg` : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-            >
+                <button 
+                    id={`menu-btn-${item.id}${isMobile ? '-mobile' : ''}`} 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setView(item.id);
+                        if(isMobile) setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative z-10 ${view === item.id ? `${theme.primary} shadow-lg` : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+                >
                 <item.i size={20}/>
                 <div className="flex-1 text-left">
                     <div className="text-sm font-bold">{item.l}</div>

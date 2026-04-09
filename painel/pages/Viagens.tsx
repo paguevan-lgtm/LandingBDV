@@ -245,8 +245,8 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
                                     <div className={`${theme.accent} font-bold text-sm mt-1`}>{calculateTimeSlot(t.time, systemContext === 'Mip' ? 30 : 45)}</div>
                                 </div>
                                 <div className="flex gap-2 flex-shrink-0">
-                                    <IconButton theme={theme} onClick={()=>openEditTrip(t)} icon={Icons.Edit} variant="default" />
-                                    <IconButton theme={theme} onClick={()=>del('trips', t.id)} icon={Icons.Trash} variant="danger" />
+                                    <IconButton id="tut-btn-trip-edit" theme={theme} onClick={()=>openEditTrip(t)} icon={Icons.Edit} variant="default" />
+                                    <IconButton id="tut-btn-trip-del" theme={theme} onClick={()=>del('trips', t.id)} icon={Icons.Trash} variant="danger" />
                                 </div>
                             </div>
                             <div className={`bg-black/20 p-3 rounded-lg mb-4 flex justify-between items-center border ${theme.border}`}>
@@ -257,14 +257,14 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
                                 </div>
                             </div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                                <Button theme={theme} onClick={()=>updateTripStatus(t.id, 'Finalizada')} variant="success" size="sm" icon={Icons.Check}>Finalizar</Button>
+                                <Button id="tut-btn-trip-finish" theme={theme} onClick={()=>updateTripStatus(t.id, 'Finalizada')} variant="success" size="sm" icon={Icons.Check}>Finalizar</Button>
                                 <Button theme={theme} disabled={true} className="opacity-50" variant="secondary" size="sm">Andamento</Button>
                                 <Button theme={theme} onClick={()=>updateTripStatus(t.id, 'Cancelada')} variant="danger" size="sm" icon={Icons.X}>Cancelar</Button>
                             </div>
                             
                             <div className="flex gap-2">
                                 <button onClick={()=>copyToClip(generateTripListText(tripPassengers, t.driverName, t.time))} className="flex-1 bg-white/5 hover:bg-white/10 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"><Icons.Copy size={18}/> Copiar Lista</button>
-                                <button onClick={()=>sendWhatsapp(t)} className="flex-[2] bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"><Icons.Send size={18}/> WhatsApp</button>
+                                <button id="tut-btn-trip-wa" onClick={()=>sendWhatsapp(t)} className="flex-[2] bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"><Icons.Send size={18}/> WhatsApp</button>
                             </div>
                             
                             {!t.isMadrugada && (

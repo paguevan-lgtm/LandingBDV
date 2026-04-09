@@ -341,14 +341,14 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
                     </div>
                 </Button>
 
-                <Button onClick={()=>{onOpenModal('newPass')}} variant="secondary" className="p-4 rounded-2xl flex items-center gap-3 group active:scale-95">
+                <Button onClick={()=>{onOpenModal('newPass')}} id="btn-new-passenger" variant="secondary" className="p-4 rounded-2xl flex items-center gap-3 group active:scale-95">
                     <div className="bg-blue-500/20 p-2 rounded-xl text-blue-400 group-hover:scale-110 transition-transform"><Icons.Users size={20}/></div>
                     <div className="text-left">
                         <div className="font-bold text-sm">Novo Passageiro</div>
                     </div>
                 </Button>
 
-                <Button onClick={()=>{onOpenModal('newTrip')}} variant="secondary" className="p-4 rounded-2xl flex items-center gap-3 group active:scale-95">
+                <Button onClick={()=>{onOpenModal('newTrip')}} id="btn-new-trip" variant="secondary" className="p-4 rounded-2xl flex items-center gap-3 group active:scale-95">
                     <div className="bg-green-500/20 p-2 rounded-xl text-green-400 group-hover:scale-110 transition-transform"><Icons.Van size={20}/></div>
                     <div className="text-left">
                         <div className="font-bold text-sm">Nova Viagem</div>

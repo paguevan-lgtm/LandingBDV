@@ -147,7 +147,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
 
     return (
         <div className="space-y-6">
-            <div className={`${theme.card} ${theme.radius} border ${theme.border} p-4 stagger-in d-1`}><div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg capitalize">{monthName}</h3><div className="flex gap-2"><button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()-1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronLeft size={20}/></button><button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()+1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronRight size={20}/></button></div></div><div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs opacity-60">{['D','S','T','Q','Q','S','S'].map((d,i)=><div key={`${d}-${i}`}>{d}</div>)}</div><div className="grid grid-cols-7 gap-1">{dayElements}</div><div className="mt-4 pt-3 border-t border-white/10 flex gap-2"><button onClick={copyDaySummary} className="w-full bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> 📋 Copiar Resumo do Dia</button></div></div>
+            <div id="tut-calendar-card" className={`${theme.card} ${theme.radius} border ${theme.border} p-4 stagger-in d-1`}><div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg capitalize">{monthName}</h3><div className="flex gap-2"><button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()-1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronLeft size={20}/></button><button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()+1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronRight size={20}/></button></div></div><div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs opacity-60">{['D','S','T','Q','Q','S','S'].map((d,i)=><div key={`${d}-${i}`}>{d}</div>)}</div><div className="grid grid-cols-7 gap-1">{dayElements}</div><div className="mt-4 pt-3 border-t border-white/10 flex gap-2"><button onClick={copyDaySummary} className="w-full bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> 📋 Copiar Resumo do Dia</button></div></div>
             <div className="space-y-4 stagger-in d-2">
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
                     <h3 className="font-bold text-lg">📅 {formatDisplayDate(selectedDate)}</h3>
@@ -197,6 +197,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                     <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded" title={p.luggageDetails || ''}>{p.luggageCount || 0}🎒</div>
                                                     <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded">{p.passengerCount} pass</div>
                                                     <button 
+                                                        id="tut-btn-reschedule-pass"
                                                         onClick={(e) => handleQuickReschedule(e, p)}
                                                         className="ml-1 p-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors active:scale-95 cursor-pointer"
                                                         title="Reagendar Passageiro"
@@ -205,6 +206,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                     </button>
 
                                                     <button 
+                                                        id="tut-btn-cancel-app"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             clearPassSchedule(p.id);
@@ -217,8 +219,8 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                                 </div>
                                             </div>
                                             <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
-                                                <button onClick={() => copyPassengerData(p)} className="flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> Copiar</button>
-                                                <button onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Message size={16}/> WhatsApp</button>
+                                                <button id="tut-btn-copy-pass" onClick={() => copyPassengerData(p)} className="flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> Copiar</button>
+                                                <button id="tut-btn-wa-confirm" onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Message size={16}/> WhatsApp</button>
                                                 <button onClick={() => handleCreateTripFromPass(p)} className="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Plus size={16}/> Criar Viagem</button>
                                             </div>
                                         </div>
