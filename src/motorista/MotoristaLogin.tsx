@@ -2,6 +2,43 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { MapPin, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import fpPromise from '@fingerprintjs/fingerprintjs';
+
+// Helper functions for device info
+const parseUserAgent = (ua: string) => {
+    let browser = "Unknown";
+    let os = "Unknown";
+    let device = "Desktop";
+
+    if (/mobile/i.test(ua)) device = "Mobile";
+    else if (/tablet/i.test(ua)) device = "Tablet";
+
+    if (/windows/i.test(ua)) os = "Windows";
+    else if (/mac os/i.test(ua)) os = "macOS";
+    else if (/linux/i.test(ua)) os = "Linux";
+    else if (/android/i.test(ua)) os = "Android";
+    else if (/ios|iphone|ipad/i.test(ua)) os = "iOS";
+
+    if (/chrome|crios/i.test(ua) && !/edge|opr|brave/i.test(ua)) browser = "Chrome";
+    else if (/safari/i.test(ua) && !/chrome|crios/i.test(ua)) browser = "Safari";
+    else if (/firefox|fxios/i.test(ua)) browser = "Firefox";
+    else if (/edge|edgios|edga/i.test(ua)) browser = "Edge";
+    else if (/opr|opera/i.test(ua)) browser = "Opera";
+
+    return { browser, os, device };
+};
+
+const getHardwareInfo = () => {
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl) {
+            const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
+            return debugInfo ? (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown GPU';
+        }
+    } catch (e) { return 'Unknown GPU'; }
+    return 'Unknown GPU';
+};
 
 export default function MotoristaLogin() {
   const [name, setName] = useState('');
@@ -80,20 +117,61 @@ export default function MotoristaLogin() {
         const sessionData = { ...driver, lastLocation: locationData };
         localStorage.setItem('motorista_session', JSON.stringify(sessionData));
 
+        // Gather Device Info
+        let deviceId = 'unknown';
+        try {
+            const fp = await fpPromise.load();
+            const result = await fp.get();
+            deviceId = result.visitorId;
+        } catch (e) { console.warn("FP error", e); }
+
+        const uaInfo = parseUserAgent(navigator.userAgent);
+        const gpuInfo = getHardwareInfo();
+        
+        let currentIp = locationData?.ip || '0.0.0.0';
+        if (currentIp === '0.0.0.0') {
+            try {
+                const ipRes = await fetch('https://api.ipify.org?format=json');
+                if (ipRes.ok) {
+                    const ipData = await ipRes.json();
+                    currentIp = ipData.ip;
+                }
+            } catch (e) { console.warn("IP fetch error", e); }
+        }
+
+        const logData = {
+            username: driver.name,
+            timestamp: Date.now(),
+            ip: currentIp,
+            device: navigator.userAgent,
+            deviceId: deviceId,
+            deviceInfo: { ...uaInfo, gpu: gpuInfo },
+            location: locationData ? {
+                coords: { lat: locationData.latitude, lng: locationData.longitude },
+                city: locationData.city,
+                region: locationData.region,
+                country: locationData.country,
+                display_name: locationData.display_name || (locationData.city ? `${locationData.city}, ${locationData.region} - ${locationData.country} (IP)` : 'Localização não identificada'),
+                type: locationData.type || 'unknown'
+            } : null
+        };
+
         // Log de Acesso do Motorista
         try {
           const logId = db.ref('audit_logs').push().key;
           if (logId) {
             await db.ref(`audit_logs/${logId}`).set({
-              username: driver.name,
+              ...logData,
               action: 'Login Motorista',
-              details: `Motorista ${driver.name} entrou no sistema.`,
-              timestamp: Date.now(),
-              location: locationData ? { coords: { lat: locationData.latitude, lng: locationData.longitude } } : null,
-              device: navigator.userAgent,
+              details: `Motorista ${driver.name} entrou no sistema via ${logData.deviceInfo.browser} (${logData.ip}).`,
+              sessionId: logId,
               date: new Date().toISOString().split('T')[0]
             });
           }
+          
+          // Add to access_timeline
+          await db.ref('access_timeline').push(logData);
+          
         } catch (logErr) {
           console.warn("Erro ao gerar log de motorista:", logErr);
         }

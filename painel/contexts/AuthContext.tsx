@@ -248,6 +248,39 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                 type: coords?.type || 'unknown'
             };
 
+            // Se usou GPS, tenta pegar o nome da cidade por Reverse Geocoding
+            if (currentLocation.type === 'gps' && !currentLocation.city && currentLocation.coords.lat) {
+                try {
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.coords.lat}&lon=${currentLocation.coords.lng}&zoom=10`);
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        if (geoData.address) {
+                            currentLocation.city = geoData.address.city || geoData.address.town || geoData.address.municipality || 'Desconhecida';
+                            currentLocation.region = geoData.address.state || 'Desconhecida';
+                            currentLocation.country = geoData.address.country || 'Desconhecido';
+                            currentLocation.display_name = `${currentLocation.city}, ${currentLocation.region} - ${currentLocation.country} (GPS Exato)`;
+                        }
+                    }
+                } catch (e) { console.warn("Falha no reverse geocoding", e); }
+            }
+
+            // Se ainda não tem cidade (ex: falhou tudo no Login.tsx), tenta buscar pelo IP
+            if (!currentLocation.city && currentIp !== '0.0.0.0') {
+                try {
+                    const ipRes = await fetch(`https://ipwho.is/${currentIp}`);
+                    if (ipRes.ok) {
+                        const ipData = await ipRes.json();
+                        if (ipData.success) {
+                            currentLocation.city = ipData.city;
+                            currentLocation.region = ipData.region;
+                            currentLocation.country = ipData.country;
+                            currentLocation.display_name = `${ipData.city}, ${ipData.region} - ${ipData.country} (IP Fallback)`;
+                            currentLocation.type = 'ip';
+                        }
+                    }
+                } catch (e) { console.warn("Falha no IP fallback geocoding", e); }
+            }
+
             // --- SECURITY CHECK (FINGERPRINT ROBUSTO, IP & SIMILARITY) ---
             if (db) {
                 // 1. Check Exact Device ID

@@ -359,31 +359,60 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const handleLocationFallback = async (reason: string, system?: string) => {
         try {
             setGeoStatus('Obtendo localização via IP...');
-            const response = await fetch('https://ipapi.co/json/');
-            if (!response.ok) throw new Error("Falha na API de IP");
-            const data = await response.json();
             
+            let data: any = null;
+            
+            // Tenta ipapi.co primeiro
+            try {
+                const res1 = await fetch('https://ipapi.co/json/');
+                if (res1.ok) {
+                    data = await res1.json();
+                }
+            } catch (e) { console.warn("ipapi.co falhou", e); }
+
+            // Se falhou, tenta ipwho.is
+            if (!data || data.error) {
+                try {
+                    const res2 = await fetch('https://ipwho.is/');
+                    if (res2.ok) {
+                        const data2 = await res2.json();
+                        if (data2.success) {
+                            data = {
+                                latitude: data2.latitude,
+                                longitude: data2.longitude,
+                                city: data2.city,
+                                region: data2.region,
+                                country_name: data2.country,
+                                ip: data2.ip
+                            };
+                        }
+                    }
+                } catch (e) { console.warn("ipwho.is falhou", e); }
+            }
+
             const coords = {
-                latitude: data.latitude,
-                longitude: data.longitude,
-                accuracy: 5000, // Approximate
-                city: data.city,
-                region: data.region,
-                country: data.country_name,
-                display_name: `${data.city}, ${data.region} - ${data.country_name} (IP)`,
-                ip: data.ip,
+                latitude: data?.latitude || 0,
+                longitude: data?.longitude || 0,
+                accuracy: 5000,
+                city: data?.city || 'Desconhecida',
+                region: data?.region || 'Desconhecida',
+                country: data?.country_name || 'Desconhecido',
+                display_name: data?.city ? `${data.city}, ${data.region} - ${data.country_name} (IP)` : 'Localização não identificada',
+                ip: data?.ip || '0.0.0.0',
                 type: 'ip',
                 reason
             };
             
-            console.log("Localização por IP obtida:", coords);
+            console.log("Localização por IP obtida/resolvida:", coords);
             setShowGeoPrompt(false);
             startEntrySequence(coords, system);
         } catch (fallbackErr) {
-            console.error("Erro ao obter localização por IP:", fallbackErr);
-            setLoading(false);
-            setGeoStatus('');
-            notify("Não foi possível obter sua localização via IP. Verifique sua conexão.", "error");
+            console.error("Erro fatal ao obter localização:", fallbackErr);
+            // Mesmo com erro, permite o login para não travar o usuário
+            setShowGeoPrompt(false);
+            startEntrySequence({
+                latitude: 0, longitude: 0, accuracy: 0, type: 'unknown', display_name: 'Localização falhou'
+            }, system);
         }
     };
 
