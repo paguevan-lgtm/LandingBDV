@@ -1780,7 +1780,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                 </div>
                                 <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider}`}>
                                     <div className="text-[9px] opacity-40 uppercase font-bold mb-1">IP</div>
-                                    <div className={`text-xs font-bold ${theme.text}`}>{selectedLog.ip || 'N/A'}</div>
+                                    <div className={`text-xs font-bold ${theme.text} break-all`}>{selectedLog.ip || 'N/A'}</div>
                                 </div>
                             </div>
 

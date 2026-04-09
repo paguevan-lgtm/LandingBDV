@@ -370,6 +370,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 city: data.city,
                 region: data.region,
                 country: data.country_name,
+                display_name: `${data.city}, ${data.region} - ${data.country_name} (IP)`,
                 ip: data.ip,
                 type: 'ip',
                 reason
@@ -388,7 +389,39 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
 
     const executeGeoLogin = (system?: string) => {
         setLoading(true);
-        handleLocationFallback('IP-based location', system);
+        setGeoStatus('Sincronizando satélites...');
+
+        if (!navigator.geolocation) {
+            handleLocationFallback("Navegador incompatível com geolocalização.", system);
+            return;
+        }
+
+        const tryGeo = (highAccuracy: boolean) => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude, accuracy } = pos.coords;
+                    setShowGeoPrompt(false); 
+                    startEntrySequence({ 
+                        latitude, 
+                        longitude, 
+                        accuracy, 
+                        type: 'gps',
+                        display_name: 'Localização GPS Exata'
+                    }, system);
+                },
+                (err) => {
+                    if (highAccuracy) {
+                        tryGeo(false);
+                    } else {
+                        console.warn("Geo GPS falhou, tentando IP:", err);
+                        handleLocationFallback("Falha no GPS ou permissão negada", system);
+                    }
+                },
+                { enableHighAccuracy: highAccuracy, timeout: 10000, maximumAge: 0 }
+            );
+        };
+
+        tryGeo(true);
     };
 
     const proceedToLogin = (system?: string) => {

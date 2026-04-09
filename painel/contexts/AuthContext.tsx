@@ -225,11 +225,26 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             const currentDeviceInfo = { ...uaInfo, gpu: gpuInfo };
             
             let currentIp = coords?.ip || '0.0.0.0';
+            
+            // Se não veio IP nas coords (ex: usou GPS direto), tenta buscar
+            if (currentIp === '0.0.0.0') {
+                try {
+                    const ipRes = await fetch('https://api.ipify.org?format=json');
+                    if (ipRes.ok) {
+                        const ipData = await ipRes.json();
+                        currentIp = ipData.ip;
+                    }
+                } catch (e) {
+                    console.warn("Falha ao obter IP no AuthContext", e);
+                }
+            }
+
             let currentLocation: any = { 
                 coords: { lat: coords?.latitude, lng: coords?.longitude },
                 city: coords?.city,
                 region: coords?.region,
                 country: coords?.country,
+                display_name: coords?.display_name,
                 type: coords?.type || 'unknown'
             };
 
