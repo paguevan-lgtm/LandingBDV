@@ -83,6 +83,16 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     
     // Geo Modal State
     const [showGeoPrompt, setShowGeoPrompt] = useState(false);
+    const [requireLocationOnLogin, setRequireLocationOnLogin] = useState(false);
+    const [showInstructions, setShowInstructions] = useState(false);
+
+    useEffect(() => {
+        const ref = db.ref('system_settings/requireLocationOnLogin');
+        ref.on('value', (snap: any) => {
+            setRequireLocationOnLogin(!!snap.val());
+        });
+        return () => ref.off();
+    }, []);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 640);
@@ -141,7 +151,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     
                     if (result && result.trusted) {
                         // Device is trusted, skip token input
-                        startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, selectedSystem || undefined);
+                        proceedToLogin(user.system || selectedSystem || undefined);
                     } else {
                         setShowTokenInput(true);
                     }
@@ -225,7 +235,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 if (!response.ok) throw new Error(data.error || 'Token inválido');
                 
                 setShowTokenInput(false);
-                startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, selectedSystem || undefined);
+                proceedToLogin(selectedSystem || undefined);
             } else {
                 const text = await response.text();
                 console.error("Non-JSON response:", text);
@@ -347,14 +357,43 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         setLoading(false);
     };
 
-    const executeGeoLogin = () => {
+    const handleLocationFallback = async (reason: string, system?: string) => {
+        try {
+            setGeoStatus('Obtendo localização aproximada...');
+            const response = await fetch('https://ipapi.co/json/');
+            if (!response.ok) throw new Error("Falha na API de IP");
+            const data = await response.json();
+            
+            const coords = {
+                latitude: data.latitude,
+                longitude: data.longitude,
+                accuracy: 5000, // Approximate
+                city: data.city,
+                region: data.region,
+                country: data.country_name,
+                type: 'ip',
+                reason
+            };
+            
+            console.log("Localização aproximada (IP) obtida:", coords);
+            setShowGeoPrompt(false);
+            setShowInstructions(false);
+            startEntrySequence(coords, system);
+        } catch (fallbackErr) {
+            console.error("Erro no fallback de IP:", fallbackErr);
+            setLoading(false);
+            setGeoStatus('');
+            notify("Não foi possível obter sua localização. Verifique sua conexão.", "error");
+        }
+    };
+
+    const executeGeoLogin = (system?: string) => {
         setLoading(true);
         setGeoStatus('Sincronizando satélites...');
+        setShowInstructions(false);
 
         if (!navigator.geolocation) {
-            notify("Seu dispositivo não suporta GPS.", "error");
-            setLoading(false);
-            setShowGeoPrompt(false);
+            handleLocationFallback("Navegador incompatível com geolocalização.", system);
             return;
         }
 
@@ -363,25 +402,35 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 (pos) => {
                     const { latitude, longitude, accuracy } = pos.coords;
                     setShowGeoPrompt(false); 
-                    startEntrySequence({ latitude, longitude, accuracy });
+                    setShowInstructions(false);
+                    startEntrySequence({ latitude, longitude, accuracy, type: 'gps' }, system);
                 },
                 (err) => {
                     if (highAccuracy) {
-                        // Fallback para precisão menor se a alta falhar (comum no iOS)
                         tryGeo(false);
                     } else {
-                        console.warn("Geo bloqueada:", err);
+                        console.warn("Geo GPS falhou:", err);
                         setLoading(false);
                         setGeoStatus('');
-                        notify("Não foi possível obter localização. Verifique as permissões do navegador.", "error");
-                        setShowGeoPrompt(true);
+                        setShowInstructions(true);
+                        notify("Permissão negada ou erro no GPS. Siga as instruções abaixo.", "error");
                     }
                 },
-                { enableHighAccuracy: highAccuracy, timeout: 20000, maximumAge: 0 }
+                { enableHighAccuracy: highAccuracy, timeout: 10000, maximumAge: 0 }
             );
         };
 
         tryGeo(true);
+    };
+
+    const proceedToLogin = (system?: string) => {
+        if (requireLocationOnLogin) {
+            setShowGeoPrompt(true);
+            // We store the system to use it when geo is done
+            if (system) setSelectedSystem(system);
+        } else {
+            startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, system);
+        }
     };
 
     const startEntrySequence = (coords: any, system?: string) => {
@@ -634,7 +683,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                                                 
                                                 if (result && result.trusted) {
                                                     // Device is trusted, skip token input
-                                                    startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, u.system);
+                                                    proceedToLogin(u.system);
                                                 } else {
                                                     setShowTokenInput(true);
                                                 }
@@ -760,16 +809,56 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                             </p>
 
                             <Button 
-                                onClick={executeGeoLogin}
+                                onClick={() => executeGeoLogin(selectedSystem || undefined)}
                                 disabled={loading}
                                 loading={loading}
                                 className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest"
                             >
-                                {loading ? 'Sincronizando...' : 'Confirmar Posição'}
+                                {loading ? (geoStatus || 'Sincronizando...') : 'Confirmar Posição'}
                             </Button>
 
+                            {showInstructions && (
+                                <div className="mt-6 w-full text-left space-y-4">
+                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                                        <h4 className="text-amber-500 font-bold text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <Icons.Info size={12} /> Como ativar:
+                                        </h4>
+                                        
+                                        <div className="space-y-3">
+                                            <div className="flex gap-2.5">
+                                                <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[9px] font-bold text-amber-500 shrink-0">PC</div>
+                                                <p className="text-[10px] text-slate-400 leading-tight">
+                                                    Clique no <span className="text-white">cadeado</span> na URL e mude "Localização" para <span className="text-green-400">Permitir</span>.
+                                                </p>
+                                            </div>
+
+                                            <div className="flex gap-2.5">
+                                                <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-[9px] font-bold text-green-400 shrink-0">AND</div>
+                                                <p className="text-[10px] text-slate-400 leading-tight">
+                                                    Cadeado ou 3 pontos {'>'} Configurações {'>'} Site {'>'} Localização {'>'} Permitir.
+                                                </p>
+                                            </div>
+
+                                            <div className="flex gap-2.5">
+                                                <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[9px] font-bold text-blue-400 shrink-0">iOS</div>
+                                                <p className="text-[10px] text-slate-400 leading-tight">
+                                                    Ajustes {'>'} Safari {'>'} Localização {'>'} <span className="text-white">Durante o Uso</span>. No Safari, toque em <span className="text-white">Aa</span> {'>'} Ajustes do Site.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => handleLocationFallback("Usuário optou por usar localização aproximada")}
+                                        className="w-full py-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
+                                    >
+                                        Continuar com localização aproximada (IP)
+                                    </button>
+                                </div>
+                            )}
+
                             <button 
-                                onClick={() => { setShowGeoPrompt(false); setLoading(false); setGeoStatus(''); }}
+                                onClick={() => { setShowGeoPrompt(false); setLoading(false); setGeoStatus(''); setShowInstructions(false); }}
                                 className="mt-6 text-xs text-slate-500 hover:text-white transition-colors uppercase font-bold tracking-widest"
                             >
                                 Abortar

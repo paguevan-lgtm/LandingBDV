@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from './components/CustomSelect';
 import { CustomDatePicker } from './components/CustomDatePicker';
 import { db } from './firebase';
+import bdvImage from './assets/images/BDV.png';
 
 const BAIRROS = [ "Forte / Canto do Forte", "Tude Bastos / Chico de Paula", "Boqueirao", "Guilhermina", "Aviação", "Tupi", "Tupiry", "Ocian", "Gloria", "Vila Antartica", "Vila Sonia", "Quietude", "Mirim", "Anhanguera", "Maracana", "Ribeiropolis", "Esmeralda", "Samambaia", "Melvi", "Caiçara", "Imperador", "Real", "Princesa", "Florida", "Cidade das Crianças", "Solemar" ];
 
@@ -347,39 +348,13 @@ function LandingPage() {
                 {/* Road Shadow */}
                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[80%] h-8 bg-black/40 blur-xl rounded-full" />
                 
-                {/* Stylized Van (SVG) */}
+                {/* Stylized Van (Image) */}
                 <div className="relative">
                   <motion.div
                     animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   >
-                    <svg viewBox="0 0 500 300" className="w-full h-auto drop-shadow-2xl">
-                      {/* Simplified Cartoon Van Body - Flipped to face right */}
-                      <path d="M450,220 L50,220 L50,150 Q50,100 100,80 L350,80 Q400,80 420,120 L450,150 Z" fill="url(#vanGradient)" />
-                      <defs>
-                        <linearGradient id="vanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#7c3aed" />
-                          <stop offset="100%" stopColor="#db2777" />
-                        </linearGradient>
-                      </defs>
-                      {/* Windows - Flipped */}
-                      <path d="M400,100 L250,100 L250,150 L415,150 Q410,120 400,100 Z" fill="white" fillOpacity="0.3" />
-                      <path d="M230,100 L80,100 L80,150 L230,150 Z" fill="white" fillOpacity="0.3" />
-                      {/* Wheels - Swapped positions */}
-                      <circle cx="370" cy="220" r="35" fill="#0f172a" />
-                      <circle cx="370" cy="220" r="15" fill="#334155" />
-                      <circle cx="130" cy="220" r="35" fill="#0f172a" />
-                      <circle cx="130" cy="220" r="15" fill="#334155" />
-                      {/* Speed Lines - Kept on left, animation reversed to move away from van */}
-                      <motion.g
-                        animate={{ x: [20, -20], opacity: [0, 1, 0] }}
-                        transition={{ duration: 0.5, repeat: Infinity }}
-                      >
-                        <line x1="20" y1="140" x2="60" y2="140" stroke="#db2777" strokeWidth="4" strokeLinecap="round" />
-                        <line x1="10" y1="170" x2="50" y2="170" stroke="#7c3aed" strokeWidth="4" strokeLinecap="round" />
-                        <line x1="25" y1="200" x2="65" y2="200" stroke="#db2777" strokeWidth="4" strokeLinecap="round" />
-                      </motion.g>
-                    </svg>
+                    <img src={bdvImage} alt="Bora de Van" className="w-full h-auto drop-shadow-2xl" referrerPolicy="no-referrer" />
                   </motion.div>
                 </div>
 

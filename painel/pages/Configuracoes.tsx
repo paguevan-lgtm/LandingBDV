@@ -54,6 +54,18 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
         logs: []
     });
 
+    const [requireLocationOnLogin, setRequireLocationOnLogin] = useState(false);
+
+    // Fetch requireLocationOnLogin
+    useEffect(() => {
+        if (!isSuperAdmin || !db) return;
+        const ref = db.ref('system_settings/requireLocationOnLogin');
+        ref.on('value', (snap:any) => {
+            setRequireLocationOnLogin(!!snap.val());
+        });
+        return () => ref.off();
+    }, [isSuperAdmin]);
+
     // Fetch Trusted Devices
     useEffect(() => {
         if (!isSuperAdmin || !db) return;
@@ -1417,6 +1429,37 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         </div>
                                     );
                                 })}
+                            </div>
+                        </div>
+                        
+                        {/* CONFIGURAÇÕES GERAIS DO SISTEMA */}
+                        <div className={`${theme.card} rounded-3xl border ${theme.divider} overflow-hidden`}>
+                            <div className={`${theme.inner} p-5 border-b ${theme.divider} flex items-center justify-between`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`${theme.accent} bg-opacity-20 p-2.5 rounded-xl`}><Icons.Settings size={22} /></div>
+                                    <div>
+                                        <h3 className={`font-bold ${theme.text}`}>Configurações Globais</h3>
+                                        <p className="text-xs opacity-60">Ajustes que afetam todos os usuários e motoristas.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-black/10 border border-white/5">
+                                    <div>
+                                        <p className="font-bold text-sm">Exigir Localização no Login (Geral)</p>
+                                        <p className="text-xs opacity-60">Se ativado, tanto motoristas quanto usuários do painel precisarão compartilhar a localização para entrar.</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            const newVal = !requireLocationOnLogin;
+                                            db.ref('system_settings/requireLocationOnLogin').set(newVal);
+                                            notify(newVal ? "Localização obrigatória ativada" : "Localização obrigatória desativada", "info");
+                                        }}
+                                        className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center px-1 ${requireLocationOnLogin ? 'bg-green-500' : 'bg-gray-600'}`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 transform ${requireLocationOnLogin ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
