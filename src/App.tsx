@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import MotoristaApp from './motorista/MotoristaApp';
 import Contato from './pages/Contato';
 import CentralAjuda from './pages/CentralAjuda';
 import TermosUso from './pages/TermosUso';
 import Privacidade from './pages/Privacidade';
+import SeoLandingPage from './pages/SeoLandingPage';
 import { 
   MapPin, 
   Calendar, 
@@ -1277,6 +1279,67 @@ function ScrollToTop() {
   return null;
 }
 
+const seoRoutesData = [
+  // Originais
+  { path: '/van-jabaquara', destino: 'Jabaquara', origem: 'Litoral SP', prefix: 'Van' },
+  { path: '/van-santos-sp', destino: 'Santos', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/van-sao-vicente-sp', destino: 'São Vicente', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/van-litoral-sp', destino: 'Litoral SP', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/van-aeroporto-guarulhos', destino: 'Aeroporto de Guarulhos', origem: 'Litoral SP', prefix: 'Van' },
+  
+  // Praia Grande
+  { path: '/van-praia-grande', destino: 'Praia Grande', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/transporte-praia-grande', destino: 'Praia Grande', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-praia-grande', destino: 'Praia Grande', origem: 'São Paulo', prefix: 'Lotação' },
+  
+  // Mongaguá
+  { path: '/van-mongagua', destino: 'Mongaguá', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/transporte-mongagua', destino: 'Mongaguá', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-mongagua', destino: 'Mongaguá', origem: 'São Paulo', prefix: 'Lotação' },
+  
+  // Itanhaém
+  { path: '/van-itanhaem', destino: 'Itanhaém', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/transporte-itanhaem', destino: 'Itanhaém', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-itanhaem', destino: 'Itanhaém', origem: 'São Paulo', prefix: 'Lotação' },
+  
+  // Peruíbe
+  { path: '/van-peruibe', destino: 'Peruíbe', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/transporte-peruibe', destino: 'Peruíbe', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-peruibe', destino: 'Peruíbe', origem: 'São Paulo', prefix: 'Lotação' },
+  
+  // Cubatão
+  { path: '/van-cubatao', destino: 'Cubatão', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/transporte-cubatao', destino: 'Cubatão', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-cubatao', destino: 'Cubatão', origem: 'São Paulo', prefix: 'Lotação' },
+  
+  // Guarujá
+  { path: '/van-guaruja', destino: 'Guarujá', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/transporte-guaruja', destino: 'Guarujá', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-guaruja', destino: 'Guarujá', origem: 'São Paulo', prefix: 'Lotação' },
+
+  // Santos & São Vicente (Variations)
+  { path: '/transporte-santos', destino: 'Santos', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-santos', destino: 'Santos', origem: 'São Paulo', prefix: 'Lotação' },
+  { path: '/transporte-sao-vicente', destino: 'São Vicente', origem: 'São Paulo', prefix: 'Transporte' },
+  { path: '/lotacao-sao-vicente', destino: 'São Vicente', origem: 'São Paulo', prefix: 'Lotação' },
+  
+  // Outros
+  { path: '/van-bertioga', destino: 'Bertioga', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/van-sao-sebastiao', destino: 'São Sebastião', origem: 'São Paulo', prefix: 'Van' },
+];
+
+const generateSeoProps = (route: { path: string, destino: string, origem: string, prefix: string }) => {
+  const { destino, origem, prefix } = route;
+  
+  const title = `${prefix} para ${destino} | Transporte Rápido e Seguro saindo de ${origem}`;
+  const description = `Procurando ${prefix.toLowerCase()} para ${destino}? Oferecemos transporte rápido, seguro e confortável saindo de ${origem}. Saídas frequentes e motoristas experientes. Agende agora!`;
+  const h1 = `${prefix} para ${destino} com Saída Rápida e Conforto`;
+  const seoText = `Precisa de ${prefix.toLowerCase()} para ${destino}? Nosso serviço de transporte e lotação oferece a melhor experiência de viagem saindo de ${origem}. Garantimos um traslado seguro, rápido e com total conforto para você chegar ao seu destino sem preocupações.`;
+  const whatsappMessage = `Olá, quero agendar uma vaga na ${prefix.toLowerCase()} para ${destino}`;
+
+  return { destino, origem, title, description, h1, seoText, whatsappMessage };
+};
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -1288,6 +1351,16 @@ export default function App() {
         <Route path="/central-ajuda" element={<CentralAjuda />} />
         <Route path="/termos-uso" element={<TermosUso />} />
         <Route path="/privacidade" element={<Privacidade />} />
+        <Route path="/motorista/*" element={<MotoristaApp />} />
+        
+        {/* SEO Landing Pages */}
+        {seoRoutesData.map(route => (
+          <Route 
+            key={route.path} 
+            path={route.path} 
+            element={<SeoLandingPage {...generateSeoProps(route)} />} 
+          />
+        ))}
       </Routes>
     </BrowserRouter>
   );

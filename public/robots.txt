@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /motorista/
+Disallow: /painel/
+
+Sitemap: https://boradevan.com.br/sitemap.xml
