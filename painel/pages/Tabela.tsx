@@ -533,13 +533,15 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                             <Icons.Slash size={12}/>
                                                         </button>
                                                     )}
-                                                    <button 
-                                                        onClick={() => handleMipBaixar(driver.id)} 
-                                                        className={`p-1.5 border rounded-lg transition-all hide-on-print ${driver.baixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20'}`}
-                                                        title={driver.baixou ? "Cancelar Baixar" : "Baixar"}
-                                                    >
-                                                        {driver.baixou ? <Icons.X size={12}/> : <Icons.ArrowDown size={12}/>}
-                                                    </button>
+                                                    {!driver.riscado && (
+                                                        <button 
+                                                            onClick={() => handleMipBaixar(driver.id)} 
+                                                            className={`p-1.5 border rounded-lg transition-all hide-on-print ${driver.baixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20'}`}
+                                                            title={driver.baixou ? "Cancelar Baixar" : "Baixar"}
+                                                        >
+                                                            {driver.baixou ? <Icons.X size={12}/> : <Icons.ArrowDown size={12}/>}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 !status ? (
@@ -766,7 +768,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         {displayContent}
                                                     </span> 
                                                     
-                                                    {!isNullItem && (
+                                                    {!isNullItem && !isRiscado && (
                                                         <>
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, isBaixou ? 'cancelar_baixar' : 'baixar', vaga); }} 
