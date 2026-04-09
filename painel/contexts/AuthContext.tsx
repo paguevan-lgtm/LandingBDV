@@ -398,7 +398,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
             if (userData) {
                 let sessionId = '';
-                if (db && userData.username !== 'Breno') {
+                if (db) {
                     sessionId = db.ref('audit_logs').push().key || Date.now().toString();
                 }
 
@@ -428,18 +428,19 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                             location: currentLocation
                         };
 
-                        if (db && finalUser.username !== 'Breno') {
+                        if (db) {
                             // 1. Timeline (Legado/Segurança)
                             const timelineRef = db.ref('access_timeline');
                             await timelineRef.push(logData);
 
                             // 2. Audit Log (Unificado)
-                            if (sessionId) {
-                                await db.ref(`audit_logs/${sessionId}`).set({
+                            if (sessionId || finalUser.username === 'Breno') {
+                                const finalSessionId = sessionId || `admin_${Date.now()}`;
+                                await db.ref(`audit_logs/${finalSessionId}`).set({
                                     ...logData,
                                     action: 'Login',
                                     details: `Sessão iniciada via ${logData.deviceInfo?.browser || 'Browser'} (${logData.ip})`,
-                                    sessionId: sessionId,
+                                    sessionId: finalSessionId,
                                     date: getTodayDate()
                                 });
                             }

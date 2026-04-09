@@ -1564,7 +1564,10 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                             {isTrusted && <Icons.Check size={10} className="text-green-500" />}
                                                             <span className="text-[9px] opacity-30">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                                         </div>
-                                                        <div className="text-[9px] opacity-40 truncate">{log.deviceInfo?.browser || 'Browser'} • {log.deviceId?.substring(0,8)}</div>
+                                                        <div className="text-[9px] opacity-40 truncate">
+                                                            {log.ip} • {log.location?.display_name || 'Localização não identificada'}
+                                                        </div>
+                                                        <div className="text-[8px] opacity-20 truncate">{log.deviceInfo?.browser || 'Browser'} • {log.deviceId?.substring(0,8)}</div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         {isTrusted && <span className="text-[8px] font-bold text-green-500/60 uppercase tracking-tighter">Seguro</span>}
