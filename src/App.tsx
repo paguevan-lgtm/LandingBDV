@@ -155,6 +155,7 @@ function LandingPage() {
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isAllDestinationsModalOpen, setIsAllDestinationsModalOpen] = useState(false);
   const [beachInfoModal, setBeachInfoModal] = useState<{isOpen: boolean, destValue: string}>({isOpen: false, destValue: ''});
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
 
   // Form State
   const [tripType, setTripType] = useState('so_ida');
@@ -518,7 +519,11 @@ function LandingPage() {
                     return;
                   }
                   setWidgetErrors([]);
-                  setIsBookingModalOpen(true);
+                  setIsInitialLoading(true);
+                  setTimeout(() => {
+                    setIsInitialLoading(false);
+                    setIsBookingModalOpen(true);
+                  }, 3500);
                 }} 
                 className="w-full bg-gradient-brand text-white py-4 rounded-2xl font-extrabold text-lg shadow-lg shadow-brand-purple/20 hover:shadow-brand-pink/40 hover:scale-[1.02] active:scale-95 transition-all"
               >
@@ -1278,6 +1283,73 @@ function LandingPage() {
                         </button>
                       </div>
                     </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Loading Video Modal */}
+      <AnimatePresence>
+        {isInitialLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden relative"
+            >
+              <div className="relative aspect-video rounded-3xl overflow-hidden mb-6 border border-slate-800 shadow-2xl">
+                <video 
+                  autoPlay 
+                  muted 
+                  loop 
+                  playsInline
+                  className="w-full h-full object-cover"
+                >
+                  <source src="https://github.com/paguevan-lgtm/assetsbdv/raw/refs/heads/main/VID_20260410_160828.mp4" type="video/mp4" />
+                </video>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent pointer-events-none" />
+              </div>
+
+              <div className="text-center space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-purple/10 border border-brand-purple/20 rounded-full mb-2">
+                  <div className="w-2 h-2 rounded-full bg-brand-pink animate-pulse" />
+                  <span className="text-[10px] font-bold text-brand-pink uppercase tracking-widest">Processando</span>
+                </div>
+                
+                <h3 className="text-2xl md:text-3xl font-display font-extrabold text-white leading-tight">
+                  Buscando as melhores <span className="text-gradient-brand">opções</span>...
+                </h3>
+                
+                <p className="text-slate-400 font-medium text-sm md:text-base">
+                  Aguarde um momento enquanto preparamos o formulário de reserva para você.
+                </p>
+                
+                <div className="flex justify-center gap-2 pt-4">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ 
+                        scale: [1, 1.5, 1],
+                        opacity: [0.3, 1, 0.3],
+                        y: [0, -4, 0]
+                      }}
+                      transition={{ 
+                        duration: 1.2, 
+                        repeat: Infinity, 
+                        delay: i * 0.2,
+                        ease: "easeInOut"
+                      }}
+                      className="w-2.5 h-2.5 rounded-full bg-brand-pink shadow-[0_0_10px_rgba(219,39,119,0.5)]"
+                    />
                   ))}
                 </div>
               </div>
