@@ -143,6 +143,7 @@ const AppContent = () => {
     
     const [ipHistory, setIpHistory] = useState<any[]>([]);
     const [ipLabels, setIpLabels] = useState<any>({});
+    const [deviceLabels, setDeviceLabels] = useState<any>({});
     
     const [deletionCount, setDeletionCount] = useState(0);
     const [deletedItemsBuffer, setDeletedItemsBuffer] = useState<any[]>([]);
@@ -1498,6 +1499,11 @@ const AppContent = () => {
             setIpLabels(snap.val() || {});
         });
 
+        const deviceLabelsRef = db.ref('device_labels');
+        const deviceLabelsCb = deviceLabelsRef.on('value', (snap: any) => {
+            setDeviceLabels(snap.val() || {});
+        });
+
         const savedMenuRef = db.ref(`user_data/${user.username}/preferences/menuOrder`); 
         const savedMenuCb = savedMenuRef.on('value', (snap: any) => { 
             const savedOrder = snap.val(); 
@@ -1586,6 +1592,7 @@ const AppContent = () => {
             lousaRef.off('value', lousaCb);
             logRef.off('value', logCb);
             labelsRef.off('value', labelsCb);
+            deviceLabelsRef.off('value', deviceLabelsCb);
             savedMenuRef.off('value', savedMenuCb);
             swapsRef.off('value', swapsCb);
             ganchosRef.off('value', ganchosCb);
@@ -3952,6 +3959,8 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 ipHistory={ipHistory} 
                                 ipLabels={ipLabels} 
                                 saveIpLabel={saveIpLabel} 
+                                deviceLabels={deviceLabels}
+                                saveDeviceLabel={(deviceId: string, label: string) => dbOp('update', `device_labels`, { [deviceId]: label })}
                                 changeTheme={changeTheme} 
                                 themeKey={themeKey} 
                                 dbOp={dbOp} 

@@ -12,7 +12,6 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [operatorName, setOperatorName] = useState('');
     const [loading, setLoading] = useState(false);
     
     // Notification State
@@ -479,7 +478,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         setIsZooming(true); 
 
         setTimeout(async () => {
-            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined, operatorName.trim());
+            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined);
             if (!success) {
                 setIsZooming(false);
                 setLoading(false);
@@ -642,17 +641,6 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                         onChange={(e:any) => { setPassword(e.target.value); handleTyping(); }} 
                         placeholder="••••••"
                     />
-                </div>
-
-                <div className="relative">
-                    <Input 
-                        theme={{text: 'text-white', radius: 'rounded-xl', border: 'border-white/10'}} 
-                        label="Nome do Operador (Opcional)" 
-                        value={operatorName} 
-                        onChange={(e:any) => { setOperatorName(e.target.value); handleTyping(); }} 
-                        placeholder="Quem está logando?"
-                    />
-                    <p className="text-[9px] text-slate-500 mt-1 ml-1 uppercase tracking-tighter">Para identificação de segurança</p>
                 </div>
                 
                 {geoStatus && (

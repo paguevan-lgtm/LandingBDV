@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../components/SubscriptionLock';
 import { db } from '../firebase';
 
-export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, setGeminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled }: any) {
+export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, setGeminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, deviceLabels, saveDeviceLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled }: any) {
     const { logout } = useAuth();
     const { triggerEarlyRenewal } = useSubscription();
     
@@ -1564,6 +1564,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         {securityTab === 'timeline' ? ipHistory.slice(0, 20).map((log:any) => {
                                             const isBanned = blockedList.some(b => b.id === log.deviceId);
                                             const isTrusted = trustedDevices[log.deviceId];
+                                            const deviceName = deviceLabels?.[log.deviceId];
                                             return (
                                                 <div 
                                                     key={log.id} 
@@ -1573,7 +1574,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                     <div className="min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <span className={`text-xs font-bold truncate ${isTrusted ? 'text-green-400' : theme.text}`}>{log.username}</span>
-                                                            {log.operatorName && <span className="text-[9px] opacity-60 bg-white/5 px-1 rounded">({log.operatorName})</span>}
+                                                            {deviceName && <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">{deviceName}</span>}
                                                             {isTrusted && <Icons.Check size={10} className="text-green-500" />}
                                                             <span className="text-[9px] opacity-30">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                                         </div>
@@ -1696,7 +1697,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`font-bold text-sm ${theme.accent}`}>{mainLog.username}</span>
-                                                        {mainLog.operatorName && <span className="text-[10px] opacity-50">({mainLog.operatorName})</span>}
+                                                        {deviceLabels?.[mainLog.deviceId] && (
+                                                            <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                                                                {deviceLabels[mainLog.deviceId]}
+                                                            </span>
+                                                        )}
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter bg-green-500/20 text-green-400`}>
                                                             Sessão Iniciada
                                                         </span>
@@ -1809,12 +1814,25 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     <div className="text-[9px] opacity-40 uppercase font-bold mb-1">IP</div>
                                     <div className={`text-xs font-bold ${theme.text} break-all`}>{selectedLog.ip || 'N/A'}</div>
                                 </div>
-                                {selectedLog.operatorName && (
-                                    <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
-                                        <div className="text-[9px] opacity-40 uppercase font-bold mb-1">Operador</div>
-                                        <div className={`text-xs font-bold ${theme.text}`}>{selectedLog.operatorName}</div>
+                                <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-[9px] opacity-40 uppercase font-bold">Identificação do Aparelho</div>
+                                        {isSuperAdmin && (
+                                            <button 
+                                                onClick={() => {
+                                                    const name = prompt("Dê um nome para este dispositivo:", deviceLabels?.[selectedLog.deviceId] || "");
+                                                    if (name !== null) saveDeviceLabel(selectedLog.deviceId, name);
+                                                }}
+                                                className="text-[9px] text-blue-400 hover:underline"
+                                            >
+                                                Editar Nome
+                                            </button>
+                                        )}
                                     </div>
-                                )}
+                                    <div className={`text-xs font-bold ${theme.text}`}>
+                                        {deviceLabels?.[selectedLog.deviceId] || 'Sem nome definido'}
+                                    </div>
+                                </div>
                                 <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
                                     <div className="text-[9px] opacity-40 uppercase font-bold mb-1">ID do Dispositivo (Fingerprint)</div>
                                     <div className={`text-[10px] font-mono ${theme.text} break-all opacity-60`}>{selectedLog.deviceId || 'N/A'}</div>

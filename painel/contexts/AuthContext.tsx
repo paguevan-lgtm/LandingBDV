@@ -24,7 +24,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (u: string, p: string, coords: any, system?: string, operatorName?: string) => Promise<boolean>;
+    login: (u: string, p: string, coords: any, system?: string) => Promise<boolean>;
     findUsersByCredentials: (u: string, p: string) => Promise<User[]>;
     logout: (reason?: string) => void;
     updateActivity: () => void;
@@ -215,7 +215,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     };
 
     // 2. Função de Login (DB First, Fallback to Constant)
-    const login = async (u: string, p: string, coords: any, system?: string, operatorName?: string): Promise<boolean> => {
+    const login = async (u: string, p: string, coords: any, system?: string): Promise<boolean> => {
         const usernameTrimmed = u.trim();
         try {
             // --- GATHER DEVICE AND LOCATION INFO ---
@@ -462,7 +462,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
                         const logData: any = {
                             username: finalUser.username,
-                            operatorName: operatorName || null,
                             timestamp: Date.now(),
                             ip: currentIp,
                             device: navigator.userAgent,
