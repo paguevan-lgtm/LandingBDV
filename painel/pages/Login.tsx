@@ -427,34 +427,13 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         }
     };
 
-    const executeGeoLogin = (system?: string) => {
-        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        console.log(`[GEO-DEBUG] Iniciando executeGeoLogin. Dispositivo iOS: ${isIOSDevice}`);
-        
-        if (!navigator.geolocation) {
-            console.error("[GEO-DEBUG] Geolocation não suportada pelo navegador");
-            handleLocationFallback("Navegador incompatível", system);
-            return;
-        }
-
-        // Reset de estados antes da chamada direta
-        setGeoDenied(false);
-        setGeoStatus('Solicitando permissão...');
-        setLoading(true);
-
-        console.log("[GEO-DEBUG] Chamando navigator.geolocation.getCurrentPosition...");
-
-        // CHAMADA DIRETA: Obrigatório para iOS Safari funcionar dentro do evento de clique
+    const handleGeoClick = () => {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                console.log("[GEO-DEBUG] Sucesso! Coordenadas obtidas:", {
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    acc: pos.coords.accuracy
-                });
-                
                 const { latitude, longitude, accuracy } = pos.coords;
-                
+                setGeoDenied(false);
+                setGeoStatus('Localização obtida');
+                setLoading(true);
                 setShowGeoPrompt(false); 
                 startEntrySequence({ 
                     latitude, 
@@ -462,31 +441,22 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     accuracy, 
                     type: 'gps',
                     display_name: 'Localização GPS Exata'
-                }, system);
+                }, selectedSystem || undefined);
             },
             (err) => {
-                console.error("[GEO-DEBUG] Erro retornado pelo navegador:", {
-                    code: err.code,
-                    message: err.message
-                });
                 setLoading(false);
-                
-                if (err.code === 1) { // PERMISSION_DENIED
-                    console.warn("[GEO-DEBUG] Permissão negada pelo usuário ou pelo sistema");
+                if (err.code === 1) {
                     setGeoDenied(true);
                     setGeoStatus('Acesso negado. Siga as instruções abaixo.');
-                } else if (err.code === 3) { // TIMEOUT
-                    console.warn("[GEO-DEBUG] Timeout atingido");
-                    handleLocationFallback("Tempo esgotado (GPS fraco)", system);
+                } else if (err.code === 3) {
+                    handleLocationFallback("Tempo esgotado (GPS fraco)", selectedSystem || undefined);
                 } else {
-                    console.warn("[GEO-DEBUG] Erro de posição indisponível ou outro");
-                    handleLocationFallback(`Erro: ${err.message}`, system);
+                    setGeoStatus('Erro ao obter localização');
                 }
             },
             { 
-                enableHighAccuracy: true, 
-                timeout: 15000, // 15 segundos para dar tempo ao hardware do iPhone
-                maximumAge: 0 
+                enableHighAccuracy: false, 
+                timeout: 10000
             }
         );
     };
@@ -860,80 +830,68 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             </AnimatePresence>
 
             {/* GEO PROMPT MODAL */}
-            <AnimatePresence>
-                {showGeoPrompt && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 p-6 backdrop-blur-xl"
-                    >
-                        <motion.div 
-                            initial={{ scale: 0.9, y: 20 }}
-                            animate={{ scale: 1, y: 0 }}
-                            className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col items-center text-center relative overflow-hidden"
-                        >
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
+            <div 
+                className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/95 p-6 backdrop-blur-xl ${showGeoPrompt ? 'flex' : 'hidden'}`}
+            >
+                <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
 
-                            <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6 text-amber-500">
-                                <Icons.Map size={40} />
+                    <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6 text-amber-500">
+                        <Icons.Map size={40} />
+                    </div>
+
+                    <h3 className="text-2xl font-black text-white mb-3 uppercase italic">Localização</h3>
+                    
+                    {geoDenied ? (
+                        <div className="mb-8">
+                            <p className="text-sm text-red-400 mb-4 leading-relaxed font-bold">
+                                Acesso obrigatório à localização.
+                            </p>
+                            <div className="text-[10px] text-slate-400 text-left bg-black/40 p-4 rounded-xl border border-red-500/20">
+                                <p className="font-bold text-white mb-2 uppercase tracking-widest">Como ativar no {isIOS ? 'iPhone' : 'Android'}:</p>
+                                {isIOS ? (
+                                    <ol className="list-decimal list-inside space-y-1">
+                                        <li>Abra os <span className="text-white">Ajustes</span> do iOS</li>
+                                        <li>Vá em <span className="text-white">Privacidade e Segurança</span></li>
+                                        <li>Toque em <span className="text-white">Serviços de Localização</span></li>
+                                        <li>Certifique-se que está <span className="text-white">Ativado</span></li>
+                                        <li>Role até o <span className="text-white">Safari</span> (ou seu navegador)</li>
+                                        <li>Mude para <span className="text-white">"Durante o Uso do App"</span></li>
+                                        <li>Ative <span className="text-white">"Localização Precisa"</span></li>
+                                    </ol>
+                                ) : (
+                                    <ol className="list-decimal list-inside space-y-1">
+                                        <li>Toque no ícone de <span className="text-white">Cadeado</span> na barra de endereço</li>
+                                        <li>Vá em <span className="text-white">Configurações do site</span></li>
+                                        <li>Toque em <span className="text-white">Localização</span></li>
+                                        <li>Selecione <span className="text-white">Permitir</span></li>
+                                        <li>Recarregue a página</li>
+                                    </ol>
+                                )}
                             </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-400 mb-8 leading-relaxed">
+                            O acesso a este painel requer a confirmação da sua localização atual por motivos de segurança.
+                        </p>
+                    )}
 
-                            <h3 className="text-2xl font-black text-white mb-3 uppercase italic">Localização</h3>
-                            
-                            {geoDenied ? (
-                                <div className="mb-8">
-                                    <p className="text-sm text-red-400 mb-4 leading-relaxed font-bold">
-                                        Acesso obrigatório à localização.
-                                    </p>
-                                    <div className="text-[10px] text-slate-400 text-left bg-black/40 p-4 rounded-xl border border-red-500/20">
-                                        <p className="font-bold text-white mb-2 uppercase tracking-widest">Como ativar no {isIOS ? 'iPhone' : 'Android'}:</p>
-                                        {isIOS ? (
-                                            <ol className="list-decimal list-inside space-y-1">
-                                                <li>Abra os <span className="text-white">Ajustes</span> do iOS</li>
-                                                <li>Vá em <span className="text-white">Privacidade e Segurança</span></li>
-                                                <li>Toque em <span className="text-white">Serviços de Localização</span></li>
-                                                <li>Certifique-se que está <span className="text-white">Ativado</span></li>
-                                                <li>Role até o <span className="text-white">Safari</span> (ou seu navegador)</li>
-                                                <li>Mude para <span className="text-white">"Durante o Uso do App"</span></li>
-                                                <li>Ative <span className="text-white">"Localização Precisa"</span></li>
-                                            </ol>
-                                        ) : (
-                                            <ol className="list-decimal list-inside space-y-1">
-                                                <li>Toque no ícone de <span className="text-white">Cadeado</span> na barra de endereço</li>
-                                                <li>Vá em <span className="text-white">Configurações do site</span></li>
-                                                <li>Toque em <span className="text-white">Localização</span></li>
-                                                <li>Selecione <span className="text-white">Permitir</span></li>
-                                                <li>Recarregue a página</li>
-                                            </ol>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-slate-400 mb-8 leading-relaxed">
-                                    O acesso a este painel requer a confirmação da sua localização atual por motivos de segurança.
-                                </p>
-                            )}
+                    <button 
+                        onClick={handleGeoClick}
+                        disabled={loading}
+                        className={`w-full ${geoDenied ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500'} text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest flex items-center justify-center`}
+                    >
+                        {loading ? (geoStatus || 'Sincronizando...') : (geoDenied ? 'Tentar Novamente' : 'Confirmar Posição')}
+                    </button>
 
-                            <Button 
-                                onClick={() => executeGeoLogin(selectedSystem || undefined)}
-                                disabled={loading}
-                                loading={loading}
-                                className={`w-full ${geoDenied ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500'} text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest`}
-                            >
-                                {loading ? (geoStatus || 'Sincronizando...') : (geoDenied ? 'Tentar Novamente' : 'Confirmar Posição')}
-                            </Button>
-
-                            <button 
-                                onClick={() => { setShowGeoPrompt(false); setLoading(false); setGeoStatus(''); }}
-                                className="mt-6 text-xs text-slate-500 hover:text-white transition-colors uppercase font-bold tracking-widest"
-                            >
-                                Abortar
-                            </button>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    <button 
+                        onClick={() => { setShowGeoPrompt(false); setLoading(false); setGeoStatus(''); }}
+                        className="mt-6 text-xs text-slate-500 hover:text-white transition-colors uppercase font-bold tracking-widest"
+                    >
+                        Abortar
+                    </button>
+                </div>
+            </div>
 
             {/* FORGOT PASSWORD MODAL */}
             <AnimatePresence>
