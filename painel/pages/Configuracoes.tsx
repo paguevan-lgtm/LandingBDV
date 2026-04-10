@@ -545,7 +545,13 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
 
     const banDevice = (deviceId: string, reason: string, logData?: any) => {
         if (!deviceId) return;
-        requestConfirm("Banir Dispositivo?", "Este aparelho não conseguirá mais fazer login, mesmo trocando de navegador ou aba anônima. Se estiver logado, cairá imediatamente.", () => {
+        
+        const isTrusted = trustedDevices[deviceId];
+        const warningMsg = isTrusted 
+            ? "ATENÇÃO: Este dispositivo está marcado como SEGURO. Banir ele impedirá o acesso de usuários confiáveis. Tem certeza?"
+            : "Este aparelho não conseguirá mais fazer login, mesmo trocando de navegador ou aba anônima. Se estiver logado, cairá imediatamente.";
+
+        requestConfirm(isTrusted ? "Banir Dispositivo SEGURO?" : "Banir Dispositivo?", warningMsg, () => {
             dbOp('update', `blocked_devices/${deviceId}`, { 
                 reason, 
                 blockedBy: user.username,
@@ -1567,15 +1573,16 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                     <div className="min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <span className={`text-xs font-bold truncate ${isTrusted ? 'text-green-400' : theme.text}`}>{log.username}</span>
+                                                            {log.operatorName && <span className="text-[9px] opacity-60 bg-white/5 px-1 rounded">({log.operatorName})</span>}
                                                             {isTrusted && <Icons.Check size={10} className="text-green-500" />}
                                                             <span className="text-[9px] opacity-30">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                                         </div>
                                                         <div className="text-[9px] opacity-40 truncate">
                                                             {log.ip} • {log.location?.display_name || 'Localização não identificada'}
                                                         </div>
-                                                        {log.location?.coords?.lat && log.location?.coords?.lng && (
+                                                        {log.location?.coords?.lat != null && log.location?.coords?.lng != null && (
                                                             <div className="text-[8px] opacity-30 truncate">
-                                                                Lat: {log.location.coords.lat.toFixed(6)}, Lng: {log.location.coords.lng.toFixed(6)}
+                                                                Lat: {Number(log.location.coords.lat).toFixed(6)}, Lng: {Number(log.location.coords.lng).toFixed(6)}
                                                             </div>
                                                         )}
                                                         <div className="text-[8px] opacity-20 truncate">{log.deviceInfo?.browser || 'Browser'} • {log.deviceId?.substring(0,8)}</div>
@@ -1689,6 +1696,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`font-bold text-sm ${theme.accent}`}>{mainLog.username}</span>
+                                                        {mainLog.operatorName && <span className="text-[10px] opacity-50">({mainLog.operatorName})</span>}
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter bg-green-500/20 text-green-400`}>
                                                             Sessão Iniciada
                                                         </span>
@@ -1702,6 +1710,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                         <p className={`text-sm ${theme.text} opacity-70`}>
                                                             {group.login ? group.login.details : `Atividade registrada às ${formatTime(mainLog.timestamp)}`}
                                                         </p>
+                                                        {mainLog.location?.coords?.lat != null && (
+                                                            <span className="text-[10px] opacity-30 font-mono">
+                                                                [{Number(mainLog.location.coords.lat).toFixed(4)}, {Number(mainLog.location.coords.lng).toFixed(4)}]
+                                                            </span>
+                                                        )}
                                                         {group.login?.ip && (
                                                             <span className="text-[10px] opacity-40 font-mono">({group.login.ip})</span>
                                                         )}
@@ -1795,6 +1808,16 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                 <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider}`}>
                                     <div className="text-[9px] opacity-40 uppercase font-bold mb-1">IP</div>
                                     <div className={`text-xs font-bold ${theme.text} break-all`}>{selectedLog.ip || 'N/A'}</div>
+                                </div>
+                                {selectedLog.operatorName && (
+                                    <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
+                                        <div className="text-[9px] opacity-40 uppercase font-bold mb-1">Operador</div>
+                                        <div className={`text-xs font-bold ${theme.text}`}>{selectedLog.operatorName}</div>
+                                    </div>
+                                )}
+                                <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
+                                    <div className="text-[9px] opacity-40 uppercase font-bold mb-1">ID do Dispositivo (Fingerprint)</div>
+                                    <div className={`text-[10px] font-mono ${theme.text} break-all opacity-60`}>{selectedLog.deviceId || 'N/A'}</div>
                                 </div>
                             </div>
 

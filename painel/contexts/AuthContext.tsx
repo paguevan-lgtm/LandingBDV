@@ -24,7 +24,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (u: string, p: string, coords: any, system?: string) => Promise<boolean>;
+    login: (u: string, p: string, coords: any, system?: string, operatorName?: string) => Promise<boolean>;
     findUsersByCredentials: (u: string, p: string) => Promise<User[]>;
     logout: (reason?: string) => void;
     updateActivity: () => void;
@@ -215,11 +215,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     };
 
     // 2. Função de Login (DB First, Fallback to Constant)
-    const login = async (u: string, p: string, coords: any, system?: string): Promise<boolean> => {
+    const login = async (u: string, p: string, coords: any, system?: string, operatorName?: string): Promise<boolean> => {
         const usernameTrimmed = u.trim();
         try {
             // --- GATHER DEVICE AND LOCATION INFO ---
             const deviceId = await getDeviceFingerprint();
+            console.log("DEBUG: Device ID:", deviceId);
             const uaInfo = parseUserAgent(navigator.userAgent);
             const gpuInfo = getHardwareInfo();
             const currentDeviceInfo = { ...uaInfo, gpu: gpuInfo };
@@ -301,13 +302,11 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         for (const key in blockedDevices) {
                             const blocked = blockedDevices[key];
                             
-                            // Check IP match
-                            if (blocked.ip && blocked.ip === currentIp && currentIp !== '0.0.0.0') {
-                                return false;
-                            }
-
                             // Check Same Username
                             const isSameUser = blocked.username && blocked.username.toLowerCase() === usernameTrimmed.toLowerCase();
+
+                            // Check IP match
+                            const isSameIp = blocked.ip && blocked.ip === currentIp && currentIp !== '0.0.0.0';
 
                             // Check Similarity: Same GPU, Same OS, Same City, Distance
                             const isSameGpu = blocked.deviceInfo?.gpu && blocked.deviceInfo.gpu === currentDeviceInfo.gpu && currentDeviceInfo.gpu !== 'Unknown GPU';
@@ -334,6 +333,9 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                             if (isSameUser) {
                                 isEvasion = true;
                                 evasionReason = 'Banido por similaridade (Mesmo usuário tentou logar)';
+                            } else if (isSameIp && isVeryClose) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo IP na mesma localização exata)';
                             } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
                                 isEvasion = true;
                                 evasionReason = 'Banido por similaridade (Mesmo aparelho/OS/Browser na mesma localização exata)';
@@ -460,6 +462,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
                         const logData: any = {
                             username: finalUser.username,
+                            operatorName: operatorName || null,
                             timestamp: Date.now(),
                             ip: currentIp,
                             device: navigator.userAgent,
