@@ -488,7 +488,7 @@ async function startServer() {
         res.json({ success: true, sessionToken });
     });
 
-    async function findExistingPassenger(system: string, name: string, phone: string, address: string, authParam: string) {
+    async function findExistingPassenger(system: string, name: string, phone: string, address: string, authParam: string, fingerprint?: string) {
         let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
         if (system === 'Pg') {
             url += `passengers.json${authParam}`;
@@ -503,16 +503,22 @@ async function startServer() {
 
             const normalizedName = name.toLowerCase().trim();
             const normalizedPhone = phone.replace(/\D/g, '');
-            const normalizedAddress = address.toLowerCase().trim();
 
             for (const key in passengers) {
                 const p = passengers[key];
-                if (!p || !p.name || !p.phone) continue;
+                if (!p) continue;
+
+                // Match by Fingerprint FIRST if available
+                if (fingerprint && p.fingerprint === fingerprint) {
+                    return { key, id: p.id, data: p };
+                }
+
+                if (!p.name || !p.phone) continue;
 
                 const pName = p.name.toLowerCase().trim();
                 const pPhone = p.phone.replace(/\D/g, '');
 
-                // Match by Name and Phone (ignoring address as requested)
+                // Match by Name and Phone
                 if (pName === normalizedName && pPhone === normalizedPhone) {
                     return { key, id: p.id, data: p };
                 }
@@ -550,9 +556,11 @@ async function startServer() {
                 systemToSave = 'Pg';
             }
             passengerData.system = systemToSave;
+            passengerData.ip = req.ip;
+            passengerData.userAgent = req.headers['user-agent'] || '';
 
-            // 2. Check for existing passenger (Name and Phone match)
-            const existing = await findExistingPassenger(systemToSave, passengerData.name, passengerData.phone, passengerData.address || '', authParam);
+            // 2. Check for existing passenger (Name and Phone match OR Fingerprint)
+            const existing = await findExistingPassenger(systemToSave, passengerData.name, passengerData.phone, passengerData.address || '', authParam, passengerData.fingerprint);
             
             let displayId, firebaseKey;
 

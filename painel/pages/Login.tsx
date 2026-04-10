@@ -13,7 +13,6 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [geoStatus, setGeoStatus] = useState('');
     
     // Notification State
     const [notification, setNotification] = useState({ message: '', type: 'info', visible: false });
@@ -80,9 +79,12 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const [isTyping, setIsTyping] = useState(false);
     const [isZooming, setIsZooming] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+    const [isIOS, setIsIOS] = useState(/iPad|iPhone|iPod/.test(navigator.userAgent));
     
     // Geo Modal State
     const [showGeoPrompt, setShowGeoPrompt] = useState(false);
+    const [geoDenied, setGeoDenied] = useState(false);
+    const [geoStatus, setGeoStatus] = useState('');
     const [requireLocationOnLogin, setRequireLocationOnLogin] = useState(false);
 
     useEffect(() => {
@@ -426,6 +428,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
 
     const executeGeoLogin = (system?: string) => {
         setLoading(true);
+        setGeoDenied(false);
         setGeoStatus('Sincronizando satélites...');
 
         if (!navigator.geolocation) {
@@ -437,6 +440,16 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const { latitude, longitude, accuracy } = pos.coords;
+                    
+                    // Se a precisão for muito baixa (ex: > 10km), pode ser um IP mascarado ou erro
+                    if (accuracy > 10000) {
+                        console.warn("Precisão muito baixa, tentando novamente sem HighAccuracy");
+                        if (highAccuracy) {
+                            tryGeo(false);
+                            return;
+                        }
+                    }
+
                     setShowGeoPrompt(false); 
                     startEntrySequence({ 
                         latitude, 
@@ -447,14 +460,27 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     }, system);
                 },
                 (err) => {
+                    console.error("Geo Error:", err);
+                    if (err.code === 1) { // Permission Denied
+                        setGeoDenied(true);
+                        setLoading(false);
+                        setGeoStatus('Permissão negada pelo usuário.');
+                        return;
+                    }
+
                     if (highAccuracy) {
+                        setGeoStatus('Buscando sinal mais forte...');
                         tryGeo(false);
                     } else {
                         console.warn("Geo GPS falhou, tentando IP:", err);
-                        handleLocationFallback("Falha no GPS ou permissão negada", system);
+                        handleLocationFallback("Falha no GPS ou sinal fraco", system);
                     }
                 },
-                { enableHighAccuracy: highAccuracy, timeout: 10000, maximumAge: 0 }
+                { 
+                    enableHighAccuracy: highAccuracy, 
+                    timeout: 15000, // Aumentado para dar tempo no iOS
+                    maximumAge: 0 
+                }
             );
         };
 
@@ -848,17 +874,48 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                             </div>
 
                             <h3 className="text-2xl font-black text-white mb-3 uppercase italic">Localização</h3>
-                            <p className="text-sm text-slate-400 mb-8 leading-relaxed">
-                                Protocolo de segurança ativado. Precisamos confirmar sua posição geográfica para autorizar o acesso.
-                            </p>
+                            
+                            {geoDenied ? (
+                                <div className="mb-8">
+                                    <p className="text-sm text-red-400 mb-4 leading-relaxed font-bold">
+                                        Acesso obrigatório à localização.
+                                    </p>
+                                    <div className="text-[10px] text-slate-400 text-left bg-black/40 p-4 rounded-xl border border-red-500/20">
+                                        <p className="font-bold text-white mb-2 uppercase tracking-widest">Como ativar no {isIOS ? 'iPhone' : 'Android'}:</p>
+                                        {isIOS ? (
+                                            <ol className="list-decimal list-inside space-y-1">
+                                                <li>Abra os <span className="text-white">Ajustes</span> do iOS</li>
+                                                <li>Vá em <span className="text-white">Privacidade e Segurança</span></li>
+                                                <li>Toque em <span className="text-white">Serviços de Localização</span></li>
+                                                <li>Certifique-se que está <span className="text-white">Ativado</span></li>
+                                                <li>Role até o <span className="text-white">Safari</span> (ou seu navegador)</li>
+                                                <li>Mude para <span className="text-white">"Durante o Uso do App"</span></li>
+                                                <li>Ative <span className="text-white">"Localização Precisa"</span></li>
+                                            </ol>
+                                        ) : (
+                                            <ol className="list-decimal list-inside space-y-1">
+                                                <li>Toque no ícone de <span className="text-white">Cadeado</span> na barra de endereço</li>
+                                                <li>Vá em <span className="text-white">Configurações do site</span></li>
+                                                <li>Toque em <span className="text-white">Localização</span></li>
+                                                <li>Selecione <span className="text-white">Permitir</span></li>
+                                                <li>Recarregue a página</li>
+                                            </ol>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-400 mb-8 leading-relaxed">
+                                    O acesso a este painel requer a confirmação da sua localização atual por motivos de segurança.
+                                </p>
+                            )}
 
                             <Button 
                                 onClick={() => executeGeoLogin(selectedSystem || undefined)}
                                 disabled={loading}
                                 loading={loading}
-                                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest"
+                                className={`w-full ${geoDenied ? 'bg-red-600 hover:bg-red-500' : 'bg-amber-600 hover:bg-amber-500'} text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest`}
                             >
-                                {loading ? (geoStatus || 'Sincronizando...') : 'Confirmar Posição'}
+                                {loading ? (geoStatus || 'Sincronizando...') : (geoDenied ? 'Tentar Novamente' : 'Confirmar Posição')}
                             </Button>
 
                             <button 

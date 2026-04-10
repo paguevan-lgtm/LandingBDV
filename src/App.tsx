@@ -6,6 +6,7 @@ import CentralAjuda from './pages/CentralAjuda';
 import TermosUso from './pages/TermosUso';
 import Privacidade from './pages/Privacidade';
 import SeoLandingPage from './pages/SeoLandingPage';
+import fpPromise from '@fingerprintjs/fingerprintjs';
 import { 
   MapPin, 
   Calendar, 
@@ -170,6 +171,8 @@ function LandingPage() {
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [confirmedPhone, setConfirmedPhone] = useState('');
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
+  const [visitorId, setVisitorId] = useState<string>('');
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [lastBookingInfo, setLastBookingInfo] = useState<{name: string, date: string, time: string} | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -188,6 +191,19 @@ function LandingPage() {
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
+    
+    // Initialize FingerprintJS
+    const initFingerprint = async () => {
+      try {
+        const fp = await fpPromise.load();
+        const result = await fp.get();
+        setVisitorId(result.visitorId);
+      } catch (error) {
+        console.error("Error loading fingerprint:", error);
+      }
+    };
+    initFingerprint();
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -970,7 +986,8 @@ function LandingPage() {
                         payment: 'Pendente',
                         paymentMethod: formData.paymentMethod || '',
                         createdAt: new Date().toISOString(),
-                        observation: formData.observation || ''
+                        observation: formData.observation || '',
+                        fingerprint: visitorId
                       };
 
                       setPendingBookingData(passengerData);
@@ -1043,10 +1060,28 @@ function LandingPage() {
                         return;
                       }
 
+                      // Try to get location before submitting
+                      let finalLocation = userLocation;
+                      if (!finalLocation && navigator.geolocation) {
+                        try {
+                          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                          });
+                          finalLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                          };
+                          setUserLocation(finalLocation);
+                        } catch (e) {
+                          console.warn("Geolocation denied or failed:", e);
+                        }
+                      }
+
                       try {
                         const finalBookingData = {
                           ...pendingBookingData,
-                          phone: confirmedPhone
+                          phone: confirmedPhone,
+                          location: finalLocation
                         };
 
                         const response = await fetch('/api/create-booking', {

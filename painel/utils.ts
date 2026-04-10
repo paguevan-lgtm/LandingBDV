@@ -1,6 +1,7 @@
 
 import { INITIAL_SP_LIST, BAIRROS, BAIRROS_MIP } from './constants';
 import { GoogleGenAI } from "@google/genai";
+import fpPromise from '@fingerprintjs/fingerprintjs';
 
 export const getWeekNumber = (date: Date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -463,69 +464,11 @@ const getCanvasFingerprint = () => {
 
 export const getDeviceFingerprint = async () => {
     try {
-        const nav = window.navigator;
-        const screen = window.screen;
-
-        // 1. GPU (WebGL)
-        const getWebGL = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                if (!gl) return 'no_webgl';
-                // @ts-ignore
-                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                // @ts-ignore
-                const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown_renderer';
-                // @ts-ignore
-                const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : 'unknown_vendor';
-                return `${vendor}::${renderer}`;
-            } catch (e) { return 'webgl_error'; }
-        };
-
-        // 2. OS Identification
-        const getOS = () => {
-            const ua = nav.userAgent;
-            if (ua.indexOf("Win") !== -1) return "Windows";
-            if (ua.indexOf("Mac") !== -1) return "MacOS";
-            if (ua.indexOf("Linux") !== -1) return "Linux";
-            if (ua.indexOf("Android") !== -1) return "Android";
-            if (ua.indexOf("iOS") !== -1) return "iOS";
-            return "UnknownOS";
-        };
-
-        // 3. Hardware Specs
-        // @ts-ignore
-        const cores = nav.hardwareConcurrency || 'x';
-        // @ts-ignore
-        const ram = nav.deviceMemory || 'x';
-        
-        // Orientation-independent screen dimensions
-        const sW = Math.max(screen.width, screen.height);
-        const sH = Math.min(screen.width, screen.height);
-        const screenSpec = `${sW}x${sH}x${screen.colorDepth}x${window.devicePixelRatio}`;
-        
-        // 4. Timezone
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown_tz';
-
-        // 5. Canvas (Rendering Engine Signature)
-        const canvasFP = getCanvasFingerprint();
-
-        // COMPOSIÇÃO DO FINGERPRINT
-        // Adicionando Canvas que é muito específico do dispositivo/engine
-        const hardwareString = [
-            getOS(),
-            // @ts-ignore
-            nav.platform,
-            cores,
-            ram,
-            screenSpec,
-            tz,
-            getWebGL(),
-            canvasFP 
-        ].join('|||');
-
-        return cyrb53(hardwareString).toString(16);
+        const fp = await fpPromise.load();
+        const result = await fp.get();
+        return result.visitorId;
     } catch (e) {
+        console.error("FingerprintJS error:", e);
         return 'fallback_id_' + Date.now();
     }
 };

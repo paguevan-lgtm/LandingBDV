@@ -1811,6 +1811,13 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             </div>
 
                             <div className={`${theme.inner} bg-opacity-50 p-4 rounded-xl border ${theme.divider}`}>
+                                <div className="text-[9px] opacity-40 uppercase font-bold mb-2">Fingerprint ID (Dispositivo)</div>
+                                <div className={`text-[10px] font-mono ${theme.text} opacity-80 break-all`}>
+                                    {selectedLog.deviceId || 'Não identificado'}
+                                </div>
+                            </div>
+
+                            <div className={`${theme.inner} bg-opacity-50 p-4 rounded-xl border ${theme.divider}`}>
                                 <div className="text-[9px] opacity-40 uppercase font-bold mb-2">Hardware / GPU</div>
                                 <div className={`text-[10px] ${theme.text} opacity-80 break-words leading-relaxed`}>
                                     {selectedLog.deviceInfo?.gpu || 'Não identificado'}
