@@ -12,7 +12,10 @@ const PixForm = ({ amount, userId, systemContext, email }: any) => {
         try {
             const response = await fetch('/api/create-pix-payment', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('api_session_token')}`
+                },
                 body: JSON.stringify({ amount, userId, systemContext, email })
             });
             

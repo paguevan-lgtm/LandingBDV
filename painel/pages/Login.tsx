@@ -233,6 +233,10 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Token inválido');
                 
+                if (data.sessionToken) {
+                    localStorage.setItem('api_session_token', data.sessionToken);
+                }
+                
                 setShowTokenInput(false);
                 proceedToLogin(selectedSystem || undefined);
             } else {
@@ -319,6 +323,10 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Token inválido');
+                
+                if (data.sessionToken) {
+                    localStorage.setItem('api_session_token', data.sessionToken);
+                }
                 
                 setForgotPasswordStep('new_password');
             } else {

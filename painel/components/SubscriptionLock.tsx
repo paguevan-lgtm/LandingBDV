@@ -61,7 +61,10 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
             // Verify session with backend
             fetch('/api/verify_session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('api_session_token')}`
+                },
                 body: JSON.stringify({ session_id: sessionId })
             })
             .then(async res => {
@@ -179,7 +182,10 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
             const timer = setTimeout(() => {
                 fetch('/api/sync-subscription', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('api_session_token')}`
+                    },
                     body: JSON.stringify({ userId: user.uid, systemContext })
                 }).then(res => {
                     if (!res.ok) {
@@ -376,7 +382,10 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
         try {
             const response = await fetch('/api/create_subscription_preference', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('api_session_token')}`
+                },
                 body: JSON.stringify({ email, userId: user.username, systemContext })
             });
             

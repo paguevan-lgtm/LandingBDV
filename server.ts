@@ -4,6 +4,8 @@ import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +29,74 @@ function getStripe(): Stripe {
 // In-memory token store for login
 const loginTokens = new Map<string, { token: string, expires: number }>();
 const tokenAttempts = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
+
+// API Session Tokens (Security Layer)
+const apiSessionTokens = new Map<string, { email: string, expires: number }>();
+
+// Rate Limiters
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: { error: 'Muitas requisições. Tente novamente mais tarde.' },
+    handler: (req, res, next, options) => {
+        console.warn(`[RATE LIMIT] IP bloqueado globalmente: ${req.ip}`);
+        res.status(options.statusCode).send(options.message);
+    }
+});
+
+const formLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 form submissions per windowMs
+    message: { error: 'Limite de envios atingido. Tente novamente em 15 minutos.' },
+    handler: (req, res, next, options) => {
+        console.warn(`[RATE LIMIT] IP bloqueado no formulário: ${req.ip}`);
+        res.status(options.statusCode).send(options.message);
+    }
+});
+
+// Origin Validation Middleware
+const validateOrigin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.originalUrl === '/api/webhook') return next();
+    
+    const origin = req.headers.origin;
+    if (!origin) {
+        // Allow requests without origin only if they are not typical browser requests, 
+        // but to be safe against bots, we can log it.
+        console.warn(`[SECURITY] Requisição sem origin: ${req.originalUrl} (IP: ${req.ip})`);
+        return next();
+    }
+    
+    const allowedDomains = ['localhost', 'boradevan.com.br', 'ais-dev', 'ais-pre'];
+    const isAllowed = allowedDomains.some(domain => origin.includes(domain));
+    
+    if (!isAllowed) {
+        console.warn(`[SECURITY] Origem bloqueada: ${origin} (IP: ${req.ip})`);
+        return res.status(403).json({ error: 'Origem não permitida' });
+    }
+    
+    next();
+};
+
+// Auth Middleware
+const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.warn(`[AUTH] Tentativa de acesso sem token: ${req.originalUrl} (IP: ${req.ip})`);
+        return res.status(401).json({ error: 'Não autorizado. Token ausente.' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    const session = apiSessionTokens.get(token);
+    
+    if (!session || Date.now() > session.expires) {
+        if (session) apiSessionTokens.delete(token);
+        console.warn(`[AUTH] Token inválido ou expirado: ${req.originalUrl} (IP: ${req.ip})`);
+        return res.status(403).json({ error: 'Acesso negado. Token inválido.' });
+    }
+    
+    (req as any).userEmail = session.email;
+    next();
+};
 
 // Helper function for resilient fetch
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
@@ -148,6 +218,10 @@ async function startServer() {
     });
     
     app.use(cors());
+    
+    // Apply global security middlewares
+    app.use('/api', validateOrigin);
+    app.use('/api', globalLimiter);
     
     // Health check
     app.get('/api/health', (req, res) => {
@@ -404,7 +478,14 @@ async function startServer() {
             }
         }
 
-        res.json({ success: true });
+        // Generate secure session token
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        apiSessionTokens.set(sessionToken, { 
+            email: email.toLowerCase(), 
+            expires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+        });
+
+        res.json({ success: true, sessionToken });
     });
 
     async function findExistingPassenger(system: string, name: string, phone: string, address: string, authParam: string) {
@@ -442,11 +523,17 @@ async function startServer() {
         return null;
     }
 
-    app.post('/api/create-booking', async (req, res) => {
+    app.post('/api/create-booking', formLimiter, async (req, res) => {
         try {
             const passengerData = req.body;
             if (!passengerData || !passengerData.name || !passengerData.phone) {
+                console.warn(`[VALIDATION] Falha na validação de agendamento: Dados incompletos (IP: ${req.ip})`);
                 return res.status(400).json({ error: 'Name and phone are required' });
+            }
+            
+            if (passengerData.name.length > 100 || passengerData.phone.length > 20) {
+                console.warn(`[VALIDATION] Falha na validação de agendamento: Campos muito longos (IP: ${req.ip})`);
+                return res.status(400).json({ error: 'Invalid data format' });
             }
 
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
@@ -564,7 +651,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/update-booking-phone', async (req, res) => {
+    app.post('/api/update-booking-phone', formLimiter, async (req, res) => {
         try {
             const { id, system, phone } = req.body;
             if (!id || !system || !phone) {
@@ -601,7 +688,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/verify_session', async (req, res) => {
+    app.post('/api/verify_session', requireAuth, async (req, res) => {
         try {
             const { session_id } = req.body;
             if (!session_id) return res.status(400).json({ error: 'session_id required' });
@@ -656,7 +743,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create_subscription_preference', async (req, res) => {
+    app.post('/api/create_subscription_preference', requireAuth, async (req, res) => {
         try {
             const { email, userId, systemContext } = req.body;
             if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
@@ -687,7 +774,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create-pix-payment', async (req, res) => {
+    app.post('/api/create-pix-payment', requireAuth, async (req, res) => {
         try {
             const { email, userId, systemContext, amount } = req.body;
             if (!userId || !amount) return res.status(400).json({ error: 'userId and amount are required' });

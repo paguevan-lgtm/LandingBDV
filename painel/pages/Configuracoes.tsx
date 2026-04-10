@@ -238,6 +238,9 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
             
             const result = await response.json();
             if (result.success) {
+                if (result.sessionToken) {
+                    localStorage.setItem('api_session_token', result.sessionToken);
+                }
                 setIsTokenVerified(true);
                 setResendTimer(0);
                 notify("Código verificado! Agora você pode alterar sua senha.", "success");
@@ -1405,7 +1408,10 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                             try {
                                                                 const response = await fetch('/api/cancel-subscription', {
                                                                     method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    headers: { 
+                                                                        'Content-Type': 'application/json',
+                                                                        'Authorization': `Bearer ${localStorage.getItem('api_session_token')}`
+                                                                    },
                                                                     body: JSON.stringify({ systemContext: sys, userId: user.uid })
                                                                 });
                                                                 if (response.ok) {

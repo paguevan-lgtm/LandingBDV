@@ -190,6 +190,10 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Token inválido');
                 
+                if (data.sessionToken) {
+                    localStorage.setItem('api_session_token', data.sessionToken);
+                }
+                
                 setResendTimer(0);
                 setShowTokenModal(false);
                 setToken('');
