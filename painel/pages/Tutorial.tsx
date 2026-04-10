@@ -201,13 +201,13 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
 
     const progress = useMemo(() => {
         if (!tutorials || tutorials.length === 0) return 0;
-        const total = tutorials.filter(t => t.id !== 'free').length;
+        const total = tutorials.filter(t => t.id !== 'sandbox').length;
         return Math.min(100, Math.round((completedTutorials.length / total) * 100));
     }, [completedTutorials, tutorials]);
 
     // Lockdown logic: Disable elements not related to the current or previous steps
     useEffect(() => {
-        if (!activeTutorial || tutorialFinished) {
+        if (!activeTutorial || tutorialFinished || activeTutorial === 'sandbox' || activeTutorial === 'free') {
             const allElements = document.querySelectorAll('button, input, select, textarea');
             allElements.forEach(el => {
                 (el as any).disabled = false;
@@ -580,17 +580,14 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                     key={item.id}
                                     id={`tut-menu-btn-${item.id}`}
                                     onClick={() => {
-                                        if (activeTutorial && !tutorialFinished) {
-                                            setSandboxView(item.id);
-                                            setIsMobileMenuOpen(false);
-                                            if (step?.target === `tut-menu-btn-${item.id}`) nextStep();
-                                        } else {
-                                            setSandboxView(item.id);
-                                            setIsMobileMenuOpen(false);
+                                        setSandboxView(item.id);
+                                        setIsMobileMenuOpen(false);
+                                        if (activeTutorial && !tutorialFinished && step?.target === `tut-menu-btn-${item.id}`) {
+                                            nextStep();
                                         }
                                     }}
-                                    disabled={activeTutorial && !tutorialFinished && step?.target !== `tut-menu-btn-${item.id}`}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${sandboxView === item.id ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'} ${activeTutorial && !tutorialFinished && step?.target !== `tut-menu-btn-${item.id}` ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                    disabled={activeTutorial && activeTutorial !== 'sandbox' && activeTutorial !== 'free' && !tutorialFinished && step?.target !== `tut-menu-btn-${item.id}`}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${sandboxView === item.id ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'} ${activeTutorial && activeTutorial !== 'sandbox' && activeTutorial !== 'free' && !tutorialFinished && step?.target !== `tut-menu-btn-${item.id}` ? 'opacity-30 cursor-not-allowed' : ''}`}
                                     title={item.l}
                                 >
                                     <item.i size={20}/>
@@ -744,7 +741,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                     <button 
                                         onClick={() => {
                                             setTutorialFinished(false);
-                                            setActiveTutorial('free');
+                                            setActiveTutorial('sandbox');
                                         }}
                                         className="w-full py-4 bg-white/5 text-white rounded-2xl font-black hover:bg-white/10 transition-all border border-white/5"
                                     >
