@@ -1574,7 +1574,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                     <div className="min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <span className={`text-xs font-bold truncate ${isTrusted ? 'text-green-400' : theme.text}`}>{log.username}</span>
-                                                            {deviceName && <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">{deviceName}</span>}
+                                                            {isSuperAdmin && deviceName && <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">{deviceName}</span>}
                                                             {isTrusted && <Icons.Check size={10} className="text-green-500" />}
                                                             <span className="text-[9px] opacity-30">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                                         </div>
@@ -1697,7 +1697,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`font-bold text-sm ${theme.accent}`}>{mainLog.username}</span>
-                                                        {deviceLabels?.[mainLog.deviceId] && (
+                                                        {isSuperAdmin && deviceLabels?.[mainLog.deviceId] && (
                                                             <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">
                                                                 {deviceLabels[mainLog.deviceId]}
                                                             </span>
@@ -1814,10 +1814,10 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     <div className="text-[9px] opacity-40 uppercase font-bold mb-1">IP</div>
                                     <div className={`text-xs font-bold ${theme.text} break-all`}>{selectedLog.ip || 'N/A'}</div>
                                 </div>
-                                <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-[9px] opacity-40 uppercase font-bold">Identificação do Aparelho</div>
-                                        {isSuperAdmin && (
+                                {isSuperAdmin && (
+                                    <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className="text-[9px] opacity-40 uppercase font-bold">Identificação do Aparelho</div>
                                             <button 
                                                 onClick={() => {
                                                     const name = prompt("Dê um nome para este dispositivo:", deviceLabels?.[selectedLog.deviceId] || "");
@@ -1827,12 +1827,12 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             >
                                                 Editar Nome
                                             </button>
-                                        )}
+                                        </div>
+                                        <div className={`text-xs font-bold ${theme.text}`}>
+                                            {deviceLabels?.[selectedLog.deviceId] || 'Sem nome definido'}
+                                        </div>
                                     </div>
-                                    <div className={`text-xs font-bold ${theme.text}`}>
-                                        {deviceLabels?.[selectedLog.deviceId] || 'Sem nome definido'}
-                                    </div>
-                                </div>
+                                )}
                                 <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
                                     <div className="text-[9px] opacity-40 uppercase font-bold mb-1">ID do Aparelho</div>
                                     <div className={`text-[10px] font-mono ${theme.text} break-all opacity-60`}>{selectedLog.deviceId || 'N/A'}</div>
@@ -1852,23 +1852,9 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             </div>
 
                             <div className={`${theme.inner} bg-opacity-50 p-4 rounded-xl border ${theme.divider}`}>
-                                <div className="text-[9px] opacity-40 uppercase font-bold mb-2">Fingerprint ID (Dispositivo)</div>
-                                <div className={`text-[10px] font-mono ${theme.text} opacity-80 break-all`}>
-                                    {selectedLog.deviceId || 'Não identificado'}
-                                </div>
-                            </div>
-
-                            <div className={`${theme.inner} bg-opacity-50 p-4 rounded-xl border ${theme.divider}`}>
                                 <div className="text-[9px] opacity-40 uppercase font-bold mb-2">Hardware / GPU</div>
                                 <div className={`text-[10px] ${theme.text} opacity-80 break-words leading-relaxed`}>
                                     {selectedLog.deviceInfo?.gpu || 'Não identificado'}
-                                </div>
-                            </div>
-
-                            <div className={`${theme.inner} bg-opacity-50 p-4 rounded-xl border ${theme.divider}`}>
-                                <div className="text-[9px] opacity-40 uppercase font-bold mb-2">ID do Aparelho</div>
-                                <div className={`text-[10px] font-mono ${theme.text} opacity-80 break-all`}>
-                                    {selectedLog.deviceId || 'N/A'}
                                 </div>
                             </div>
 
