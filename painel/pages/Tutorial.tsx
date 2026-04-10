@@ -13,22 +13,9 @@ import { GlobalModals } from '../components/GlobalModals';
 import { getTodayDate, formatTime } from '../utils';
 
 const INITIAL_SANDBOX_DATA = {
-    passengers: [
-        { id: 'p1', name: 'Maria Silva', phone: '11999999999', address: 'Rua das Flores, 123', neighborhood: 'Centro', time: '08:00', passengerCount: 1, status: 'Ativo', date: getTodayDate() },
-        { id: 'p2', name: 'João Souza', phone: '11888888888', address: 'Av. Paulista, 1000', neighborhood: 'Bela Vista', time: '18:00', passengerCount: 1, status: 'Ativo', date: getTodayDate() },
-        { id: 'p3', name: 'Ana Oliveira', phone: '11777777777', address: 'Rua Augusta, 500', neighborhood: 'Consolação', time: '08:00', passengerCount: 2, status: 'Ativo', date: getTodayDate() },
-        { id: 'p4', name: 'Pedro Santos', phone: '11666666666', address: 'Rua da Consolação, 1500', neighborhood: 'Centro', time: '08:00', passengerCount: 1, status: 'Ativo', date: getTodayDate() }
-    ],
-    drivers: [
-        { id: 'd1', name: 'Carlos Oliveira', phone: '11777777777', plate: 'ABC-1234', capacity: 15, status: 'Ativo' },
-        { id: 'd2', name: 'Roberto Santos', phone: '11666666666', plate: 'XYZ-5678', capacity: 15, status: 'Ativo' },
-        { id: 'd3', name: 'Marcos Lima', phone: '11555555555', plate: 'KJH-9012', capacity: 15, status: 'Ativo' }
-    ],
-    trips: [
-        { id: 't1', date: getTodayDate(), time: '08:00', driverName: 'Carlos Oliveira', driverId: 'd1', pCount: 12, value: 48, paymentStatus: 'Pago', receivedBy: 'Aluno', receivedAt: getTodayDate() },
-        { id: 't2', date: getTodayDate(), time: '18:00', driverName: 'Roberto Santos', driverId: 'd2', pCount: 10, value: 40, paymentStatus: 'Pendente' },
-        { id: 't3', date: getTodayDate(), time: '06:00', driverName: 'Marcos Lima', driverId: 'd3', pCount: 15, value: 60, paymentStatus: 'Pago', receivedBy: 'Sistema', receivedAt: getTodayDate() }
-    ],
+    passengers: [],
+    drivers: [],
+    trips: [],
     appointments: [],
     notes: [],
     lostFound: [],
@@ -43,6 +30,9 @@ const INITIAL_SANDBOX_DATA = {
     table_status: {
         '01': 'confirmed',
         '02': 'lousa'
+    },
+    confirmed_times: {
+        '01': '08:00'
     },
     lousa_order: [
         { uid: 'l1', vaga: '02' }
@@ -75,6 +65,9 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
     const [sandboxEditingTripId, setSandboxEditingTripId] = useState<string | null>(null);
     const [sandboxAiModal, setSandboxAiModal] = useState(false);
     const [sandboxAiInput, setSandboxAiInput] = useState('');
+    const [sandboxEditName, setSandboxEditName] = useState<string | null>(null);
+    const [sandboxTempName, setSandboxTempName] = useState('');
+    const [sandboxTempVaga, setSandboxTempVaga] = useState('');
     const [tutorialFinished, setTutorialFinished] = useState(false);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -811,11 +804,71 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                         getTodayDate={getTodayDate}
                                         analysisDate={sandboxAnalysisDate}
                                         setAnalysisDate={setSandboxAnalysisDate}
-                                        analysisRotatedList={[]}
+                                        analysisRotatedList={sandboxData.drivers_table_list || []}
+                                        currentRotatedList={sandboxData.drivers_table_list || []}
                                         tableStatus={sandboxData.table_status || {}}
+                                        confirmedTimes={sandboxData.confirmed_times || {}}
                                         lousaOrder={sandboxData.lousa_order || []}
+                                        spList={sandboxData.drivers_table_list || []}
+                                        setSpList={(newList: any) => setSandboxData((prev: any) => ({ ...prev, drivers_table_list: newList }))}
+                                        editName={sandboxEditName}
+                                        setEditName={setSandboxEditName}
+                                        tempName={sandboxTempName}
+                                        setTempName={setSandboxTempName}
+                                        tempVaga={sandboxTempVaga}
+                                        setTempVaga={setSandboxTempVaga}
+                                        saveDriverName={(vaga: string) => {
+                                            const newList = sandboxData.drivers_table_list.map((d: any) => 
+                                                d.vaga === vaga ? { ...d, name: sandboxTempName, vaga: sandboxTempVaga } : d
+                                            );
+                                            setSandboxData((prev: any) => ({ ...prev, drivers_table_list: newList }));
+                                            setSandboxEditName(null);
+                                        }}
+                                        updateTableStatus={(vaga: string, status: string) => {
+                                            setSandboxData((prev: any) => {
+                                                const newStatus = { ...prev.table_status, [vaga]: status };
+                                                const newConfirmedTimes = { ...prev.confirmed_times || {} };
+                                                if (status === 'confirmed') {
+                                                    const now = new Date();
+                                                    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                                    newConfirmedTimes[vaga] = formatTime(timeStr);
+                                                }
+                                                return { ...prev, table_status: newStatus, confirmed_times: newConfirmedTimes };
+                                            });
+                                        }}
+                                        handleLousaAction={(uid: string, action: string, vaga: string) => {
+                                            if (action === 'remove') {
+                                                setSandboxData((prev: any) => ({
+                                                    ...prev,
+                                                    lousa_order: prev.lousa_order.filter((i: any) => i.uid !== uid)
+                                                }));
+                                            } else if (action === 'baixou') {
+                                                setSandboxData((prev: any) => ({
+                                                    ...prev,
+                                                    lousa_order: prev.lousa_order.map((i: any) => i.uid === uid ? { ...i, baixou: true } : i)
+                                                }));
+                                            } else if (action === 'riscar') {
+                                                setSandboxData((prev: any) => ({
+                                                    ...prev,
+                                                    lousa_order: prev.lousa_order.map((i: any) => i.uid === uid ? { ...i, riscado: true } : i)
+                                                }));
+                                            } else if (action === 'duplicate') {
+                                                setSandboxData((prev: any) => ({
+                                                    ...prev,
+                                                    lousa_order: [...prev.lousa_order, { ...prev.lousa_order.find((i:any)=>i.uid===uid), uid: `dup-${Date.now()}` }]
+                                                }));
+                                            }
+                                        }}
+                                        addNullLousaItem={() => {
+                                            setSandboxData((prev: any) => ({
+                                                ...prev,
+                                                lousa_order: [...prev.lousa_order, { uid: `null-${Date.now()}`, isNull: true }]
+                                            }));
+                                        }}
+                                        startLousaTime={new Date()}
                                         dbOp={sandboxDbOp}
                                         notify={notify}
+                                        systemContext={systemContext}
                                         isTutorialActive={activeTutorial !== 'sandbox'}
                                     />
                                 )}
