@@ -212,9 +212,9 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                 { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom' },
                 { target: 'tut-tab-lousa', text: 'Agora a parte mais importante: a Lousa de saída.', position: 'bottom' },
                 { target: 'tut-btn-skip-time', text: 'Se uma vaga ficar vazia, use este botão para pular o horário na escala.', position: 'bottom', showNext: true },
-                { target: 'tut-lousa-baixar', text: 'Quando a van sair, clique na seta para "Baixar" o motorista.', position: 'bottom', showNext: true },
-                { target: 'tut-lousa-duplicate', text: 'Duplique a vaga se o motorista for fazer "dobra" (duas viagens).', position: 'bottom', showNext: true },
-                { target: 'tut-lousa-riscar', text: 'Se o motorista desistir ou tiver problema, use o "Riscar".', position: 'bottom', showNext: true }
+                { target: 'tut-lousa-baixar-02', text: 'Quando a van sair, clique na seta para "Baixar" o motorista.', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-duplicate-02', text: 'Duplique a vaga se o motorista for fazer "dobra" (duas viagens).', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-riscar-02', text: 'Se o motorista desistir ou tiver problema, use o "Riscar".', position: 'bottom', showNext: true }
             ]
         },
         {
@@ -325,6 +325,20 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
         return () => clearInterval(interval);
     }, [activeTutorial, tutorial, currentStep, tutorialFinished, sandboxView, sandboxModal, isMobileMenuOpen]);
 
+    // Auto-populate drivers_table_list if empty during table tutorials
+    useEffect(() => {
+        if ((activeTutorial === 'table_adv' || activeTutorial === 'lousa_adv') && 
+            (!sandboxData.drivers_table_list || sandboxData.drivers_table_list.length === 0)) {
+            setSandboxData((prev: any) => ({
+                ...prev,
+                drivers_table_list: INITIAL_SANDBOX_DATA.drivers_table_list,
+                table_status: INITIAL_SANDBOX_DATA.table_status,
+                lousa_order: INITIAL_SANDBOX_DATA.lousa_order,
+                confirmed_times: INITIAL_SANDBOX_DATA.confirmed_times
+            }));
+        }
+    }, [activeTutorial, sandboxData.drivers_table_list]);
+
     const nextTutorialId = useMemo(() => {
         const index = tutorials.findIndex(t => t.id === activeTutorial);
         if (index !== -1 && index < tutorials.length - 1) {
@@ -375,27 +389,39 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
 
     const sandboxDbOp = (type: string, node: string, payload: any) => {
         console.log('Sandbox DB Op:', type, node, payload);
-        if (type === 'create') {
-            const nextId = (sandboxData[node] || []).reduce((max: number, item: any) => {
-                const idNum = parseInt(item.id);
-                return !isNaN(idNum) ? Math.max(max, idNum) : max;
-            }, 0) + 1;
+        setSandboxData((prev: any) => {
+            let newData = { ...prev };
+            
+            if (type === 'create') {
+                const nextId = (prev[node] || []).reduce((max: number, item: any) => {
+                    const idNum = parseInt(item.id);
+                    return !isNaN(idNum) ? Math.max(max, idNum) : max;
+                }, 0) + 1;
+                newData[node] = [...(prev[node] || []), { ...payload, id: payload.id || nextId.toString() }];
+            } else if (type === 'update') {
+                if (Array.isArray(payload)) {
+                    newData[node] = payload;
+                } else if (payload && typeof payload === 'object' && payload.id) {
+                    newData[node] = (prev[node] || []).map((item: any) => item.id === payload.id ? { ...item, ...payload } : item);
+                } else {
+                    newData[node] = payload;
+                }
+            } else if (type === 'delete') {
+                newData[node] = (prev[node] || []).filter((item: any) => item.id !== payload);
+            }
 
-            setSandboxData((prev: any) => ({
-                ...prev,
-                [node]: [...(prev[node] || []), { ...payload, id: payload.id || nextId.toString() }]
-            }));
-        } else if (type === 'update') {
-            setSandboxData((prev: any) => ({
-                ...prev,
-                [node]: (prev[node] || []).map((item: any) => item.id === payload.id ? { ...item, ...payload } : item)
-            }));
-        } else if (type === 'delete') {
-            setSandboxData((prev: any) => ({
-                ...prev,
-                [node]: (prev[node] || []).filter((item: any) => item.id !== payload)
-            }));
-        }
+            // If table is cleared during tutorial, re-populate it to avoid breaking steps
+            if ((activeTutorial === 'table_adv' || activeTutorial === 'lousa_adv') && 
+                node === 'drivers_table_list' && (!newData[node] || newData[node].length === 0)) {
+                newData.drivers_table_list = INITIAL_SANDBOX_DATA.drivers_table_list;
+                newData.table_status = INITIAL_SANDBOX_DATA.table_status;
+                newData.lousa_order = INITIAL_SANDBOX_DATA.lousa_order;
+                newData.confirmed_times = INITIAL_SANDBOX_DATA.confirmed_times;
+                notify("Tabela restaurada para o tutorial", "info");
+            }
+
+            return newData;
+        });
     };
 
     const sandboxBillingData = useMemo(() => {
