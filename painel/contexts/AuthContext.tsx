@@ -283,72 +283,78 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
             // --- SECURITY CHECK (FINGERPRINT ROBUSTO, IP & SIMILARITY) ---
             if (db && usernameTrimmed.toLowerCase() !== 'breno') {
-                // 1. Check Exact Device ID
-                const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value');
-                if (blockedSnap.exists()) {
-                    return false; // Silent Fail
-                }
+                // Check if device is trusted
+                const trustedSnap = await db.ref(`trusted_devices/${deviceId}`).once('value');
+                const isTrustedDevice = trustedSnap.exists();
 
-                // 2. Check Similarity across all blocked devices
-                const allBlockedSnap = await db.ref('blocked_devices').once('value');
-                if (allBlockedSnap.exists()) {
-                    const blockedDevices = allBlockedSnap.val();
-                    for (const key in blockedDevices) {
-                        const blocked = blockedDevices[key];
-                        
-                        // Check IP match
-                        if (blocked.ip && blocked.ip === currentIp && currentIp !== '0.0.0.0') {
-                            return false;
-                        }
+                if (!isTrustedDevice) {
+                    // 1. Check Exact Device ID
+                    const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value');
+                    if (blockedSnap.exists()) {
+                        return false; // Silent Fail
+                    }
 
-                        // Check Same Username
-                        const isSameUser = blocked.username && blocked.username.toLowerCase() === usernameTrimmed.toLowerCase();
+                    // 2. Check Similarity across all blocked devices
+                    const allBlockedSnap = await db.ref('blocked_devices').once('value');
+                    if (allBlockedSnap.exists()) {
+                        const blockedDevices = allBlockedSnap.val();
+                        for (const key in blockedDevices) {
+                            const blocked = blockedDevices[key];
+                            
+                            // Check IP match
+                            if (blocked.ip && blocked.ip === currentIp && currentIp !== '0.0.0.0') {
+                                return false;
+                            }
 
-                        // Check Similarity: Same GPU, Same OS, Same City, Distance
-                        const isSameGpu = blocked.deviceInfo?.gpu && blocked.deviceInfo.gpu === currentDeviceInfo.gpu && currentDeviceInfo.gpu !== 'Unknown GPU';
-                        const isSameOs = blocked.deviceInfo?.os && blocked.deviceInfo.os === currentDeviceInfo.os;
-                        const isSameBrowser = blocked.deviceInfo?.browser && blocked.deviceInfo.browser === currentDeviceInfo.browser;
-                        const isSameDeviceType = blocked.deviceInfo?.device && blocked.deviceInfo.device === currentDeviceInfo.device;
-                        
-                        const blockedCity = blocked.location?.city || blocked.location?.exact_address?.city || blocked.location?.exact_address?.town || blocked.location?.exact_address?.village || blocked.location?.exact_address?.municipality;
-                        const currentCity = currentLocation.city || currentLocation.exact_address?.city || currentLocation.exact_address?.town || currentLocation.exact_address?.village || currentLocation.exact_address?.municipality;
-                        const isSameCity = blockedCity && currentCity && blockedCity === currentCity;
+                            // Check Same Username
+                            const isSameUser = blocked.username && blocked.username.toLowerCase() === usernameTrimmed.toLowerCase();
 
-                        const blockedLat = blocked.location?.coords?.lat;
-                        const blockedLng = blocked.location?.coords?.lng;
-                        const currentLat = currentLocation.coords?.lat;
-                        const currentLng = currentLocation.coords?.lng;
-                        
-                        const distance = getDistance(blockedLat, blockedLng, currentLat, currentLng);
-                        const isVeryClose = distance < 0.2; // Less than 200 meters away
+                            // Check Similarity: Same GPU, Same OS, Same City, Distance
+                            const isSameGpu = blocked.deviceInfo?.gpu && blocked.deviceInfo.gpu === currentDeviceInfo.gpu && currentDeviceInfo.gpu !== 'Unknown GPU';
+                            const isSameOs = blocked.deviceInfo?.os && blocked.deviceInfo.os === currentDeviceInfo.os;
+                            const isSameBrowser = blocked.deviceInfo?.browser && blocked.deviceInfo.browser === currentDeviceInfo.browser;
+                            const isSameDeviceType = blocked.deviceInfo?.device && blocked.deviceInfo.device === currentDeviceInfo.device;
+                            
+                            const blockedCity = blocked.location?.city || blocked.location?.exact_address?.city || blocked.location?.exact_address?.town || blocked.location?.exact_address?.village || blocked.location?.exact_address?.municipality;
+                            const currentCity = currentLocation.city || currentLocation.exact_address?.city || currentLocation.exact_address?.town || currentLocation.exact_address?.village || currentLocation.exact_address?.municipality;
+                            const isSameCity = blockedCity && currentCity && blockedCity === currentCity;
 
-                        // Evasion detection logic
-                        let isEvasion = false;
-                        let evasionReason = '';
+                            const blockedLat = blocked.location?.coords?.lat;
+                            const blockedLng = blocked.location?.coords?.lng;
+                            const currentLat = currentLocation.coords?.lat;
+                            const currentLng = currentLocation.coords?.lng;
+                            
+                            const distance = getDistance(blockedLat, blockedLng, currentLat, currentLng);
+                            const isVeryClose = distance < 0.2; // Less than 200 meters away
 
-                        if (isSameUser) {
-                            isEvasion = true;
-                            evasionReason = 'Banido por similaridade (Mesmo usuário tentou logar)';
-                        } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
-                            isEvasion = true;
-                            evasionReason = 'Banido por similaridade (Mesmo aparelho/OS/Browser na mesma localização exata)';
-                        } else if (isSameGpu && isSameOs && isSameCity && currentDeviceInfo.gpu !== 'Apple GPU') {
-                            isEvasion = true;
-                            evasionReason = 'Banido por similaridade (Hardware idêntico na mesma cidade)';
-                        }
+                            // Evasion detection logic
+                            let isEvasion = false;
+                            let evasionReason = '';
 
-                        if (isEvasion) {
-                            // Automatically ban this new device ID as well
-                            await db.ref(`blocked_devices/${deviceId}`).set({
-                                reason: evasionReason,
-                                blockedBy: 'Sistema',
-                                blockedAt: Date.now(),
-                                deviceInfo: currentDeviceInfo,
-                                location: currentLocation,
-                                ip: currentIp,
-                                username: u
-                            });
-                            return false;
+                            if (isSameUser) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo usuário tentou logar)';
+                            } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo aparelho/OS/Browser na mesma localização exata)';
+                            } else if (isSameGpu && isSameOs && isSameCity && currentDeviceInfo.gpu !== 'Apple GPU') {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Hardware idêntico na mesma cidade)';
+                            }
+
+                            if (isEvasion) {
+                                // Automatically ban this new device ID as well
+                                await db.ref(`blocked_devices/${deviceId}`).set({
+                                    reason: evasionReason,
+                                    blockedBy: 'Sistema',
+                                    blockedAt: Date.now(),
+                                    deviceInfo: currentDeviceInfo,
+                                    location: currentLocation,
+                                    ip: currentIp,
+                                    username: u
+                                });
+                                return false;
+                            }
                         }
                     }
                 }
