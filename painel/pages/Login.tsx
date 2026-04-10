@@ -448,10 +448,9 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                 if (err.code === 1) {
                     setGeoDenied(true);
                     setGeoStatus('Acesso negado. Siga as instruções abaixo.');
-                } else if (err.code === 3) {
-                    handleLocationFallback("Tempo esgotado (GPS fraco)", selectedSystem || undefined);
                 } else {
-                    setGeoStatus('Erro ao obter localização');
+                    // Para qualquer outro erro (Timeout, Unavailable), tenta o IP
+                    handleLocationFallback(err.code === 3 ? "Tempo esgotado (GPS fraco)" : "GPS indisponível no PC", selectedSystem || undefined);
                 }
             },
             { 
@@ -883,6 +882,15 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     >
                         {loading ? (geoStatus || 'Sincronizando...') : (geoDenied ? 'Tentar Novamente' : 'Confirmar Posição')}
                     </button>
+
+                    {!geoDenied && !loading && (
+                        <button 
+                            onClick={() => handleLocationFallback("Manual Fallback", selectedSystem || undefined)}
+                            className="mt-4 text-[10px] text-amber-500/60 hover:text-amber-500 transition-colors uppercase font-bold tracking-widest underline underline-offset-4"
+                        >
+                            Problemas com GPS? Usar Localização por IP
+                        </button>
+                    )}
 
                     <button 
                         onClick={() => { setShowGeoPrompt(false); setLoading(false); setGeoStatus(''); }}

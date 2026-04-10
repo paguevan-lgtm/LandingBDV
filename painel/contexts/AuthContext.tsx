@@ -330,10 +330,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                             let isEvasion = false;
                             let evasionReason = '';
 
-                            if (isSameUser) {
-                                isEvasion = true;
-                                evasionReason = 'Banido por similaridade (Mesmo usuário tentou logar)';
-                            } else if (isSameIp && isVeryClose) {
+                            if (isSameIp && isVeryClose) {
                                 isEvasion = true;
                                 evasionReason = 'Banido por similaridade (Mesmo IP na mesma localização exata)';
                             } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
