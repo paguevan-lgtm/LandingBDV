@@ -1602,12 +1602,22 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                     </div>
                                                 </div>
                                             );
-                                        }) : blockedList.map((dev:any) => (
-                                            <div key={dev.id} className={`bg-red-900/10 p-3 rounded-xl border border-red-500/20 flex justify-between items-center`}>
-                                                <div className="text-[10px] font-mono text-red-200">{dev.id.substring(0,16)}...</div>
-                                                <IconButton theme={theme} onClick={()=>unbanDevice(dev.id)} icon={Icons.Check} size={14} variant="success" />
-                                            </div>
-                                        ))}
+                                        }) : blockedList.map((dev:any) => {
+                                            const deviceName = deviceLabels?.[dev.id];
+                                            return (
+                                                <div 
+                                                    key={dev.id} 
+                                                    onClick={() => setSelectedLog({ ...dev, deviceId: dev.id })}
+                                                    className={`bg-red-900/10 p-3 rounded-xl border border-red-500/20 flex justify-between items-center cursor-pointer hover:bg-red-900/20 transition-colors`}
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <div className="text-[10px] font-mono text-red-200">{dev.id.substring(0,16)}...</div>
+                                                        {isSuperAdmin && deviceName && <div className="text-[9px] font-bold text-blue-400 mt-1 uppercase tracking-tighter">{deviceName}</div>}
+                                                    </div>
+                                                    <IconButton theme={theme} onClick={(e)=>{ e.stopPropagation(); unbanDevice(dev.id); }} icon={Icons.Check} size={14} variant="success" />
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
