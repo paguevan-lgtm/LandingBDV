@@ -1212,35 +1212,7 @@ function TutorialOverlay({ step, theme, onAction, currentStep, totalSteps }: any
     }, [step.target]);
 
     if (!targetRect || (targetRect.top === 0 && targetRect.left === 0 && targetRect.width === 0)) {
-        return (
-            <div className="fixed inset-0 z-[50000] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto p-4">
-                 <motion.div 
-                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    className="bg-slate-900 border border-white/10 text-white p-8 rounded-[40px] shadow-2xl max-w-xs text-center relative overflow-hidden"
-                >
-                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 blur-3xl rounded-full"></div>
-                    <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full"></div>
-                    
-                    <div className="relative z-10">
-                        <div className="w-20 h-20 bg-gradient-to-tr from-amber-500 to-amber-400 text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-amber-500/20 transform -rotate-3">
-                            <Icons.HelpCircle size={40} />
-                        </div>
-                        <h3 className="text-2xl font-black mb-2 tracking-tight">Olá! Sou seu guia.</h3>
-                        <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed">
-                            Vou te mostrar como usar o sistema passo a passo. Vamos lá?
-                        </p>
-                        <button 
-                            onClick={() => onAction('next')}
-                            className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-amber-50"
-                        >
-                            Começar Treinamento
-                            <Icons.ChevronRight size={18} />
-                        </button>
-                    </div>
-                </motion.div>
-            </div>
-        );
+        return null;
     }
 
     // Mobile Balloon Positioning
