@@ -93,7 +93,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                 <>
                     {/* CAIXA DIÁRIO (NOVO) */}
             <div className="stagger-in d-2">
-                <div className={`${theme.card} p-6 rounded-xl border ${theme.border} bg-blue-500/10 border-blue-500/20 relative overflow-hidden`}>
+                <div id="tut-card-daily-cash" className={`${theme.card} p-6 rounded-xl border ${theme.border} bg-blue-500/10 border-blue-500/20 relative overflow-hidden`}>
                     <div className="flex justify-between items-start z-10 relative">
                         <div>
                             <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">
@@ -128,7 +128,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
 
             {/* Resumo Topo (Mensal) */}
             <div className={`grid ${canSeeRevenue ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
-                <div className={`${theme.card} p-4 rounded-xl border ${theme.border} bg-red-500/10 border-red-500/20 stagger-in d-2`}>
+                <div id="tut-card-pending" className={`${theme.card} p-4 rounded-xl border ${theme.border} bg-red-500/10 border-red-500/20 stagger-in d-2`}>
                     <div className="text-xs font-bold text-red-400 uppercase tracking-widest mb-1">A Receber (Pendente)</div>
                     <div className="text-3xl font-bold text-white">R$ {formatCurrency(billingData.summary.pending)}</div>
                 </div>
@@ -159,7 +159,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                             
                             <div className="space-y-3">
                                 {group.trips.map((trip:any) => (
-                                    <div key={trip.id} className={`${theme.card} p-4 rounded-xl border ${theme.border} flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden`}>
+                                    <div id="tut-billing-item" key={trip.id} className={`${theme.card} p-4 rounded-xl border ${theme.border} flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden`}>
                                         {/* Indicador Lateral de Status */}
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${trip.isPaid ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                                                      <div className="flex items-center gap-4 w-full md:w-auto min-w-0">
@@ -228,6 +228,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
 
                                             <div className="flex gap-2 items-center ml-auto md:ml-0">
                                                 <button 
+                                                    id="tut-btn-toggle-payment"
                                                     onClick={() => togglePaymentStatus(trip)}
                                                     className={`px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-2 border transition-all active:scale-95 ${trip.isPaid ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20' : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'}`}
                                                 >
@@ -237,6 +238,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                 
                                                 {/* Botão de Editar */}
                                                 <button 
+                                                    id="tut-btn-edit-billing"
                                                     onClick={() => openEditTrip(trip)}
                                                     className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold transition-colors flex-shrink-0"
                                                     title="Editar Viagem/Cobrança"
@@ -245,6 +247,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                 </button>
 
                                                 <button 
+                                                    id="tut-btn-wa-billing"
                                                     onClick={() => sendBillingMessage(trip)}
                                                     className="px-3 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-500 transition-colors shadow-lg active:scale-95 flex-shrink-0"
                                                     title="Cobrar no WhatsApp"
@@ -253,6 +256,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                 </button>
                                                 
                                                 <button 
+                                                    id="tut-btn-del-billing"
                                                     onClick={() => del('trips', trip.id)} 
                                                     className="px-3 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex-shrink-0"
                                                     title="Excluir Cobrança/Viagem"

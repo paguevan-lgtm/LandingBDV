@@ -7,17 +7,46 @@ import Passageiros from './Passageiros';
 import Agendamentos from './Agendamentos';
 import Viagens from './Viagens';
 import Motoristas from './Motoristas';
+import Tabela from './Tabela';
+import Financeiro from './Financeiro';
 import { GlobalModals } from '../components/GlobalModals';
 import { getTodayDate, formatTime } from '../utils';
 
 const INITIAL_SANDBOX_DATA = {
-    passengers: [],
-    drivers: [],
-    trips: [],
+    passengers: [
+        { id: 'p1', name: 'Maria Silva', phone: '11999999999', address: 'Rua das Flores, 123', neighborhood: 'Centro', time: '08:00', passengerCount: 1, status: 'Ativo', date: getTodayDate() },
+        { id: 'p2', name: 'João Souza', phone: '11888888888', address: 'Av. Paulista, 1000', neighborhood: 'Bela Vista', time: '18:00', passengerCount: 1, status: 'Ativo', date: getTodayDate() },
+        { id: 'p3', name: 'Ana Oliveira', phone: '11777777777', address: 'Rua Augusta, 500', neighborhood: 'Consolação', time: '08:00', passengerCount: 2, status: 'Ativo', date: getTodayDate() },
+        { id: 'p4', name: 'Pedro Santos', phone: '11666666666', address: 'Rua da Consolação, 1500', neighborhood: 'Centro', time: '08:00', passengerCount: 1, status: 'Ativo', date: getTodayDate() }
+    ],
+    drivers: [
+        { id: 'd1', name: 'Carlos Oliveira', phone: '11777777777', plate: 'ABC-1234', capacity: 15, status: 'Ativo' },
+        { id: 'd2', name: 'Roberto Santos', phone: '11666666666', plate: 'XYZ-5678', capacity: 15, status: 'Ativo' },
+        { id: 'd3', name: 'Marcos Lima', phone: '11555555555', plate: 'KJH-9012', capacity: 15, status: 'Ativo' }
+    ],
+    trips: [
+        { id: 't1', date: getTodayDate(), time: '08:00', driverName: 'Carlos Oliveira', driverId: 'd1', pCount: 12, value: 48, paymentStatus: 'Pago', receivedBy: 'Aluno', receivedAt: getTodayDate() },
+        { id: 't2', date: getTodayDate(), time: '18:00', driverName: 'Roberto Santos', driverId: 'd2', pCount: 10, value: 40, paymentStatus: 'Pendente' },
+        { id: 't3', date: getTodayDate(), time: '06:00', driverName: 'Marcos Lima', driverId: 'd3', pCount: 15, value: 60, paymentStatus: 'Pago', receivedBy: 'Sistema', receivedAt: getTodayDate() }
+    ],
     appointments: [],
     notes: [],
     lostFound: [],
     cannedMessages: [],
+    drivers_table_list: [
+        { vaga: '01', name: 'Carlos Oliveira', id: 'dt1' },
+        { vaga: '02', name: 'Roberto Santos', id: 'dt2' },
+        { vaga: '03', name: 'Marcos Lima', id: 'dt3' },
+        { vaga: '04', name: 'Ricardo Dias', id: 'dt4' },
+        { vaga: '05', name: 'Fernando Costa', id: 'dt5' }
+    ],
+    table_status: {
+        '01': 'confirmed',
+        '02': 'lousa'
+    },
+    lousa_order: [
+        { uid: 'l1', vaga: '02' }
+    ]
 };
 
 export default function Tutorial({ theme, systemContext, notify }: any) {
@@ -36,6 +65,10 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
     });
 
     const [sandboxView, setSandboxView] = useState('dashboard');
+    const [sandboxTableTab, setSandboxTableTab] = useState('geral');
+    const [sandboxMipDayType, setSandboxMipDayType] = useState('normal');
+    const [sandboxAnalysisDate, setSandboxAnalysisDate] = useState(getTodayDate());
+    const [sandboxBillingDate, setSandboxBillingDate] = useState(new Date());
     const [sandboxModal, setSandboxModal] = useState<string | null>(null);
     const [sandboxFormData, setSandboxFormData] = useState<any>({});
     const [sandboxSuggestedTrip, setSandboxSuggestedTrip] = useState<any>(null);
@@ -157,6 +190,55 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                 { target: 'textarea-magic-input', text: 'Cole um texto tipo: "José no Centro as 10h".', position: 'bottom', showNext: true },
                 { target: 'btn-magic-submit', text: 'Clique em Criar Mágica.', position: 'top' },
                 { target: 'btn-save-passenger', text: 'Viu como é rápido? Agora salve para terminar o treinamento!', position: 'top' }
+            ]
+        },
+        {
+            id: 'table_adv',
+            title: '6. Tabela Geral (Avançado)',
+            description: 'Aprenda a gerenciar a fila de motoristas e a lousa.',
+            icon: Icons.List,
+            locked: !completedTutorials.includes('magic'),
+            steps: [
+                { target: 'tut-menu-btn-table', text: 'Vamos para o módulo avançado! Clique em Tabela para ver a fila de motoristas.', position: 'right' },
+                { target: 'tut-btn-add-vaga', text: 'Aqui você adiciona novas vagas na fila manualmente.', position: 'bottom', showNext: true },
+                { target: 'tut-btn-clear-table', text: 'Este botão limpa toda a tabela. Use com cuidado!', position: 'bottom', showNext: true },
+                { target: 'tut-btn-lock-table', text: 'O cadeado trava a tabela para evitar que você arraste motoristas por acidente.', position: 'bottom', showNext: true },
+                { target: 'tut-date-nav', text: 'Navegue entre os dias para organizar a escala de amanhã ou ver o histórico.', position: 'bottom', showNext: true },
+                { target: 'tut-btn-screenshot', text: 'Gere uma imagem da tabela para enviar no WhatsApp dos motoristas.', position: 'bottom', showNext: true },
+                { target: 'tut-row-edit-01', text: 'Clique no lápis para editar o nome ou número da vaga deste motorista.', position: 'bottom', showNext: true },
+                { target: 'tut-row-status-01', text: 'Confirme o motorista ou mova-o para a Lousa quando ele chegar.', position: 'bottom', showNext: true }
+            ]
+        },
+        {
+            id: 'lousa_adv',
+            title: '7. Lousa e Confirmados (Avançado)',
+            description: 'Controle a fila de saída em tempo real.',
+            icon: Icons.Clipboard,
+            locked: !completedTutorials.includes('table_adv'),
+            steps: [
+                { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom' },
+                { target: 'tut-tab-lousa', text: 'Agora a parte mais importante: a Lousa de saída.', position: 'bottom' },
+                { target: 'tut-btn-skip-time', text: 'Se uma vaga ficar vazia, use este botão para pular o horário na escala.', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-baixar', text: 'Quando a van sair, clique na seta para "Baixar" o motorista.', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-duplicate', text: 'Duplique a vaga se o motorista for fazer "dobra" (duas viagens).', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-riscar', text: 'Se o motorista desistir ou tiver problema, use o "Riscar".', position: 'bottom', showNext: true }
+            ]
+        },
+        {
+            id: 'billing_adv',
+            title: '8. Financeiro e Cobrança (Avançado)',
+            description: 'Gerencie pagamentos e cobranças de forma profissional.',
+            icon: Icons.Dollar,
+            locked: !completedTutorials.includes('lousa_adv'),
+            steps: [
+                { target: 'tut-menu-btn-billing', text: 'Por fim, vamos ao Financeiro. Clique no ícone de Cifrão.', position: 'right' },
+                { target: 'tut-card-daily-cash', text: 'Aqui você vê o total recebido hoje por todos os operadores.', position: 'bottom', showNext: true },
+                { target: 'tut-card-pending', text: 'Este é o valor total que você ainda tem para receber no mês.', position: 'bottom', showNext: true },
+                { target: 'tut-billing-item', text: 'Cada viagem vira uma cobrança automática aqui.', position: 'bottom', showNext: true },
+                { target: 'tut-btn-toggle-payment', text: 'Alterne entre PAGO e PENDENTE conforme receber o dinheiro.', position: 'bottom', showNext: true },
+                { target: 'tut-btn-wa-billing', text: 'O motorista esqueceu de pagar? Clique aqui para cobrar no WhatsApp dele.', position: 'bottom', showNext: true },
+                { target: 'tut-btn-edit-billing', text: 'Ajuste valores ou detalhes da cobrança se necessário.', position: 'bottom', showNext: true },
+                { target: 'tut-btn-del-billing', text: 'Exclua a cobrança se houver algum erro no lançamento.', position: 'bottom', showNext: true }
             ]
         },
         {
@@ -322,6 +404,38 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             }));
         }
     };
+
+    const sandboxBillingData = useMemo(() => {
+        const trips = sandboxData.trips || [];
+        const month = sandboxBillingDate.getMonth();
+        const year = sandboxBillingDate.getFullYear();
+        
+        const filtered = trips.filter((t: any) => {
+            if (!t.date) return false;
+            const d = new Date(t.date + 'T12:00:00');
+            return d.getMonth() === month && d.getFullYear() === year;
+        });
+
+        const groups: any = {};
+        let pending = 0;
+        let paid = 0;
+
+        filtered.forEach((t: any) => {
+            let val = Number(t.value) || 0;
+            const isPaid = t.paymentStatus === 'Pago';
+            if (isPaid) paid += val;
+            else pending += val;
+
+            if (!groups[t.date]) groups[t.date] = { date: t.date, totalValue: 0, trips: [] };
+            groups[t.date].totalValue += val;
+            groups[t.date].trips.push({ ...t, value: val, isPaid });
+        });
+
+        return {
+            summary: { pending, paid },
+            groups: Object.values(groups).sort((a: any, b: any) => b.date.localeCompare(a.date))
+        };
+    }, [sandboxData.trips, sandboxBillingDate]);
 
     const sandboxSave = (col: string) => {
         const currentTarget = tutorial?.steps[currentStep]?.target;
@@ -575,6 +689,8 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                 { id: 'passengers', l: 'Passageiros', i: Icons.Users },
                                 { id: 'trips', l: 'Viagens', i: Icons.Van },
                                 { id: 'appointments', l: 'Agendamentos', i: Icons.Calendar },
+                                { id: 'table', l: 'Tabela', i: Icons.List },
+                                { id: 'billing', l: 'Financeiro', i: Icons.Dollar },
                             ].map(item => (
                                 <button 
                                     key={item.id}
@@ -680,6 +796,58 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                             onConfirm();
                                         }} 
                                         systemContext={systemContext} 
+                                        isTutorialActive={activeTutorial !== 'sandbox'}
+                                    />
+                                )}
+                                {sandboxView === 'table' && (
+                                    <Tabela 
+                                        data={sandboxData}
+                                        theme={theme}
+                                        tableTab={sandboxTableTab}
+                                        setTableTab={setSandboxTableTab}
+                                        mipDayType={sandboxMipDayType}
+                                        setMipDayType={setSandboxMipDayType}
+                                        currentOpDate={getTodayDate()}
+                                        getTodayDate={getTodayDate}
+                                        analysisDate={sandboxAnalysisDate}
+                                        setAnalysisDate={setSandboxAnalysisDate}
+                                        analysisRotatedList={[]}
+                                        tableStatus={sandboxData.table_status || {}}
+                                        lousaOrder={sandboxData.lousa_order || []}
+                                        dbOp={sandboxDbOp}
+                                        notify={notify}
+                                        isTutorialActive={activeTutorial !== 'sandbox'}
+                                    />
+                                )}
+                                {sandboxView === 'billing' && (
+                                    <Financeiro 
+                                        data={sandboxData}
+                                        theme={theme}
+                                        billingData={sandboxBillingData}
+                                        billingDate={sandboxBillingDate}
+                                        prevBillingMonth={() => setSandboxBillingDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                                        nextBillingMonth={() => setSandboxBillingDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                                        togglePaymentStatus={(id: string) => {
+                                            const trip = sandboxData.trips.find((t: any) => t.id === id);
+                                            if (trip) {
+                                                sandboxDbOp('update', 'trips', { 
+                                                    id, 
+                                                    paymentStatus: trip.paymentStatus === 'Pago' ? 'Pendente' : 'Pago',
+                                                    receivedBy: trip.paymentStatus === 'Pago' ? null : 'Aluno',
+                                                    receivedAt: trip.paymentStatus === 'Pago' ? null : getTodayDate()
+                                                });
+                                            }
+                                        }}
+                                        sendBillingMessage={() => notify('Simulação: Mensagem enviada!', 'success')}
+                                        del={(node: string, id: string) => sandboxDbOp('delete', node, id)}
+                                        setFormData={setSandboxFormData}
+                                        setModal={setSandboxModal}
+                                        openEditTrip={sandboxOpenEditTrip}
+                                        user={{ username: 'Aluno' }}
+                                        notify={notify}
+                                        systemContext={systemContext}
+                                        spList={sandboxData.drivers_table_list || []}
+                                        pranchetaData={[]}
                                         isTutorialActive={activeTutorial !== 'sandbox'}
                                     />
                                 )}

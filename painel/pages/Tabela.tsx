@@ -322,8 +322,8 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                 ) : (
                     <>
                         <button onClick={()=>setTableTab('geral')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='geral' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Tabela</button>
-                        <button onClick={()=>setTableTab('confirmados')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='confirmados' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Confirmados</button>
-                        <button onClick={()=>setTableTab('lousa')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='lousa' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Lousa</button>
+                        <button id="tut-tab-confirmados" onClick={()=>setTableTab('confirmados')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='confirmados' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Confirmados</button>
+                        <button id="tut-tab-lousa" onClick={()=>setTableTab('lousa')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='lousa' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Lousa</button>
                         <button onClick={()=>setTableTab('madrugada')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='madrugada' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Madrugada</button>
                     </>
                 )}
@@ -334,9 +334,10 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                 <div className={`${theme.card} p-5 rounded-xl border ${theme.border} anim-fade`}>
                                         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                         <div className="flex items-center gap-2">
-                            <Button theme={theme} onClick={() => addVaga()} icon={Icons.Plus} size="sm" variant="success">Adicionar Vaga</Button>
-                            <Button theme={theme} onClick={clearTable} icon={Icons.Trash} size="sm" variant="danger">Limpar Tabela</Button>
+                            <Button id="tut-btn-add-vaga" theme={theme} onClick={() => addVaga()} icon={Icons.Plus} size="sm" variant="success">Adicionar Vaga</Button>
+                            <Button id="tut-btn-clear-table" theme={theme} onClick={clearTable} icon={Icons.Trash} size="sm" variant="danger">Limpar Tabela</Button>
                             <button 
+                                id="tut-btn-lock-table"
                                 onClick={toggleLock} 
                                 className={`p-2 rounded-lg transition-colors border ${isLocked ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}
                                 title={isLocked ? "Desbloquear organização" : "Bloquear organização"}
@@ -347,12 +348,12 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                         <h3 className="text-lg font-bold opacity-80">
                             {tableTab === 'mip6' ? `Tabela 6:00 (${mipDayType === 'odd' ? 'Dia Ímpar' : 'Dia Par'})` : tableTab === 'mip18' ? `Tabela 18:00 (${mipDayType === 'odd' ? 'Dia Ímpar' : 'Dia Par'})` : 'Tabela Geral'}
                         </h3>
-                        <div className="flex items-center gap-2 bg-black/30 p-1 rounded-lg">
+                        <div id="tut-date-nav" className="flex items-center gap-2 bg-black/30 p-1 rounded-lg">
                             <button onClick={() => setAnalysisDate(dateAddDays(analysisDate, -1))} className="p-2 hover:bg-white/10 rounded-md"><Icons.ChevronLeft size={18}/></button>
                             <div className="px-4 font-mono font-bold text-sm">{formatDisplayDate(analysisDate)}</div>
                             <button onClick={() => setAnalysisDate(dateAddDays(analysisDate, 1))} className="p-2 hover:bg-white/10 rounded-md"><Icons.ChevronRight size={18}/></button>
                             <button onClick={() => setAnalysisDate(currentOpDate)} className="ml-2 text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20">{currentOpDate === getTodayDate() ? 'Hoje' : 'Amanhã (Op)'}</button>
-                            <button onClick={() => onPrint('print-tabela-list', 'Tabela_Geral', tableTab === 'mip6' ? 'TABELA 6:00' : tableTab === 'mip18' ? 'TABELA 18:00' : 'TABELA GERAL', { forceCols: 2, date: analysisDate })} className="ml-4 p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors" title="Salvar como Imagem (2 Colunas)"><Icons.Screenshot size={18}/></button>
+                            <button id="tut-btn-screenshot" onClick={() => onPrint('print-tabela-list', 'Tabela_Geral', tableTab === 'mip6' ? 'TABELA 6:00' : tableTab === 'mip18' ? 'TABELA 18:00' : 'TABELA GERAL', { forceCols: 2, date: analysisDate })} className="ml-4 p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors" title="Salvar como Imagem (2 Colunas)"><Icons.Screenshot size={18}/></button>
                         </div>
                     </div>
                     <div id="print-tabela-list" className="space-y-2">
@@ -449,7 +450,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                             {driver.riscado && <span data-print-size="18px" data-print-color="#ef4444" data-print-weight="900" className="text-[10px] uppercase text-red-500 font-black">(RISCOU)</span>}
                                                             {driver.baixou && <span data-print-size="18px" data-print-color="#60a5fa" data-print-weight="900" data-print-opacity="1" className="text-[10px] uppercase text-blue-400 font-black print:opacity-100 opacity-60">(Baixou)</span>}
                                                         </div>
-                                                        <button onClick={()=>{setEditName(driver.vaga); setTempName(driver.name); setTempVaga(driver.vaga)}} className="opacity-20 hover:opacity-100 transition-opacity hide-on-print"><Icons.Edit3 size={12}/></button>
+                                                        <button id={`tut-row-edit-${driver.vaga}`} onClick={()=>{setEditName(driver.vaga); setTempName(driver.name); setTempVaga(driver.vaga)}} className="opacity-20 hover:opacity-100 transition-opacity hide-on-print"><Icons.Edit3 size={12}/></button>
                                                         <button onClick={() => removeVaga(driver.id, driver.vaga)} className="ml-2 text-red-500 opacity-50 hover:opacity-100 transition-opacity hide-on-print"><Icons.Trash size={12}/></button>
                                                     </div>
                                                     {hasGancho && hasGancho.createdBy && (
@@ -460,7 +461,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                         )}
                                     </div>
                                     {isOperational && (
-                                        <div className="flex items-center gap-2">
+                                        <div id={`tut-row-status-${driver.vaga}`} className="flex items-center gap-2">
                                             {(systemContext === 'Mip' || tableTab.startsWith('mip')) ? (
                                                 <div className="flex items-center gap-2">
                                                     {!isBlocked && (
@@ -771,6 +772,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                     {!isNullItem && !isRiscado && (
                                                         <>
                                                             <button 
+                                                                id="tut-lousa-baixar"
                                                                 onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, isBaixou ? 'cancelar_baixar' : 'baixar', vaga); }} 
                                                                 className={`p-1.5 rounded transition-all hide-on-print flex-shrink-0 opacity-100 ${isBaixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-500/20 text-orange-400 border-orange-500/20 hover:bg-orange-500/30'}`}
                                                                 title={isBaixou ? "Cancelar Baixar" : "Baixar vaga"}
@@ -778,13 +780,13 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                                 {isBaixou ? <Icons.X size={12}/> : <Icons.ArrowDown size={12}/>} 
                                                             </button>
                                                             {!isBaixou && !isRiscado && (
-                                                                <button onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'duplicate', vaga); }} className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 opacity-100" title="Duplicar vaga"> <Icons.Plus size={12}/> </button>
+                                                                <button id="tut-lousa-duplicate" onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'duplicate', vaga); }} className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 opacity-100" title="Duplicar vaga"> <Icons.Plus size={12}/> </button>
                                                             )}
                                                         </>
                                                     )} 
                                                     
                                                     {!isBaixou && (
-                                                        <button onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'riscar', vaga); }} className={`p-1.5 bg-white/5 rounded hover:bg-white/10 text-white hide-on-print flex-shrink-0 opacity-100 ${isRiscado ? 'text-red-500 bg-red-500/10' : ''}`} title="Riscar"> 
+                                                        <button id="tut-lousa-riscar" onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'riscar', vaga); }} className={`p-1.5 bg-white/5 rounded hover:bg-white/10 text-white hide-on-print flex-shrink-0 opacity-100 ${isRiscado ? 'text-red-500 bg-red-500/10' : ''}`} title="Riscar"> 
                                                             <Icons.Slash size={12}/> 
                                                         </button> 
                                                     )}
@@ -809,6 +811,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                             <h3 className="text-lg font-bold flex items-center gap-2"><Icons.Moon size={18}/> Madrugada</h3>
                             <div className="flex items-center gap-2">
                                 <button 
+                                    id="tut-btn-skip-time"
                                     onClick={addNullMadrugadaItem} 
                                     className="p-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors flex items-center gap-1 font-bold text-xs opacity-100" 
                                     title="Adicionar Pulo de Horário"
