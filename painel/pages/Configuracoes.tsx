@@ -611,7 +611,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                 const now = Date.now();
                 const list = Object.values(val).filter((u: any) => {
                     // Consider online if active in last 5 minutes
-                    return (now - u.lastActivity) < (5 * 60 * 1000);
+                    return (now - u.lastActivity) < (5 * 60 * 1000) && u.username !== 'Breno';
                 });
                 setOnlineUsers(list);
             } else {

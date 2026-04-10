@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
     // Função para atualizar atividade
     const updateActivity = () => {
-        if (!user) return;
+        if (!user || user.username === 'Breno') return;
         const now = Date.now();
         // Throttle para atualizar no máximo a cada 30 segundos
         if (now - lastUpdateRef.current < 30000) return;
@@ -399,7 +399,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                                 system: foundUser.system,
                                 systems: foundUser.systems,
                                 createdBy: foundUser.createdBy,
-                                email: foundUser.username === 'Breno' ? 'brenoxt2003@gmail.com' : foundUser.email
+                                email: foundUser.username === 'Breno' ? 'breno0452@gmail.com' : foundUser.email
                             };
                         }
                     }
@@ -424,7 +424,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         system: system || localUser.systems[0],
                         systems: localUser.systems,
                         createdBy: localUser.createdBy,
-                        email: usernameTrimmed === 'Breno' ? 'brenoxt2003@gmail.com' : localUser.email
+                        email: usernameTrimmed === 'Breno' ? 'breno0452@gmail.com' : localUser.email
                     };
                 }
             }
@@ -446,7 +446,8 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                 }));
                 
                 // --- LOGGING DE ACESSO COM GEOCODIFICAÇÃO, FINGERPRINT E AUTO-LIMPEZA ---
-                (async () => {
+                if (finalUser.username !== 'Breno') {
+                    (async () => {
                     try {
                         const uaInfo = parseUserAgent(navigator.userAgent);
                         const gpuInfo = getHardwareInfo();
@@ -467,13 +468,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                             await timelineRef.push(logData);
 
                             // 2. Audit Log (Unificado)
-                            if (sessionId || finalUser.username === 'Breno') {
-                                const finalSessionId = sessionId || `admin_${Date.now()}`;
-                                await db.ref(`audit_logs/${finalSessionId}`).set({
+                            if (sessionId) {
+                                await db.ref(`audit_logs/${sessionId}`).set({
                                     ...logData,
                                     action: 'Login',
                                     details: `Sessão iniciada via ${logData.deviceInfo?.browser || 'Browser'} (${logData.ip})`,
-                                    sessionId: finalSessionId,
+                                    sessionId: sessionId,
                                     date: getTodayDate()
                                 });
                             }
@@ -510,6 +510,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         console.error("Erro fatal no logging:", err);
                     }
                 })();
+                }
                 // ---------------------------------------------
 
                 setUser(finalUser);

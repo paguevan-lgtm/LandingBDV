@@ -13,9 +13,26 @@ import { GlobalModals } from '../components/GlobalModals';
 import { getTodayDate, formatTime } from '../utils';
 
 const INITIAL_SANDBOX_DATA = {
-    passengers: [],
-    drivers: [],
-    trips: [],
+    passengers: [
+        { id: 'p1', name: 'Ana Silva', phone: '11999999999', status: 'Ativo', date: getTodayDate(), time: '08:00' }
+    ],
+    drivers: [
+        { id: 'd1', name: 'Carlos Oliveira', phone: '11888888888', status: 'Ativo' }
+    ],
+    trips: [
+        { 
+            id: 't1', 
+            driverName: 'Carlos Oliveira', 
+            driverId: 'd1', 
+            time: '08:00', 
+            date: getTodayDate(), 
+            pCount: 1, 
+            value: 50, 
+            paymentStatus: 'Pendente',
+            status: 'Ativo',
+            passengerIds: ['p1']
+        }
+    ],
     appointments: [],
     notes: [],
     lostFound: [],
@@ -213,8 +230,8 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                 { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom', showNext: true },
                 { target: 'tut-tab-lousa', text: 'Agora a parte mais importante: a Lousa de saída.', position: 'bottom', showNext: true },
                 { target: 'tut-btn-skip-time', text: 'Se uma vaga ficar vazia, use este botão para pular o horário na escala.', position: 'bottom', showNext: true },
-                { target: 'tut-lousa-baixar-02', text: 'Quando a van sair, clique na seta para "Baixar" o motorista.', position: 'bottom', showNext: true },
-                { target: 'tut-lousa-duplicate-02', text: 'Duplique a vaga se o motorista for fazer "dobra" (duas viagens).', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-duplicate-02', text: 'O botão "+" serve para duplicar a vaga se o motorista for fazer "dobra" (duas viagens).', position: 'bottom', showNext: true },
+                { target: 'tut-lousa-baixar-02', text: 'O botão "Baixar" serve para quando o motorista quer marcar novamente o nome na lousa antes de fazer o horário dele.', position: 'bottom', showNext: true },
                 { target: 'tut-lousa-riscar-02', text: 'Se o motorista desistir ou tiver problema, use o "Riscar".', position: 'bottom', showNext: true }
             ]
         },

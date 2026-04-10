@@ -773,20 +773,44 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         <>
                                                             <button 
                                                                 id={`tut-lousa-baixar-${vaga}`}
-                                                                onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, isBaixou ? 'cancelar_baixar' : 'baixar', vaga); }} 
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    handleLousaAction(item.uid, isBaixou ? 'cancelar_baixar' : 'baixar', vaga); 
+                                                                    if(isTutorialActive) nextStep();
+                                                                }} 
                                                                 className={`p-1.5 rounded transition-all hide-on-print flex-shrink-0 opacity-100 ${isBaixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-500/20 text-orange-400 border-orange-500/20 hover:bg-orange-500/30'}`}
                                                                 title={isBaixou ? "Cancelar Baixar" : "Baixar vaga"}
                                                             > 
                                                                 {isBaixou ? <Icons.X size={12}/> : <Icons.ArrowDown size={12}/>} 
                                                             </button>
                                                             {!isBaixou && !isRiscado && (
-                                                                <button id={`tut-lousa-duplicate-${vaga}`} onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'duplicate', vaga); }} className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 opacity-100" title="Duplicar vaga"> <Icons.Plus size={12}/> </button>
+                                                                <button 
+                                                                    id={`tut-lousa-duplicate-${vaga}`} 
+                                                                    onClick={(e) => { 
+                                                                        e.stopPropagation(); 
+                                                                        handleLousaAction(item.uid, 'duplicate', vaga); 
+                                                                        if(isTutorialActive) nextStep();
+                                                                    }} 
+                                                                    className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 opacity-100" 
+                                                                    title="Duplicar vaga"
+                                                                > 
+                                                                    <Icons.Plus size={12}/> 
+                                                                </button>
                                                             )}
                                                         </>
                                                     )} 
                                                     
                                                     {!isBaixou && (
-                                                        <button id={`tut-lousa-riscar-${vaga}`} onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'riscar', vaga); }} className={`p-1.5 bg-white/5 rounded hover:bg-white/10 text-white hide-on-print flex-shrink-0 opacity-100 ${isRiscado ? 'text-red-500 bg-red-500/10' : ''}`} title="Riscar"> 
+                                                        <button 
+                                                            id={`tut-lousa-riscar-${vaga}`} 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                handleLousaAction(item.uid, 'riscar', vaga); 
+                                                                if(isTutorialActive) nextStep();
+                                                            }} 
+                                                            className={`p-1.5 bg-white/5 rounded hover:bg-white/10 text-white hide-on-print flex-shrink-0 opacity-100 ${isRiscado ? 'text-red-500 bg-red-500/10' : ''}`} 
+                                                            title="Riscar"
+                                                        > 
                                                             <Icons.Slash size={12}/> 
                                                         </button> 
                                                     )}
