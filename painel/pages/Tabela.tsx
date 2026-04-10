@@ -64,7 +64,7 @@ const SortableRow = ({ id, children, disabled, hideGrip }: any) => {
 };
 
 // Tabela Component
-export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate }: any) {
+export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -322,8 +322,8 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                 ) : (
                     <>
                         <button onClick={()=>setTableTab('geral')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='geral' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Tabela</button>
-                        <button id="tut-tab-confirmados" onClick={()=>setTableTab('confirmados')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='confirmados' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Confirmados</button>
-                        <button id="tut-tab-lousa" onClick={()=>setTableTab('lousa')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='lousa' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Lousa</button>
+                        <button id="tut-tab-confirmados" onClick={()=>{setTableTab('confirmados'); if(isTutorialActive) nextStep();}} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='confirmados' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Confirmados</button>
+                        <button id="tut-tab-lousa" onClick={()=>{setTableTab('lousa'); if(isTutorialActive) nextStep();}} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='lousa' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Lousa</button>
                         <button onClick={()=>setTableTab('madrugada')} className={`flex-1 min-w-[100px] py-2 text-sm font-bold rounded-lg transition-all ${tableTab==='madrugada' ? theme.primary : 'hover:bg-white/5 opacity-60'}`}>Madrugada</button>
                     </>
                 )}

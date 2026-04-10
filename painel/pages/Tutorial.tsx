@@ -210,8 +210,8 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             locked: !completedTutorials.includes('table_adv'),
             steps: [
                 { target: 'tut-menu-btn-table', text: 'Para gerenciar a Lousa, vamos voltar para a Tabela.', position: 'right' },
-                { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom' },
-                { target: 'tut-tab-lousa', text: 'Agora a parte mais importante: a Lousa de saída.', position: 'bottom' },
+                { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom', showNext: true },
+                { target: 'tut-tab-lousa', text: 'Agora a parte mais importante: a Lousa de saída.', position: 'bottom', showNext: true },
                 { target: 'tut-btn-skip-time', text: 'Se uma vaga ficar vazia, use este botão para pular o horário na escala.', position: 'bottom', showNext: true },
                 { target: 'tut-lousa-baixar-02', text: 'Quando a van sair, clique na seta para "Baixar" o motorista.', position: 'bottom', showNext: true },
                 { target: 'tut-lousa-duplicate-02', text: 'Duplique a vaga se o motorista for fazer "dobra" (duas viagens).', position: 'bottom', showNext: true },
@@ -909,6 +909,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                                         notify={notify}
                                         systemContext={systemContext}
                                         isTutorialActive={activeTutorial !== 'sandbox'}
+                                        nextStep={nextStep}
                                     />
                                 )}
                                 {sandboxView === 'billing' && (
