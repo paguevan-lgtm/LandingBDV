@@ -458,19 +458,58 @@ const getCanvasFingerprint = () => {
         ctx.closePath();
         ctx.fill();
         
-        return canvas.toDataURL();
+        return cyrb53(canvas.toDataURL()).toString();
     } catch (e) { return 'canvas_err'; }
+};
+
+// Hardware-based fingerprint (more stable across browsers on same device)
+export const getHardwareFingerprint = () => {
+    try {
+        const components = [
+            window.screen.width,
+            window.screen.height,
+            window.screen.colorDepth,
+            navigator.hardwareConcurrency || 'unknown',
+            Intl.DateTimeFormat().resolvedOptions().timeZone,
+            navigator.languages ? navigator.languages.join(',') : 'unknown',
+            getHardwareInfo(),
+            getCanvasFingerprint()
+        ];
+        return cyrb53(components.join('|')).toString();
+    } catch (e) {
+        return 'hw_fallback_' + Math.random().toString(36).substr(2, 9);
+    }
 };
 
 export const getDeviceFingerprint = async () => {
     try {
+        // Check for poison pill first
+        if (localStorage.getItem('sys_dev_blocked') === 'true') {
+            return 'BANNED_DEVICE_' + (localStorage.getItem('sys_dev_id') || 'UNKNOWN');
+        }
+
         const fp = await fpPromise.load();
         const result = await fp.get();
-        return result.visitorId;
+        const fpId = result.visitorId;
+        const hwId = getHardwareFingerprint();
+        
+        // Composite ID: Combine both for maximum stability and uniqueness
+        const compositeId = `v2_${fpId}_${hwId}`;
+        
+        // Store the ID for the poison pill mechanism
+        localStorage.setItem('sys_dev_id', compositeId);
+        
+        return compositeId;
     } catch (e) {
         console.error("FingerprintJS error:", e);
-        return 'fallback_id_' + Date.now();
+        const hwId = getHardwareFingerprint();
+        return 'fallback_v2_' + hwId;
     }
+};
+
+export const setPoisonPill = (deviceId?: string) => {
+    localStorage.setItem('sys_dev_blocked', 'true');
+    if (deviceId) localStorage.setItem('sys_dev_id', deviceId);
 };
 
 // Extrator de detalhes para exibição (Log)

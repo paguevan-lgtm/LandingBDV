@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { MapPin, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
-import fpPromise from '@fingerprintjs/fingerprintjs';
+import { getDeviceFingerprint, setPoisonPill, getHardwareInfo } from '../lib/security';
 
 // Helper functions for device info
 const parseUserAgent = (ua: string) => {
@@ -26,18 +26,6 @@ const parseUserAgent = (ua: string) => {
     else if (/opr|opera/i.test(ua)) browser = "Opera";
 
     return { browser, os, device };
-};
-
-const getHardwareInfo = () => {
-    try {
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (gl) {
-            const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
-            return debugInfo ? (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unknown GPU';
-        }
-    } catch (e) { return 'Unknown GPU'; }
-    return 'Unknown GPU';
 };
 
 export default function MotoristaLogin() {
@@ -115,16 +103,12 @@ export default function MotoristaLogin() {
       
       if (driver) {
         // Gather Device Info
-        let deviceId = 'unknown';
-        try {
-            const fp = await fpPromise.load();
-            const result = await fp.get();
-            deviceId = result.visitorId;
-        } catch (e) { console.warn("FP error", e); }
+        const deviceId = await getDeviceFingerprint();
 
         // Check if banned
         const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value');
-        if (blockedSnap.exists()) {
+        if (blockedSnap.exists() || deviceId.startsWith('BANNED_DEVICE_')) {
+            setPoisonPill(deviceId);
             setError('Nome ou CPF inválido.'); // Generic error
             return;
         }

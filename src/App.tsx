@@ -6,7 +6,7 @@ import CentralAjuda from './pages/CentralAjuda';
 import TermosUso from './pages/TermosUso';
 import Privacidade from './pages/Privacidade';
 import SeoLandingPage from './pages/SeoLandingPage';
-import fpPromise from '@fingerprintjs/fingerprintjs';
+import { getDeviceFingerprint, setPoisonPill } from './lib/security';
 import { 
   MapPin, 
   Calendar, 
@@ -192,12 +192,11 @@ function LandingPage() {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     
-    // Initialize FingerprintJS
+    // Initialize Fingerprint
     const initFingerprint = async () => {
       try {
-        const fp = await fpPromise.load();
-        const result = await fp.get();
-        setVisitorId(result.visitorId);
+        const id = await getDeviceFingerprint();
+        setVisitorId(id);
       } catch (error) {
         console.error("Error loading fingerprint:", error);
       }
@@ -1094,6 +1093,9 @@ function LandingPage() {
 
                         if (!response.ok) {
                           const errorData = await response.json();
+                          if (errorData.isBlocked) {
+                            setPoisonPill(visitorId);
+                          }
                           throw new Error(errorData.error || 'Failed to create booking');
                         }
 

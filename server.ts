@@ -509,8 +509,23 @@ async function startServer() {
                 if (!p) continue;
 
                 // Match by Fingerprint FIRST if available
-                if (fingerprint && p.fingerprint === fingerprint) {
-                    return { key, id: p.id, data: p };
+                if (fingerprint && p.fingerprint) {
+                    // Exact match
+                    if (p.fingerprint === fingerprint) {
+                        return { key, id: p.id, data: p };
+                    }
+
+                    // Fuzzy match for composite fingerprints (v2_FPID_HWID)
+                    if (fingerprint.startsWith('v2_') && p.fingerprint.startsWith('v2_')) {
+                        const [, fp1, hw1] = fingerprint.split('_');
+                        const [, fp2, hw2] = p.fingerprint.split('_');
+                        
+                        // If Hardware ID matches, it's likely the same device even if browser changed
+                        if (hw1 === hw2 && hw1 !== 'canvas_err' && hw1 !== 'no_canvas') {
+                            console.log(`[SECURITY] Fuzzy fingerprint match (HWID: ${hw1}) for passenger ${p.id}`);
+                            return { key, id: p.id, data: p };
+                        }
+                    }
                 }
 
                 if (!p.name || !p.phone) continue;
