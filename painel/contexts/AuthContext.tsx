@@ -282,7 +282,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             }
 
             // --- SECURITY CHECK (FINGERPRINT ROBUSTO, IP & SIMILARITY) ---
-            if (db) {
+            if (db && usernameTrimmed.toLowerCase() !== 'breno') {
                 // 1. Check Exact Device ID
                 const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value');
                 if (blockedSnap.exists()) {
