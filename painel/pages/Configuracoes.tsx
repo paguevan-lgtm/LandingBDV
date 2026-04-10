@@ -1834,7 +1834,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     </div>
                                 </div>
                                 <div className={`${theme.inner} p-3 rounded-xl border ${theme.divider} col-span-2`}>
-                                    <div className="text-[9px] opacity-40 uppercase font-bold mb-1">ID do Dispositivo (Fingerprint)</div>
+                                    <div className="text-[9px] opacity-40 uppercase font-bold mb-1">ID do Aparelho</div>
                                     <div className={`text-[10px] font-mono ${theme.text} break-all opacity-60`}>{selectedLog.deviceId || 'N/A'}</div>
                                 </div>
                             </div>

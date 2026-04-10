@@ -333,6 +333,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                             if (isSameIp && isVeryClose) {
                                 isEvasion = true;
                                 evasionReason = 'Banido por similaridade (Mesmo IP na mesma localização exata)';
+                            } else if (isSameIp && isSameOs && isSameGpu) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo IP e Hardware detectado)';
+                            } else if (isSameIp && isSameCity && isSameOs) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo IP, Cidade e Sistema Operacional)';
                             } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
                                 isEvasion = true;
                                 evasionReason = 'Banido por similaridade (Mesmo aparelho/OS/Browser na mesma localização exata)';
@@ -342,6 +348,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                             }
 
                             if (isEvasion) {
+                                console.log("EVASÃO DETECTADA:", evasionReason, "Banning new device:", deviceId);
                                 // Automatically ban this new device ID as well
                                 await db.ref(`blocked_devices/${deviceId}`).set({
                                     reason: evasionReason,
