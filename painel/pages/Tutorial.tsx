@@ -209,6 +209,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             icon: Icons.Clipboard,
             locked: !completedTutorials.includes('table_adv'),
             steps: [
+                { target: 'tut-menu-btn-table', text: 'Para gerenciar a Lousa, vamos voltar para a Tabela.', position: 'right' },
                 { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom' },
                 { target: 'tut-tab-lousa', text: 'Agora a parte mais importante: a Lousa de saída.', position: 'bottom' },
                 { target: 'tut-btn-skip-time', text: 'Se uma vaga ficar vazia, use este botão para pular o horário na escala.', position: 'bottom', showNext: true },
@@ -353,6 +354,18 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             notify("Você precisa completar o módulo anterior primeiro!", "error");
             return;
         }
+
+        // Force populate sandbox data for table-related tutorials to ensure consistent state
+        if (id === 'table_adv' || id === 'lousa_adv') {
+            setSandboxData((prev: any) => ({
+                ...prev,
+                drivers_table_list: INITIAL_SANDBOX_DATA.drivers_table_list,
+                table_status: INITIAL_SANDBOX_DATA.table_status,
+                lousa_order: INITIAL_SANDBOX_DATA.lousa_order,
+                confirmed_times: INITIAL_SANDBOX_DATA.confirmed_times
+            }));
+        }
+
         setActiveTutorial(id);
         setCurrentStep(0);
         setTutorialFinished(false);
