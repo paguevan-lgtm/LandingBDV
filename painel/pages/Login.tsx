@@ -239,6 +239,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     localStorage.setItem('api_session_token', data.sessionToken);
                 }
                 
+                setLoading(false);
                 setShowTokenInput(false);
                 proceedToLogin(selectedSystem || undefined);
             } else {
@@ -489,6 +490,8 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
 
     const proceedToLogin = (system?: string) => {
         if (requireLocationOnLogin) {
+            setGeoStatus('');
+            setLoading(false);
             setShowGeoPrompt(true);
             // We store the system to use it when geo is done
             if (system) setSelectedSystem(system);
