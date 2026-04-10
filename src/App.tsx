@@ -27,7 +27,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from './components/CustomSelect';
 import { CustomDatePicker } from './components/CustomDatePicker';
 import { db } from './firebase';
-import bdvImage from './assets/images/BDV.png';
 
 const BAIRROS = [ "Forte / Canto do Forte", "Tude Bastos / Chico de Paula", "Boqueirao", "Guilhermina", "Aviação", "Tupi", "Tupiry", "Ocian", "Gloria", "Vila Antartica", "Vila Sonia", "Quietude", "Mirim", "Anhanguera", "Maracana", "Ribeiropolis", "Esmeralda", "Samambaia", "Melvi", "Caiçara", "Imperador", "Real", "Princesa", "Florida", "Cidade das Crianças", "Solemar" ];
 
@@ -243,8 +242,8 @@ function LandingPage() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-slate-950/90 backdrop-blur-md shadow-lg shadow-black/20 py-3 border-b border-slate-800' : 'bg-transparent py-6'}`}>
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-brand rounded-lg flex items-center justify-center shadow-lg transform -rotate-6">
-              <Bus className="text-white w-6 h-6" />
+            <div className="w-16 h-12 flex items-center justify-center">
+              <img src="/images/BDV.png" alt="Bora de Van Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-display font-extrabold tracking-tight text-white">
               Bora de <span className="text-brand-pink">Van</span>
@@ -354,14 +353,12 @@ function LandingPage() {
                     animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                   >
-                    <div className="w-full aspect-[16/10] bg-transparent border-2 border-dashed border-white/5 rounded-[40px] flex flex-col items-center justify-center text-white/0 group hover:border-white/20 hover:text-white/20 transition-all cursor-help relative overflow-hidden">
-                       <Bus size={48} className="mb-2 opacity-0 group-hover:opacity-50 transition-opacity" />
-                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity">Área da Van (BDV.png)</span>
+                    <div className="w-full aspect-[4/3] md:aspect-[16/10] bg-transparent flex flex-col items-center justify-center relative mt-8 md:mt-0">
                        {/* A imagem fica aqui, mas como o arquivo pode estar ausente, o box acima serve de guia */}
                        <img 
-                         src={bdvImage} 
+                         src="/images/BDV.png" 
                          alt="Bora de Van" 
-                         className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl z-10" 
+                         className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl z-10 scale-[1.2] md:scale-125" 
                          onError={(e) => (e.currentTarget.style.display = 'none')}
                          referrerPolicy="no-referrer" 
                        />
@@ -373,28 +370,28 @@ function LandingPage() {
                 <motion.div 
                   animate={{ y: [0, -10, 0] }}
                   transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
-                  className="absolute -top-10 -right-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl flex items-center gap-3"
+                  className="absolute -top-4 -right-2 md:top-4 md:right-4 bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl shadow-2xl flex items-center gap-2 md:gap-3 z-20 scale-75 md:scale-100 origin-top-right"
                 >
-                  <div className="w-10 h-10 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center">
-                    <ShieldCheck size={24} />
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center">
+                    <ShieldCheck size={20} className="md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase">Segurança</p>
-                    <p className="font-bold text-white">100% Garantida</p>
+                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">Segurança</p>
+                    <p className="text-sm md:text-base font-bold text-white">100% Garantida</p>
                   </div>
                 </motion.div>
 
                 <motion.div 
                   animate={{ y: [0, 10, 0] }}
                   transition={{ duration: 4, repeat: Infinity, delay: 1 }}
-                  className="absolute -bottom-6 -left-4 bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl flex items-center gap-3"
+                  className="absolute -bottom-4 -left-2 md:bottom-4 md:left-4 bg-slate-900 border border-slate-800 p-3 md:p-4 rounded-2xl shadow-2xl flex items-center gap-2 md:gap-3 z-20 scale-75 md:scale-100 origin-bottom-left"
                 >
-                  <div className="w-10 h-10 bg-yellow-500/20 text-yellow-400 rounded-full flex items-center justify-center">
-                    <Star size={24} fill="currentColor" />
+                  <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-500/20 text-yellow-400 rounded-full flex items-center justify-center">
+                    <Star size={20} className="md:w-6 md:h-6" fill="currentColor" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase">Avaliação</p>
-                    <p className="font-bold text-white">4.9/5 Estrelas</p>
+                    <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase">Avaliação</p>
+                    <p className="text-sm md:text-base font-bold text-white">4.9/5 Estrelas</p>
                   </div>
                 </motion.div>
               </motion.div>
@@ -651,8 +648,8 @@ function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
             <div className="space-y-6">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-brand rounded-lg flex items-center justify-center shadow-lg transform -rotate-6">
-                  <Bus className="text-white w-6 h-6" />
+                <div className="w-16 h-12 flex items-center justify-center">
+                  <img src="/images/BDV.png" alt="Bora de Van Logo" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-2xl font-display font-extrabold tracking-tight">
                   Bora de <span className="text-brand-pink">Van</span>
