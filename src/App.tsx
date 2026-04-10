@@ -259,7 +259,7 @@ function LandingPage() {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-16 h-12 flex items-center justify-center">
-              <img src="https://github.com/paguevan-lgtm/assetsbdv/blob/main/BDV.png?raw=true" alt="Bora de Van Logo" className="w-full h-full object-contain" />
+              <img src="/BDV.png" alt="Bora de Van Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-display font-extrabold tracking-tight text-white">
               Bora de <span className="text-brand-pink">Van</span>
@@ -372,7 +372,7 @@ function LandingPage() {
                     <div className="w-full aspect-[4/3] md:aspect-[16/10] bg-transparent flex flex-col items-center justify-center relative mt-8 md:mt-0">
                        {/* A imagem fica aqui, mas como o arquivo pode estar ausente, o box acima serve de guia */}
                        <img 
-                         src="https://github.com/paguevan-lgtm/assetsbdv/blob/main/BDV.png?raw=true" 
+                         src="/BDV.png" 
                          alt="Bora de Van" 
                          className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl z-10 scale-[1.2] md:scale-125" 
                          onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -669,7 +669,7 @@ function LandingPage() {
             <div className="space-y-6">
               <div className="flex items-center gap-2">
                 <div className="w-16 h-12 flex items-center justify-center">
-                  <img src="https://github.com/paguevan-lgtm/assetsbdv/blob/main/BDV.png?raw=true" alt="Bora de Van Logo" className="w-full h-full object-contain" />
+                  <img src="/BDV.png" alt="Bora de Van Logo" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-2xl font-display font-extrabold tracking-tight">
                   Bora de <span className="text-brand-pink">Van</span>
@@ -1314,7 +1314,7 @@ function LandingPage() {
                   playsInline
                   className="w-full h-full object-cover"
                 >
-                  <source src="https://github.com/paguevan-lgtm/assetsbdv/raw/refs/heads/main/VID_20260410_160828.mp4" type="video/mp4" />
+                  <source src="/BDVIDEO.mp4" type="video/mp4" />
                 </video>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent pointer-events-none" />
               </div>
