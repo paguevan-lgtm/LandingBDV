@@ -428,64 +428,67 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     };
 
     const executeGeoLogin = (system?: string) => {
-        setLoading(true);
-        setGeoDenied(false);
-        setGeoStatus('Sincronizando satélites...');
-
+        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        console.log(`[GEO-DEBUG] Iniciando executeGeoLogin. Dispositivo iOS: ${isIOSDevice}`);
+        
         if (!navigator.geolocation) {
-            handleLocationFallback("Navegador incompatível com geolocalização.", system);
+            console.error("[GEO-DEBUG] Geolocation não suportada pelo navegador");
+            handleLocationFallback("Navegador incompatível", system);
             return;
         }
 
-        const tryGeo = (highAccuracy: boolean) => {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const { latitude, longitude, accuracy } = pos.coords;
-                    
-                    // Se a precisão for muito baixa (ex: > 10km), pode ser um IP mascarado ou erro
-                    if (accuracy > 10000) {
-                        console.warn("Precisão muito baixa, tentando novamente sem HighAccuracy");
-                        if (highAccuracy) {
-                            tryGeo(false);
-                            return;
-                        }
-                    }
+        // Reset de estados antes da chamada direta
+        setGeoDenied(false);
+        setGeoStatus('Solicitando permissão...');
+        setLoading(true);
 
-                    setShowGeoPrompt(false); 
-                    startEntrySequence({ 
-                        latitude, 
-                        longitude, 
-                        accuracy, 
-                        type: 'gps',
-                        display_name: 'Localização GPS Exata'
-                    }, system);
-                },
-                (err) => {
-                    console.error("Geo Error:", err);
-                    if (err.code === 1) { // Permission Denied
-                        setGeoDenied(true);
-                        setLoading(false);
-                        setGeoStatus('Permissão negada pelo usuário.');
-                        return;
-                    }
+        console.log("[GEO-DEBUG] Chamando navigator.geolocation.getCurrentPosition...");
 
-                    if (highAccuracy) {
-                        setGeoStatus('Buscando sinal mais forte...');
-                        tryGeo(false);
-                    } else {
-                        console.warn("Geo GPS falhou, tentando IP:", err);
-                        handleLocationFallback("Falha no GPS ou sinal fraco", system);
-                    }
-                },
-                { 
-                    enableHighAccuracy: highAccuracy, 
-                    timeout: 15000, // Aumentado para dar tempo no iOS
-                    maximumAge: 0 
+        // CHAMADA DIRETA: Obrigatório para iOS Safari funcionar dentro do evento de clique
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                console.log("[GEO-DEBUG] Sucesso! Coordenadas obtidas:", {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    acc: pos.coords.accuracy
+                });
+                
+                const { latitude, longitude, accuracy } = pos.coords;
+                
+                setShowGeoPrompt(false); 
+                startEntrySequence({ 
+                    latitude, 
+                    longitude, 
+                    accuracy, 
+                    type: 'gps',
+                    display_name: 'Localização GPS Exata'
+                }, system);
+            },
+            (err) => {
+                console.error("[GEO-DEBUG] Erro retornado pelo navegador:", {
+                    code: err.code,
+                    message: err.message
+                });
+                setLoading(false);
+                
+                if (err.code === 1) { // PERMISSION_DENIED
+                    console.warn("[GEO-DEBUG] Permissão negada pelo usuário ou pelo sistema");
+                    setGeoDenied(true);
+                    setGeoStatus('Acesso negado. Siga as instruções abaixo.');
+                } else if (err.code === 3) { // TIMEOUT
+                    console.warn("[GEO-DEBUG] Timeout atingido");
+                    handleLocationFallback("Tempo esgotado (GPS fraco)", system);
+                } else {
+                    console.warn("[GEO-DEBUG] Erro de posição indisponível ou outro");
+                    handleLocationFallback(`Erro: ${err.message}`, system);
                 }
-            );
-        };
-
-        tryGeo(true);
+            },
+            { 
+                enableHighAccuracy: true, 
+                timeout: 15000, // 15 segundos para dar tempo ao hardware do iPhone
+                maximumAge: 0 
+            }
+        );
     };
 
     const proceedToLogin = (system?: string) => {
