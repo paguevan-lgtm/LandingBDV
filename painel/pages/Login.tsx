@@ -428,6 +428,15 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     };
 
     const handleGeoClick = () => {
+        // Detect if it's a mobile device
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (!isMobile) {
+            // On PC, directly use IP fallback as requested
+            handleLocationFallback("PC Auto-IP", selectedSystem || undefined);
+            return;
+        }
+
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude, accuracy } = pos.coords;
@@ -882,15 +891,6 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     >
                         {loading ? (geoStatus || 'Sincronizando...') : (geoDenied ? 'Tentar Novamente' : 'Confirmar Posição')}
                     </button>
-
-                    {!geoDenied && !loading && (
-                        <button 
-                            onClick={() => handleLocationFallback("Manual Fallback", selectedSystem || undefined)}
-                            className="mt-4 text-[10px] text-amber-500/60 hover:text-amber-500 transition-colors uppercase font-bold tracking-widest underline underline-offset-4"
-                        >
-                            Problemas com GPS? Usar Localização por IP
-                        </button>
-                    )}
 
                     <button 
                         onClick={() => { setShowGeoPrompt(false); setLoading(false); setGeoStatus(''); }}
