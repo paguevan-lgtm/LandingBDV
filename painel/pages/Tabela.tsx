@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Icons, Button, IconButton } from '../components/Shared';
 import { handlePrint, formatDisplayDate, dateAddDays, getDayName } from '../utils';
+import { db } from '../firebase';
 import {
     DndContext,
     closestCenter,
@@ -194,6 +195,17 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
 
     // Estado local para navegação da data da madrugada
     const [madrugadaDisplayDate, setMadrugadaDisplayDate] = useState(initialMadrugadaDate);
+    const [madrugadaFooter, setMadrugadaFooter] = useState('');
+    const [isEditingFooter, setIsEditingFooter] = useState(false);
+
+    useEffect(() => {
+        const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
+        const ref = db.ref(path);
+        const cb = ref.on('value', (snap: any) => {
+            setMadrugadaFooter(snap.val() || '');
+        });
+        return () => ref.off('value', cb);
+    }, [madrugadaDisplayDate, systemContext]);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     // Usa a nova função getRotatedMadrugadaList para calcular a rotação exclusiva da madrugada
@@ -985,6 +997,49 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                         }) : <div className="text-center opacity-100 text-sm py-4">Nenhuma vaga na madrugada para esta data.</div>} 
                             </SortableContext>
                         </DndContext>
+
+                        {isEditingFooter ? (
+                            <div className="mt-6 space-y-3 hide-on-print p-4 bg-white/5 rounded-xl border border-white/10 anim-fade">
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-xs font-bold opacity-60 uppercase tracking-wider">Observação da Madrugada</label>
+                                    <button onClick={() => setIsEditingFooter(false)} className="text-white/40 hover:text-white"><Icons.X size={14}/></button>
+                                </div>
+                                <textarea 
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-indigo-500 outline-none transition-all min-h-[100px]"
+                                    value={madrugadaFooter}
+                                    onChange={(e) => setMadrugadaFooter(e.target.value)}
+                                    placeholder="Ex: Clailton carro extra subindo com 1 as 5:00..."
+                                    autoFocus
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button size="xs" variant="secondary" onClick={() => setIsEditingFooter(false)}>Cancelar</Button>
+                                    <Button size="xs" onClick={() => {
+                                        const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
+                                        db.ref(path).set(madrugadaFooter);
+                                        setIsEditingFooter(false);
+                                        notify('Observação salva com sucesso!', 'success');
+                                    }}>Salvar Observação</Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-4">
+                                {madrugadaFooter && (
+                                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-200 font-bold text-sm relative overflow-hidden anim-fade mb-3">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                                        <div className="flex items-start gap-3">
+                                            <Icons.Message size={18} className="text-indigo-400 mt-0.5 flex-shrink-0" />
+                                            <p className="leading-relaxed whitespace-pre-wrap">{madrugadaFooter}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={() => setIsEditingFooter(true)}
+                                    className="flex items-center gap-2 text-[11px] font-bold opacity-40 hover:opacity-100 hover:bg-white/5 px-3 py-2 rounded-lg transition-all hide-on-print uppercase tracking-widest"
+                                >
+                                    <Icons.Edit size={14} /> {madrugadaFooter ? 'Alterar Observação' : 'Adicionar Observação'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
