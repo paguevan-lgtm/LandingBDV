@@ -1061,7 +1061,7 @@ const AppContent = () => {
             await ref.set({
                 paid: true,
                 receivedBy: user.username,
-                receivedAt: new Date().toISOString()
+                receivedAt: getTodayDate()
             });
             logAction('Marcou Pagamento Prancheta', `Vaga: ${vaga} - Semana: ${viewedWeekId}`);
             notify(`Vaga ${vaga} marcada como paga!`, "success");

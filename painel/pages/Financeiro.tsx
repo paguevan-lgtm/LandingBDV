@@ -20,7 +20,11 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
 
     // --- Lógica do Caixa Diário ---
     const today = getTodayDate();
-    const dailyTrips = (data.trips || []).filter((t:any) => t.paymentStatus === 'Pago' && t.receivedAt === today);
+    // Viagens PAGAS hoje (independente de quando viajaram)
+    const dailyTrips = (data.trips || []).filter((t:any) => t.paymentStatus === 'Pago' && t.receivedAt && t.receivedAt.startsWith(today));
+    
+    // Viagens que VIAJARAM hoje (independente de estarem pagas ou não)
+    const tripsTraveledToday = (data.trips || []).filter((t:any) => t.date === today && t.status !== 'Cancelada');
 
     const calcTripValue = (t:any) => {
         let value = 0;
@@ -64,8 +68,8 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
         const caixinha = parseFloat(caixinhaValue) || 0;
         const todayFormatted = new Date().toLocaleDateString('pt-BR');
         
-        // 1. Passageiros que viajaram no dia (Trips finalizadas/pagas hoje)
-        const totalPassengers = dailyTrips.reduce((acc: number, t: any) => {
+        // 1. Passageiros que viajaram no dia (Trips que ocorreram hoje)
+        const totalPassengers = tripsTraveledToday.reduce((acc: number, t: any) => {
             let pCount = 0;
             if (t.pCountSnapshot !== undefined) pCount = parseInt(t.pCountSnapshot || 0);
             else if (t.passengersSnapshot) pCount = t.passengersSnapshot.reduce((a:number, p:any) => a + parseInt(p.passengerCount || 1), 0);
@@ -73,18 +77,18 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
             return acc + pCount;
         }, 0);
 
-        // 2. Valor arrecadado com carro extra/frete
+        // 2. Valor arrecadado com carro extra/frete (dos que foram PAGOS hoje)
         const extraValue = dailyTrips.filter((t: any) => t.isExtra).reduce((acc: number, t: any) => acc + calcTripValue(t), 0);
 
-        // 3. Pranchetas recebidas
+        // 3. Pranchetas recebidas hoje
         const paidPranchetas = Object.entries(pranchetaData)
-            .filter(([_, data]: [string, any]) => data.paid && data.receivedAt === today)
+            .filter(([_, data]: [string, any]) => data.paid && data.receivedAt && data.receivedAt.startsWith(today))
             .map(([vaga, _]) => vaga);
         
         const pranchetaTotal = paidPranchetas.length * (parseFloat(pranchetaValue) || 20);
 
         // 4. Débitos não recebidos (Pendentes do dia operacional)
-        const pendingTrips = (data.trips || []).filter((t: any) => t.paymentStatus !== 'Pago' && t.date === today);
+        const pendingTrips = tripsTraveledToday.filter((t: any) => t.paymentStatus !== 'Pago');
         const pendingTotal = pendingTrips.reduce((acc: number, t: any) => acc + calcTripValue(t), 0);
         const pendingVagas = pendingTrips.map((t: any) => {
             if (t.isMadrugada) return `Madrugada (${t.vaga})`;
@@ -95,27 +99,27 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
         // 5. Total Geral (O que entrou no caixa: Viagens Pagas + Pranchetas Pagas)
         const totalArrecadado = grandTotal + pranchetaTotal;
 
-        let report = `Atendente: ${user.username}\n`;
-        report += `Caixa do dia: ${todayFormatted}\n\n`;
+        let report = `👤 *Atendente:* ${user.username}\n`;
+        report += `📅 *Caixa do dia:* ${todayFormatted}\n\n`;
         
-        report += `Tivemos ${totalPassengers} passageiros totalizando R$ ${formatCurrency(grandTotal)} reais\n\n`;
+        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(grandTotal)}* reais\n\n`;
         
         if (extraValue > 0) {
-            report += `+ R$ ${formatCurrency(extraValue)} De carro extra/frete.\n\n`;
+            report += `🚚 *+ R$ ${formatCurrency(extraValue)}* De carro extra/frete.\n\n`;
         }
 
         if (paidPranchetas.length > 0) {
-            report += `Recebi ${paidPranchetas.length} prancheta(s) das vagas: ${paidPranchetas.join(', ')}\n\n`;
+            report += `📋 *Recebi ${paidPranchetas.length} prancheta(s)* das vagas: ${paidPranchetas.join(', ')}\n\n`;
         }
 
         if (pendingTotal > 0) {
-            report += `Os seguintes débitos não foram recebidos: R$ ${formatCurrency(pendingTotal)} Das seguintes vagas: ${pendingVagas.join(', ')}\n\n`;
+            report += `⚠️ *Os seguintes débitos não foram recebidos:* R$ ${formatCurrency(pendingTotal)}\n📍 *Das seguintes vagas:* ${pendingVagas.join(', ')}\n\n`;
         }
 
-        report += `Totalizando: R$ ${formatCurrency(totalArrecadado)}\n`;
-        report += `Debito: ${pendingTotal > 0 ? 'R$ ' + formatCurrency(pendingTotal) : '*sem debito*'}\n\n`;
+        report += `💰 *Totalizando:* R$ ${formatCurrency(totalArrecadado)}\n`;
+        report += `💸 *Debito:* ${pendingTotal > 0 ? 'R$ ' + formatCurrency(pendingTotal) : '*sem debito*'}\n\n`;
         
-        report += `Caixinha: R$ ${formatCurrency(caixinha)}`;
+        report += `🎁 *Caixinha:* R$ ${formatCurrency(caixinha)}`;
 
         // Copiar para o clipboard
         navigator.clipboard.writeText(report).then(() => {
