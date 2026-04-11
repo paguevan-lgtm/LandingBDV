@@ -3,7 +3,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icons, Input, Button } from './Shared';
-import { getTodayDate } from '../utils';
+import { getTodayDate, capitalize } from '../utils';
 import { BAIRROS, BAIRROS_MIP } from '../constants';
 
 export const GlobalModals = ({
@@ -301,7 +301,7 @@ export const GlobalModals = ({
                                     </div>
                                 </div>
                             )}
-                            <Input themeKey={themeKey} id="input-driver-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:e.target.value})} />
+                            <Input themeKey={themeKey} id="input-driver-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:capitalize(e.target.value)})} />
                              <div className="flex flex-col gap-4">
                                  <div className="flex flex-col gap-2">
                                      <label className="text-xs font-bold opacity-60 ml-1">Telefones</label>

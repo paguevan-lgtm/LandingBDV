@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Icons, Button, IconButton } from '../components/Shared';
-import { handlePrint, formatDisplayDate, dateAddDays, getDayName } from '../utils';
+import { handlePrint, formatDisplayDate, dateAddDays, getDayName, capitalize } from '../utils';
 import { db } from '../firebase';
 import {
     DndContext,
@@ -405,7 +405,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                 <input 
                                                     className="bg-black/50 border border-white/20 rounded px-2 py-1 text-sm w-32 outline-none focus:border-white/50" 
                                                     value={tempName} 
-                                                    onChange={e=>setTempName(e.target.value)} 
+                                                    onChange={e=>setTempName(capitalize(e.target.value))} 
                                                     placeholder="Nome"
                                                     autoFocus 
                                                 />

@@ -3,6 +3,11 @@ import { INITIAL_SP_LIST, BAIRROS, BAIRROS_MIP } from './constants';
 import { GoogleGenAI } from "@google/genai";
 import fpPromise from '@fingerprintjs/fingerprintjs';
 
+export const capitalize = (str: string) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 export const getWeekNumber = (date: Date) => {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;

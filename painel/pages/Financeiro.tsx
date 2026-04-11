@@ -97,12 +97,13 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
         }).filter(Boolean);
 
         // 5. Total Geral (O que entrou no caixa: Viagens Pagas + Pranchetas Pagas)
-        const totalArrecadado = grandTotal + pranchetaTotal;
+        const totalRevenueCalculated = totalPassengers * (pricePerPassenger || 4);
+        const totalArrecadado = totalRevenueCalculated + extraValue + pranchetaTotal;
 
         let report = `👤 *Atendente:* ${user.username}\n`;
         report += `📅 *Caixa do dia:* ${todayFormatted}\n\n`;
         
-        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(grandTotal)}* reais\n\n`;
+        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(totalRevenueCalculated)}* reais\n\n`;
         
         if (extraValue > 0) {
             report += `🚚 *+ R$ ${formatCurrency(extraValue)}* De carro extra/frete.\n\n`;
