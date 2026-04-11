@@ -1694,75 +1694,87 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     if (!mainLog) return null;
 
                                     return (
-                                        <div key={group.id} className={`${theme.card} rounded-2xl border ${theme.border} overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-blue-500/30' : ''}`}>
+                                        <div key={group.id} className={`${theme.card} rounded-3xl border ${theme.border} overflow-hidden transition-all duration-500 ${isExpanded ? 'ring-2 ring-blue-500/30 shadow-2xl scale-[1.01]' : 'shadow-lg hover:shadow-xl hover:scale-[1.005]'}`}>
                                             {/* Header / Login Card */}
                                             <div 
                                                 onClick={() => hasActions && setExpandedSessions(prev => isExpanded ? prev.filter(id => id !== group.id) : [...prev, group.id])}
-                                                className={`p-4 flex items-center gap-4 cursor-pointer hover:bg-white/5 transition-colors ${!hasActions ? 'cursor-default' : ''}`}
+                                                className={`p-5 flex items-center gap-5 cursor-pointer hover:bg-white/5 transition-all ${!hasActions ? 'cursor-default' : ''}`}
                                             >
-                                                <div className={`w-10 h-10 rounded-full ${theme.accent} bg-opacity-10 border border-current flex items-center justify-center text-xs font-bold`}>
-                                                    {formatTime(mainLog.timestamp)}
+                                                <div className={`w-14 h-14 rounded-2xl ${theme.accent} bg-opacity-10 border border-current border-opacity-20 flex flex-col items-center justify-center shadow-inner`}>
+                                                    <span className="text-xs font-black tracking-tighter">{formatTime(mainLog.timestamp)}</span>
+                                                    <Icons.Clock size={12} className="opacity-40 mt-0.5" />
                                                 </div>
                                                 
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`font-bold text-sm ${theme.accent}`}>{mainLog.username}</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                                        <span className={`font-black text-base tracking-tight ${theme.accent}`}>{mainLog.username}</span>
                                                         {isSuperAdmin && deviceLabels?.[mainLog.deviceId] && (
-                                                            <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                                                            <span className="text-[9px] font-black text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-lg uppercase tracking-widest border border-blue-500/20">
                                                                 {deviceLabels[mainLog.deviceId]}
                                                             </span>
                                                         )}
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter bg-green-500/20 text-green-400`}>
-                                                            Sessão Iniciada
+                                                        <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-widest bg-green-500/10 text-green-400 border border-green-500/20`}>
+                                                            Sessão Ativa
                                                         </span>
                                                         {hasActions && (
-                                                            <span className={`text-[10px] ${theme.accent} bg-opacity-20 px-1.5 py-0.5 rounded-full`}>
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest bg-white/5 text-white/40 px-2 py-0.5 rounded-lg border border-white/5`}>
                                                                 {group.actions.length} {group.actions.length === 1 ? 'ação' : 'ações'}
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <p className={`text-sm ${theme.text} opacity-70`}>
+                                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                        <p className={`text-sm ${theme.text} opacity-60 font-medium truncate max-w-md`}>
                                                             {group.login ? group.login.details : `Atividade registrada às ${formatTime(mainLog.timestamp)}`}
                                                         </p>
-                                                        {mainLog.location?.coords?.lat != null && (
-                                                            <span className="text-[10px] opacity-30 font-mono">
-                                                                [{Number(mainLog.location.coords.lat).toFixed(4)}, {Number(mainLog.location.coords.lng).toFixed(4)}]
-                                                            </span>
-                                                        )}
-                                                        {group.login?.ip && (
-                                                            <span className="text-[10px] opacity-40 font-mono">({group.login.ip})</span>
-                                                        )}
+                                                        <div className="flex items-center gap-3">
+                                                            {mainLog.location?.coords?.lat != null && (
+                                                                <span className="flex items-center gap-1 text-[10px] opacity-30 font-mono bg-black/20 px-1.5 py-0.5 rounded">
+                                                                    <Icons.MapPin size={10} />
+                                                                    {Number(mainLog.location.coords.lat).toFixed(4)}, {Number(mainLog.location.coords.lng).toFixed(4)}
+                                                                </span>
+                                                            )}
+                                                            {group.login?.ip && (
+                                                                <span className="text-[10px] opacity-30 font-mono bg-black/20 px-1.5 py-0.5 rounded">
+                                                                    {group.login.ip}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-2">
-                                                    {hasActions && (
-                                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                                            <Icons.ChevronDown size={20} className="opacity-30" />
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                {hasActions && (
+                                                    <div className={`w-10 h-10 rounded-xl ${theme.inner} flex items-center justify-center transition-all duration-500 ${isExpanded ? 'rotate-180 bg-opacity-100' : 'bg-opacity-40'}`}>
+                                                        <Icons.ChevronDown size={20} className={isExpanded ? theme.accent : 'opacity-30'} />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Expanded Actions */}
-                                            {isExpanded && hasActions && (
-                                                <div className={`border-t ${theme.divider} ${theme.inner} bg-opacity-50 divide-y ${theme.divider}`}>
-                                                    {group.actions.sort((a:any, b:any) => b.timestamp - a.timestamp).map((action: any, aIdx: number) => (
-                                                        <div key={aIdx} className="p-3 pl-16 flex items-center gap-4 hover:bg-opacity-10 transition-colors">
-                                                            <div className="text-[10px] font-mono opacity-40 w-12">
-                                                                {formatTime(action.timestamp)}
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={`text-[10px] font-bold uppercase ${theme.text} opacity-40 tracking-widest`}>{action.action}</span>
+                                            <AnimatePresence>
+                                                {isExpanded && hasActions && (
+                                                    <motion.div 
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        className={`border-t ${theme.divider} ${theme.inner} bg-opacity-30 divide-y ${theme.divider} overflow-hidden`}
+                                                    >
+                                                        {group.actions.sort((a:any, b:any) => b.timestamp - a.timestamp).map((action: any, aIdx: number) => (
+                                                            <div key={aIdx} className="p-4 pl-20 flex items-center gap-6 hover:bg-white/5 transition-colors group/item">
+                                                                <div className="text-[10px] font-black font-mono opacity-30 w-14 tracking-tighter group-hover/item:opacity-60 transition-opacity">
+                                                                    {formatTime(action.timestamp)}
                                                                 </div>
-                                                                <p className={`text-xs ${theme.text} opacity-60`}>{action.details}</p>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-3 mb-1">
+                                                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${theme.accent} opacity-60`}>{action.action}</span>
+                                                                        <div className="h-px flex-1 bg-white/5"></div>
+                                                                    </div>
+                                                                    <p className={`text-sm ${theme.text} opacity-70 font-medium leading-relaxed`}>{action.details}</p>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                        ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     );
                                 });

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Icons, Button, ClockWidget, WeatherWidget, EmptyState } from '../components/Shared';
+import { Icons, Button, IconButton, ClockWidget, WeatherWidget, EmptyState } from '../components/Shared';
 import { DonutChart, HorizontalBarChart } from '../components/Charts';
 import { getTodayDate } from '../utils';
 
@@ -357,33 +357,56 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
             </div>
 
             {/* STATS OVERVIEW */}
-            <div id="dashboard-stats" className={`grid grid-cols-1 ${canSeeRevenue ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 stagger-in d-3`}>
-                <div onClick={() => setView('passengers')} className={`${theme.card} p-5 rounded-2xl border ${theme.border} relative overflow-hidden cursor-pointer hover:border-blue-500/50 transition-colors group`}>
-                    <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500"><Icons.Users size={80}/></div>
-                    <div className="relative z-10">
-                        <div className="text-blue-400 font-bold uppercase tracking-wider text-xs mb-1">Base de Passageiros</div>
-                        {/* Fix: removed text-white for theme.text */}
-                        <div className="text-4xl font-black">{data.passengers.length}</div>
-                        <div className="text-xs opacity-50 mt-2 flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Cadastrados</div>
+            <div id="dashboard-stats" className={`grid grid-cols-1 ${canSeeRevenue ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6 stagger-in d-3`}>
+                <div onClick={() => setView('passengers')} className={`${theme.card} p-6 rounded-3xl border ${theme.border} relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 group`}>
+                    <div className="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-colors"></div>
+                    <div className="relative z-10 flex items-center gap-5">
+                        <div className="w-16 h-16 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover:scale-110 transition-transform duration-500">
+                            <Icons.Users size={32}/>
+                        </div>
+                        <div>
+                            <div className="text-blue-400 font-black uppercase tracking-widest text-[10px] mb-1 opacity-70">Passageiros</div>
+                            <div className="text-4xl font-black tracking-tighter">{data.passengers.length}</div>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">Base Ativa</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div onClick={() => setView('trips')} className={`${theme.card} p-5 rounded-2xl border ${theme.border} relative overflow-hidden cursor-pointer hover:border-amber-500/50 transition-colors group`}>
-                    <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500"><Icons.Map size={80}/></div>
-                    <div className="relative z-10">
-                        <div className="text-amber-400 font-bold uppercase tracking-wider text-xs mb-1">Total de Viagens</div>
-                        <div className="text-4xl font-black">{data.trips.length}</div>
-                        <div className="text-xs opacity-50 mt-2 flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Realizadas</div>
+                <div onClick={() => setView('trips')} className={`${theme.card} p-6 rounded-3xl border ${theme.border} relative overflow-hidden cursor-pointer hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 group`}>
+                    <div className="absolute -right-4 -top-4 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl group-hover:bg-amber-500/20 transition-colors"></div>
+                    <div className="relative z-10 flex items-center gap-5">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20 group-hover:scale-110 transition-transform duration-500">
+                            <Icons.Van size={32}/>
+                        </div>
+                        <div>
+                            <div className="text-amber-400 font-black uppercase tracking-widest text-[10px] mb-1 opacity-70">Viagens</div>
+                            <div className="text-4xl font-black tracking-tighter">{data.trips.length}</div>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">Total Realizado</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {canSeeRevenue && (
-                    <div className={`${theme.card} p-5 rounded-2xl border ${theme.border} relative overflow-hidden group bg-green-500/5 border-green-500/20`}>
-                        <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Icons.Dollar size={80}/></div>
-                        <div className="relative z-10">
-                            <div className="text-green-400 font-bold uppercase tracking-wider text-xs mb-1">Estimativa Hoje</div>
-                            <div className="text-4xl font-black">R$ {stats.revenue.toFixed(2).replace('.', ',')}</div>
-                            <div className="text-xs opacity-50 mt-2 flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Calculado sobre viagens</div>
+                    <div className={`${theme.card} p-6 rounded-3xl border border-green-500/20 bg-green-500/5 relative overflow-hidden hover:shadow-2xl hover:scale-[1.02] transition-all duration-500 group`}>
+                        <div className="absolute -right-4 -top-4 w-32 h-32 bg-green-500/10 rounded-full blur-3xl group-hover:bg-green-500/20 transition-colors"></div>
+                        <div className="relative z-10 flex items-center gap-5">
+                            <div className="w-16 h-16 rounded-2xl bg-green-500/10 text-green-400 flex items-center justify-center shrink-0 border border-green-500/20 group-hover:scale-110 transition-transform duration-500">
+                                <Icons.Dollar size={32}/>
+                            </div>
+                            <div>
+                                <div className="text-green-400 font-black uppercase tracking-widest text-[10px] mb-1 opacity-70">Estimativa Hoje</div>
+                                <div className="text-4xl font-black tracking-tighter">R$ {stats.revenue.toFixed(2).replace('.', ',')}</div>
+                                <div className="flex items-center gap-1.5 mt-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                    <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">Receita Prevista</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -391,111 +414,100 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
 
             {/* CHARTS & ANALYTICS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} stagger-in d-4 flex flex-col justify-center min-h-[250px]`}>
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-bold flex items-center gap-2"><Icons.Dollar size={18} className="text-green-400"/> Formas de Pagamento</h3>
+                <div className={`${theme.card} p-8 rounded-3xl border ${theme.border} stagger-in d-4 flex flex-col justify-center min-h-[300px] shadow-lg`}>
+                    <div className="flex justify-between items-center mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center border border-green-500/20">
+                                <Icons.Dollar size={20}/>
+                            </div>
+                            <h3 className="font-black text-lg tracking-tight">Formas de Pagamento</h3>
+                        </div>
                     </div>
-                    {stats.p.length ? <DonutChart data={stats.p} theme={theme}/> : <div className="flex-1 flex items-center justify-center opacity-30 text-sm">Sem dados suficientes</div>}
+                    {stats.p.length ? <DonutChart data={stats.p} theme={theme}/> : <div className="flex-1 flex items-center justify-center opacity-30 text-sm italic">Sem dados suficientes para análise</div>}
                 </div>
 
-                <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} stagger-in d-5 flex flex-col min-h-[250px]`}>
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-bold flex items-center gap-2"><Icons.Map size={18} className="text-blue-400"/> Top Bairros</h3>
+                <div className={`${theme.card} p-8 rounded-3xl border ${theme.border} stagger-in d-5 flex flex-col min-h-[300px] shadow-lg`}>
+                    <div className="flex justify-between items-center mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+                                <Icons.Map size={20}/>
+                            </div>
+                            <h3 className="font-black text-lg tracking-tight">Top Bairros</h3>
+                        </div>
                     </div>
-                    {stats.b.length ? <HorizontalBarChart data={stats.b} theme={theme}/> : <div className="flex-1 flex items-center justify-center opacity-30 text-sm">Sem dados suficientes</div>}
+                    {stats.b.length ? <HorizontalBarChart data={stats.b} theme={theme}/> : <div className="flex-1 flex items-center justify-center opacity-30 text-sm italic">Sem dados suficientes para análise</div>}
                 </div>
             </div>
             
             {/* PERSONAL NOTES */}
-            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} stagger-in d-5`}>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold flex items-center gap-2"><Icons.Clipboard size={20} className="text-purple-400"/> Bloco de Notas</h3>
-                    <span className="text-xs opacity-40 uppercase font-bold tracking-widest">{user.displayName || user.username}</span>
+            <div className={`${theme.card} p-8 rounded-3xl border ${theme.border} stagger-in d-5 shadow-xl`}>
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
+                            <Icons.Clipboard size={20}/>
+                        </div>
+                        <h3 className="font-black text-lg tracking-tight">Bloco de Notas</h3>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></div>
+                        <span className="text-[10px] opacity-60 uppercase font-black tracking-widest">{user.displayName || user.username}</span>
+                    </div>
                 </div>
                 
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-3 mb-6">
                     <input 
-                        className={`flex-1 border px-4 py-3 text-sm outline-none focus:border-current transition-all ${theme.radius} ${innerBg} ${theme.border}`}
+                        className={`flex-1 border px-5 py-4 text-sm outline-none focus:ring-2 focus:ring-purple-500/30 transition-all rounded-2xl ${innerBg} ${theme.border} font-medium`}
                         placeholder="Digite um lembrete rápido..." 
                         value={noteText} 
                         onChange={e=>setNoteText(e.target.value)} 
                         onKeyPress={e=> e.key === 'Enter' && saveNote()} 
                     />
-                    <button onClick={saveNote} className={`${theme.primary} w-12 rounded-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform`} title="Adicionar Nota"><Icons.Plus size={20}/></button>
+                    <button onClick={saveNote} className={`${theme.primary} w-14 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 hover:scale-105 transition-all`} title="Adicionar Nota">
+                        <Icons.Plus size={24}/>
+                    </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                     {userNotes.filter((n:any) => !n.completed).length > 0 ? userNotes.filter((n:any) => !n.completed).map((note:any) => (
-                        <div key={note.id} className={`flex justify-between items-start ${ghostBg} p-3 rounded-xl text-sm border ${theme.border} transition-colors group`}>
+                        <div key={note.id} className={`flex justify-between items-start ${ghostBg} p-4 rounded-2xl text-sm border ${theme.border} transition-all group hover:border-purple-500/30`}>
                             <div className="flex-1 flex flex-col">
-                                <span className="break-words leading-relaxed opacity-90">{note.text}</span>
+                                <span className="break-words leading-relaxed font-medium opacity-90">{note.text}</span>
                                 {note.reminderDate && (
-                                    <span className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1">
-                                        <Icons.Clock size={10}/> {note.reminderDate.split('-').reverse().join('/')} às {note.reminderTime}
-                                    </span>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <span className="text-[9px] bg-amber-500/10 text-amber-500 font-black px-2 py-0.5 rounded uppercase tracking-widest flex items-center gap-1 border border-amber-500/20">
+                                            <Icons.Clock size={10}/> {note.reminderDate.split('-').reverse().join('/')} • {note.reminderTime}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
-                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                                <button 
-                                    onClick={() => { navigator.clipboard.writeText(note.text); }}
-                                    className="text-blue-400 p-1 hover:bg-blue-500/10 rounded-lg transition-all"
-                                    title="Copiar"
-                                >
-                                    <Icons.Copy size={14}/>
-                                </button>
-                                <button 
-                                    onClick={() => dbOp('update', 'notes', { ...note, completed: true })}
-                                    className="text-green-400 p-1 hover:bg-green-500/10 rounded-lg transition-all ml-1"
-                                    title="Concluído"
-                                >
-                                    <Icons.Check size={14}/>
-                                </button>
-                                <button 
-                                    onClick={() => dbOp('delete', 'notes', note.id)} 
-                                    className="text-red-400 p-1 hover:bg-red-500/10 rounded-lg transition-all ml-1"
-                                    title="Apagar"
-                                >
-                                    <Icons.Trash size={14}/>
-                                </button>
+                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-all ml-3 gap-1">
+                                <IconButton theme={theme} variant="default" onClick={() => navigator.clipboard.writeText(note.text)} icon={Icons.Copy} className="w-8 h-8 rounded-lg" />
+                                <IconButton theme={theme} variant="success" onClick={() => dbOp('update', 'notes', { ...note, completed: true })} icon={Icons.Check} className="w-8 h-8 rounded-lg" />
+                                <IconButton theme={theme} variant="danger" onClick={() => dbOp('delete', 'notes', note.id)} icon={Icons.Trash} className="w-8 h-8 rounded-lg" />
                             </div>
                         </div>
                     )) : (
-                        <EmptyState title="Nenhum lembrete" subtitle="Adicione um novo lembrete acima." />
+                        <div className="col-span-2 py-10">
+                            <EmptyState title="Nenhum lembrete" subtitle="Sua lista está limpa! Adicione algo para não esquecer." />
+                        </div>
                     )}
                 </div>
 
                 {/* COMPLETED NOTES HISTORY */}
                 {userNotes.filter((n:any) => n.completed).length > 0 && (
-                    <div className="mt-6 pt-6 border-t border-white/10">
-                        <h4 className="font-bold text-sm opacity-60 mb-3 flex items-center gap-2">
-                            <Icons.Clock size={16} /> Histórico de Concluídos
+                    <div className="mt-8 pt-8 border-t border-white/10">
+                        <h4 className="font-black text-xs opacity-40 mb-4 flex items-center gap-2 uppercase tracking-[0.2em]">
+                            <Icons.Clock size={14} /> Histórico de Concluídos
                         </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                             {userNotes.filter((n:any) => n.completed).map((note:any) => (
-                                <div key={note.id} className={`flex justify-between items-center bg-white/5 p-3 rounded-xl text-sm border border-dashed border-white/10 opacity-70 group hover:opacity-100 transition-all`}>
+                                <div key={note.id} className={`flex justify-between items-center bg-white/5 p-4 rounded-2xl text-sm border border-dashed border-white/10 opacity-50 group hover:opacity-100 transition-all`}>
                                     <div className="flex-1 flex flex-col">
-                                        <span className="break-words leading-relaxed line-through opacity-80">{note.text}</span>
-                                        {note.reminderDate && (
-                                            <span className="text-[10px] opacity-40 flex items-center gap-1 mt-1">
-                                                <Icons.Clock size={10}/> {note.reminderDate.split('-').reverse().join('/')} às {note.reminderTime}
-                                            </span>
-                                        )}
+                                        <span className="break-words leading-relaxed line-through font-medium opacity-60">{note.text}</span>
                                     </div>
-                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                                        <button 
-                                            onClick={() => dbOp('update', 'notes', { ...note, completed: false })} 
-                                            className="text-blue-400 p-1 hover:bg-blue-500/10 rounded-lg transition-all"
-                                            title="Voltar para notas"
-                                        >
-                                            <Icons.Repeat size={14}/>
-                                        </button>
-                                        <button 
-                                            onClick={() => dbOp('delete', 'notes', note.id)} 
-                                            className="text-red-400 p-1 hover:bg-red-500/10 rounded-lg transition-all ml-1"
-                                            title="Apagar"
-                                        >
-                                            <Icons.Trash size={14}/>
-                                        </button>
+                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-all ml-3 gap-1">
+                                        <IconButton theme={theme} variant="default" onClick={() => dbOp('update', 'notes', { ...note, completed: false })} icon={Icons.Repeat} className="w-8 h-8 rounded-lg" />
+                                        <IconButton theme={theme} variant="danger" onClick={() => dbOp('delete', 'notes', note.id)} icon={Icons.Trash} className="w-8 h-8 rounded-lg" />
                                     </div>
                                 </div>
                             ))}

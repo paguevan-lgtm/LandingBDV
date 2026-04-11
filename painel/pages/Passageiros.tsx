@@ -106,58 +106,121 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
                     key={item.id} 
                     style={{animationDelay: `${i * 50}ms`}} 
                     onClick={() => setExpandedPass(expandedPass === item.id ? null : item.id)} 
-                    className={`${theme.card} p-4 ${theme.radius} border ${item.status === 'Bloqueado' ? 'border-red-500/30 bg-red-500/5' : theme.border} relative overflow-hidden cursor-pointer active:scale-[0.99] transition-transform stagger-in`}
+                    className={`${theme.card} rounded-2xl border ${item.status === 'Bloqueado' ? 'border-red-500/30 bg-red-500/5' : theme.border} relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 stagger-in group`}
                 >
                     {item.source === 'Site' && (
-                        <div className="absolute top-0 right-0">
-                            <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
+                        <div className="absolute top-0 right-0 z-10">
+                            <div className="bg-blue-600 text-white text-[9px] px-3 py-1 font-black uppercase rounded-bl-xl shadow-lg tracking-widest">Site</div>
                         </div>
                     )}
-                    <div className="absolute top-1 right-8 text-4xl font-bold opacity-[0.07] pointer-events-none">
-                        {String(item.id).startsWith('SITE_') ? String(item.id).replace('_', ' #') : `#${item.id}`}
-                    </div>
-                    <div className="absolute top-3 right-3 text-xs opacity-50">{expandedPass === item.id ? <Icons.ChevronUp size={18}/> : <Icons.ChevronDown size={18}/>}</div>
-                    <div className="pr-8">
-                        <div className="flex flex-wrap gap-2 mb-1">
-                            {item.status === 'Bloqueado' && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold uppercase border border-red-500/30">BLOQUEADO</span>}
-                            {item.tags && item.tags.split(',').map((tag:string, i:number) => (
-                                <span key={`${tag}_${i}`} className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded font-bold uppercase">{tag.trim()}</span>
-                            ))}
-                        </div>
-                        <h3 className={`font-bold text-lg ${item.status === 'Bloqueado' ? 'text-red-400' : ''}`}>{item.name}</h3>
-                        <p className="text-sm opacity-70">{item.neighborhood}</p>
-                    </div>
-                    {expandedPass === item.id && (
-                        <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-sm expand-content anim-fade">
-                            {item.status === 'Bloqueado' && item.blockReason && (
-                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl mb-4">
-                                    <span className="block text-[10px] font-bold text-red-400 uppercase mb-1">MOTIVO DO BLOQUEIO</span>
-                                    <p className="text-red-200 italic">"{item.blockReason}"</p>
+                    
+                    <div className="p-5">
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <div className={`w-12 h-12 rounded-2xl ${item.status === 'Bloqueado' ? 'bg-red-500/20 text-red-400' : `${theme.accent} bg-opacity-10 text-current`} flex items-center justify-center shrink-0 border border-current border-opacity-10 group-hover:scale-110 transition-transform duration-500`}>
+                                    <Icons.User size={24} />
                                 </div>
-                            )}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><span className="block opacity-50 text-xs">TELEFONE</span>{item.phone}</div>
-                                <div><span className="block opacity-50 text-xs">PAGAMENTO</span>{item.payment} {item.paymentMethod ? `(${item.paymentMethod})` : ''}</div>
-                                <div className="col-span-2"><span className="block opacity-50 text-xs">ENDEREÇO</span>{item.address} {item.reference ? `(${item.reference})` : ''}</div>
-                                <div><span className="block opacity-50 text-xs">DATA/HORA</span>{formatDisplayDate(item.date)} - {formatTime(item.time) || 'Sem horário'}</div>
-                                <div><span className="block opacity-50 text-xs">DETALHES</span>{item.passengerCount} pass | {item.luggageDetails ? `${item.luggageCount || 0} malas (${item.luggageDetails})` : `${item.luggageCount || 0} malas`}</div>
-                                <div><span className="block opacity-50 text-xs">STATUS</span><span className={item.status === 'Bloqueado' ? 'text-red-500 font-bold' : item.status === 'Ativo' ? 'text-green-400' : 'text-red-400'}>{item.status}</span></div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 pt-4 mt-2">
-                                <Button theme={theme} onClick={(e:any)=>handleEdit(e, item)} variant="secondary" className="flex-1 min-w-[140px] py-2 text-sm" icon={Icons.Edit}>Editar/Agendar</Button>
-                                <div className="flex gap-2">
-                                    <IconButton theme={theme} variant="default" onClick={(e:any)=>{e.stopPropagation(); copyPassengerData(item)}} icon={Icons.Copy}/>
-                                    {item.phone && <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); sendPassWhatsapp(item)}} icon={Icons.Message} title="Falar no WhatsApp"/>}
-                                    {item.status === 'Bloqueado' ? (
-                                        <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); dbOp('update', 'passengers', { id: item.id, status: 'Ativo', blockReason: null }); notify('Passageiro desbloqueado!', 'success')}} icon={Icons.Check} title="Desbloquear"/>
-                                    ) : (
-                                        <IconButton theme={theme} variant="danger" onClick={(e:any)=>{e.stopPropagation(); setFormData(item); setModal('blockPassenger')}} icon={Icons.Slash} title="Bloquear"/>
-                                    )}
-                                    <IconButton theme={theme} variant="danger" onClick={(e:any)=>{e.stopPropagation(); del('passengers', item.id)}} icon={Icons.Trash}/>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className={`font-black text-lg truncate ${item.status === 'Bloqueado' ? 'text-red-400' : theme.text}`}>{item.name}</h3>
+                                        {item.status === 'Bloqueado' && (
+                                            <span className="text-[8px] bg-red-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Bloqueado</span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span className="flex items-center gap-1 text-xs opacity-50 font-medium">
+                                            <Icons.Phone size={12} />
+                                            {item.phone}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-xs opacity-50 font-medium">
+                                            <Icons.MapPin size={12} />
+                                            {item.neighborhood}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div className={`p-2 rounded-full ${theme.inner} opacity-30 group-hover:opacity-100 transition-opacity`}>
+                                {expandedPass === item.id ? <Icons.ChevronUp size={20}/> : <Icons.ChevronDown size={20}/>}
+                            </div>
                         </div>
-                    )}
+
+                        {expandedPass === item.id && (
+                            <div className="mt-6 pt-6 border-t border-white/5 space-y-5 expand-content anim-fade">
+                                {item.status === 'Bloqueado' && item.blockReason && (
+                                    <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                                        <span className="block text-[9px] font-black text-red-400 uppercase tracking-widest mb-2">Motivo do Bloqueio</span>
+                                        <p className="text-red-200/80 text-sm italic leading-relaxed">"{item.blockReason}"</p>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 border border-white/5`}>
+                                                <Icons.Calendar size={16} className="opacity-40" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] uppercase font-black opacity-30 tracking-widest">Data e Hora</p>
+                                                <p className="text-sm font-bold">{formatDisplayDate(item.date)} • {formatTime(item.time) || 'Sem horário'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 border border-white/5`}>
+                                                <Icons.Dollar size={16} className="opacity-40" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] uppercase font-black opacity-30 tracking-widest">Pagamento</p>
+                                                <p className="text-sm font-bold">{item.payment} <span className="opacity-40 font-medium">{item.paymentMethod ? `(${item.paymentMethod})` : ''}</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 border border-white/5`}>
+                                                <Icons.Users size={16} className="opacity-40" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] uppercase font-black opacity-30 tracking-widest">Passageiros</p>
+                                                <p className="text-sm font-bold">{item.passengerCount} {item.passengerCount > 1 ? 'pessoas' : 'pessoa'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 border border-white/5`}>
+                                                <Icons.Briefcase size={16} className="opacity-40" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] uppercase font-black opacity-30 tracking-widest">Bagagem</p>
+                                                <p className="text-sm font-bold">{item.luggageCount || 0} malas <span className="opacity-40 font-medium">{item.luggageDetails ? `(${item.luggageDetails})` : ''}</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`${theme.inner} p-4 rounded-2xl border border-white/5`}>
+                                    <p className="text-[9px] uppercase font-black opacity-30 tracking-widest mb-2">Endereço Completo</p>
+                                    <p className="text-sm font-medium leading-relaxed">
+                                        {item.address}
+                                        {item.reference && <span className="block mt-1 text-xs opacity-50 italic">Ref: {item.reference}</span>}
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-wrap gap-3 pt-2">
+                                    <Button theme={theme} onClick={(e:any)=>handleEdit(e, item)} variant="secondary" className="flex-1 min-w-[140px] py-3 rounded-xl font-bold" icon={Icons.Edit}>Editar / Agendar</Button>
+                                    <div className="flex gap-2">
+                                        <IconButton theme={theme} variant="default" onClick={(e:any)=>{e.stopPropagation(); copyPassengerData(item)}} icon={Icons.Copy} className="rounded-xl w-12 h-12" />
+                                        {item.phone && <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); sendPassWhatsapp(item)}} icon={Icons.Message} title="WhatsApp" className="rounded-xl w-12 h-12" />}
+                                        {item.status === 'Bloqueado' ? (
+                                            <IconButton theme={theme} variant="success" onClick={(e:any)=>{e.stopPropagation(); dbOp('update', 'passengers', { id: item.id, status: 'Ativo', blockReason: null }); notify('Passageiro desbloqueado!', 'success')}} icon={Icons.Check} title="Desbloquear" className="rounded-xl w-12 h-12" />
+                                        ) : (
+                                            <IconButton theme={theme} variant="danger" onClick={(e:any)=>{e.stopPropagation(); setFormData(item); setModal('blockPassenger')}} icon={Icons.Slash} title="Bloquear" className="rounded-xl w-12 h-12" />
+                                        )}
+                                        <IconButton theme={theme} variant="danger" onClick={(e:any)=>{e.stopPropagation(); del('passengers', item.id)}} icon={Icons.Trash} className="rounded-xl w-12 h-12" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             ))}
             {!filteredList.length && <div className="text-center opacity-50 py-10">Nenhum passageiro {activeTab === 'bloqueados' ? 'bloqueado' : ''}.</div>}

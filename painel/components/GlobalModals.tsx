@@ -262,20 +262,35 @@ export const GlobalModals = ({
                                         <button id="btn-trip-autofill" onClick={autoFill} className={`w-full mb-4 py-3 bg-white/5 border border-white/10 rounded-xl font-bold flex items-center justify-center gap-2 active:bg-white/10 anim-fade ${theme.accent}`}>
                                             <Icons.Refresh size={20}/> 🤖 Puxar Passageiros (Auto)
                                         </button>
-                                        <div className="space-y-3 overflow-y-auto flex-1 pr-1 overflow-y-auto max-h-[35vh]">
+                                        <div className="space-y-3 overflow-y-auto flex-1 pr-1 max-h-[40vh] custom-scrollbar">
                                             {suggestedTrip.passengers.map((p:any, i:number) => (
-                                                <div key={p.id} className={`${theme.bg} p-3 rounded-xl border ${theme.border} flex justify-between items-center shadow-sm`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${theme.primary}`}>{i+1}</div>
+                                                <div key={p.id} className={`${theme.inner} p-4 rounded-2xl border ${theme.divider} flex justify-between items-center shadow-sm hover:border-white/20 transition-colors group`}>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black text-white ${theme.primary} shadow-lg group-hover:scale-110 transition-transform`}>{i+1}</div>
                                                         <div>
-                                                            <div className="text-base font-bold flex items-center gap-2">{p.name} <span className="text-[10px] opacity-40 font-mono">{String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}</span></div>
-                                                            <div className="text-xs opacity-60">{p.neighborhood}</div>
+                                                            <div className="text-sm font-black flex items-center gap-2">
+                                                                {p.name} 
+                                                                <span className="text-[9px] opacity-30 font-mono bg-white/5 px-1.5 py-0.5 rounded">
+                                                                    {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[10px] opacity-50 font-bold uppercase tracking-wider mt-0.5 flex items-center gap-1">
+                                                                <Icons.MapPin size={10} /> {p.neighborhood}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className={`${theme.accent} font-bold text-base`}>{p.passengerCount} pass</span>
-                                                        {p.luggageCount > 0 && <span className="text-xs bg-white/10 px-2 py-1 rounded font-bold">{p.luggageCount} 🎒</span>}
-                                                        <button onClick={()=>removePass(p.id)} className="text-red-400 p-2"><Icons.Trash size={20}/></button>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-right">
+                                                            <div className={`${theme.accent} font-black text-sm`}>{p.passengerCount} pass</div>
+                                                            {p.luggageCount > 0 && <div className="text-[9px] opacity-40 font-bold uppercase tracking-tighter">{p.luggageCount} malas</div>}
+                                                        </div>
+                                                        <button 
+                                                            onClick={()=>removePass(p.id)} 
+                                                            className="text-red-400/40 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-lg transition-all"
+                                                            title="Remover"
+                                                        >
+                                                            <Icons.Trash size={18}/>
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
