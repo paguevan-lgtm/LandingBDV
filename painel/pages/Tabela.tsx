@@ -1013,6 +1013,17 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                 />
                                 <div className="flex justify-end gap-2">
                                     <Button size="xs" variant="secondary" onClick={() => setIsEditingFooter(false)}>Cancelar</Button>
+                                    {madrugadaFooter && (
+                                        <Button size="xs" variant="danger" onClick={() => {
+                                            if (window.confirm('Deseja realmente excluir esta observação?')) {
+                                                const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
+                                                db.ref(path).remove();
+                                                setMadrugadaFooter('');
+                                                setIsEditingFooter(false);
+                                                notify('Observação removida!', 'success');
+                                            }
+                                        }}>Excluir</Button>
+                                    )}
                                     <Button size="xs" onClick={() => {
                                         const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
                                         db.ref(path).set(madrugadaFooter);
@@ -1024,20 +1035,47 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                         ) : (
                             <div className="mt-4">
                                 {madrugadaFooter && (
-                                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-200 font-bold text-sm relative overflow-hidden anim-fade mb-3">
+                                    <div className="group p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-200 font-bold text-sm relative overflow-hidden anim-fade mb-3">
                                         <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
-                                        <div className="flex items-start gap-3">
-                                            <Icons.Message size={18} className="text-indigo-400 mt-0.5 flex-shrink-0" />
-                                            <p className="leading-relaxed whitespace-pre-wrap">{madrugadaFooter}</p>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3">
+                                                <Icons.Message size={18} className="text-indigo-400 mt-0.5 flex-shrink-0" />
+                                                <p className="leading-relaxed whitespace-pre-wrap">{madrugadaFooter}</p>
+                                            </div>
+                                            <div className="flex gap-1 hide-on-print opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => setIsEditingFooter(true)}
+                                                    className="p-1.5 hover:bg-white/10 rounded text-white/50 hover:text-white transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Icons.Edit size={14} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        if (window.confirm('Deseja realmente excluir esta observação?')) {
+                                                            const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
+                                                            db.ref(path).remove();
+                                                            setMadrugadaFooter('');
+                                                            notify('Observação removida!', 'success');
+                                                        }
+                                                    }}
+                                                    className="p-1.5 hover:bg-red-500/20 rounded text-red-400/50 hover:text-red-400 transition-colors"
+                                                    title="Excluir"
+                                                >
+                                                    <Icons.Trash size={14} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                                <button 
-                                    onClick={() => setIsEditingFooter(true)}
-                                    className="flex items-center gap-2 text-[11px] font-bold opacity-40 hover:opacity-100 hover:bg-white/5 px-3 py-2 rounded-lg transition-all hide-on-print uppercase tracking-widest"
-                                >
-                                    <Icons.Edit size={14} /> {madrugadaFooter ? 'Alterar Observação' : 'Adicionar Observação'}
-                                </button>
+                                {!madrugadaFooter && (
+                                    <button 
+                                        onClick={() => setIsEditingFooter(true)}
+                                        className="flex items-center gap-2 text-[11px] font-bold opacity-40 hover:opacity-100 hover:bg-white/5 px-3 py-2 rounded-lg transition-all hide-on-print uppercase tracking-widest"
+                                    >
+                                        <Icons.Plus size={14} /> Adicionar Observação
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
