@@ -97,7 +97,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
         }).filter(Boolean);
 
         // 5. Total Geral (O que entrou no caixa: Viagens Pagas + Pranchetas Pagas)
-        // O usuário quer que o "totalizando" mostre apenas o que foi RECEBIDO.
+        // O usuário quer que o "Recebido Total" mostre apenas o que foi RECEBIDO.
         // grandTotal já é a soma de dailyTrips (viagens marcadas como pagas HOJE).
         const totalArrecadado = grandTotal + pranchetaTotal;
 
@@ -109,15 +109,13 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
             debtsByDate[d] = (debtsByDate[d] || 0) + calcTripValue(t);
         });
 
-        // Valor recebido APENAS das viagens que ocorreram HOJE (excluindo extras e débitos passados)
-        const receivedFromTodayTripsValue = dailyTrips
-            .filter((t: any) => t.date === today && !t.isExtra)
-            .reduce((acc: number, t: any) => acc + calcTripValue(t), 0);
+        // Valor calculado de passageiros (conforme pedido: totalPassengers * pricePerPassenger)
+        const totalRevenueCalculated = totalPassengers * (pricePerPassenger || 4);
 
         let report = `👤 *Atendente:* ${user.username}\n`;
         report += `📅 *Caixa do dia:* ${todayFormatted}\n\n`;
         
-        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(receivedFromTodayTripsValue)}* reais\n\n`;
+        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(totalRevenueCalculated)}* reais\n\n`;
         
         if (extraValue > 0) {
             report += `🚚 *+ R$ ${formatCurrency(extraValue)}* De carro extra/frete.\n\n`;
@@ -137,7 +135,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
             report += `⚠️ *Os seguintes débitos não foram recebidos:* R$ ${formatCurrency(pendingTotal)}\n📍 *Das seguintes vagas:* ${pendingVagas.join(', ')}\n\n`;
         }
 
-        report += `💰 *Totalizando:* R$ ${formatCurrency(totalArrecadado)}\n`;
+        report += `💰 *Recebido Total:* R$ ${formatCurrency(totalArrecadado)}\n`;
         report += `💸 *Debito:* ${pendingTotal > 0 ? 'R$ ' + formatCurrency(pendingTotal) : '*sem debito*'}\n\n`;
         
         report += `🎁 *Caixinha:* R$ ${formatCurrency(caixinha)}`;
