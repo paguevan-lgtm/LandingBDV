@@ -3874,6 +3874,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 addMadrugadaVaga={addMadrugadaVaga} madrugadaList={madrugadaList} removeMadrugadaVaga={removeMadrugadaVaga} toggleMadrugadaRiscado={toggleMadrugadaRiscado} spList={spList} madrugadaData={madrugadaData} openMadrugadaTrip={openMadrugadaTrip} 
                                 cannedMessages={cannedMessages} addCannedMessage={addCannedMessage} updateCannedMessage={updateCannedMessage} deleteCannedMessage={deleteCannedMessage} 
                                 addNullLousaItem={addNullLousaItem} addNullMadrugadaItem={addNullMadrugadaItem} notify={notify} 
+                                requestConfirm={requestConfirm}
                                 getRotatedList={getRotatedList} 
                                 getRotatedMadrugadaList={getRotatedMadrugadaList} // Nova prop
                                 setSpList={setSpList}

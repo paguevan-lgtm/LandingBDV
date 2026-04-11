@@ -65,7 +65,7 @@ const SortableRow = ({ id, children, disabled, hideGrip }: any) => {
 };
 
 // Tabela Component
-export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
+export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, requestConfirm, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -1011,25 +1011,25 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                     placeholder="Ex: Clailton carro extra subindo com 1 as 5:00..."
                                     autoFocus
                                 />
-                                <div className="flex justify-end gap-2">
-                                    <Button size="xs" variant="secondary" onClick={() => setIsEditingFooter(false)}>Cancelar</Button>
+                                <div className="flex flex-wrap justify-center sm:justify-end gap-2">
+                                    <Button size="xs" variant="secondary" onClick={() => setIsEditingFooter(false)} className="flex-1 sm:flex-none">Cancelar</Button>
                                     {madrugadaFooter && (
                                         <Button size="xs" variant="danger" onClick={() => {
-                                            if (window.confirm('Deseja realmente excluir esta observação?')) {
+                                            requestConfirm('Excluir Observação?', 'Deseja realmente remover esta observação permanentemente?', () => {
                                                 const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
                                                 db.ref(path).remove();
                                                 setMadrugadaFooter('');
                                                 setIsEditingFooter(false);
                                                 notify('Observação removida!', 'success');
-                                            }
-                                        }}>Excluir</Button>
+                                            });
+                                        }} className="flex-1 sm:flex-none">Excluir</Button>
                                     )}
                                     <Button size="xs" onClick={() => {
                                         const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
                                         db.ref(path).set(madrugadaFooter);
                                         setIsEditingFooter(false);
                                         notify('Observação salva com sucesso!', 'success');
-                                    }}>Salvar Observação</Button>
+                                    }} className="flex-1 sm:flex-none">Salvar Observação</Button>
                                 </div>
                             </div>
                         ) : (
@@ -1052,12 +1052,12 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                 </button>
                                                 <button 
                                                     onClick={() => {
-                                                        if (window.confirm('Deseja realmente excluir esta observação?')) {
+                                                        requestConfirm('Excluir Observação?', 'Deseja realmente remover esta observação permanentemente?', () => {
                                                             const path = systemContext === 'Pg' ? `daily_tables/${madrugadaDisplayDate}/madrugadaFooter` : `${systemContext}/daily_tables/${madrugadaDisplayDate}/madrugadaFooter`;
                                                             db.ref(path).remove();
                                                             setMadrugadaFooter('');
                                                             notify('Observação removida!', 'success');
-                                                        }
+                                                        });
                                                     }}
                                                     className="p-1.5 hover:bg-red-500/20 rounded text-red-400/50 hover:text-red-400 transition-colors"
                                                     title="Excluir"
