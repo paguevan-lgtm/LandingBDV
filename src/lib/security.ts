@@ -14,6 +14,25 @@ export const cyrb53 = (str: string, seed = 0) => {
     return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 };
 
+// Cookie helpers for better persistence
+const setCookie = (name: string, value: string, days = 365) => {
+    const date = new Date();
+    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+    const expires = "; expires=" + date.toUTCString();
+    document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Strict";
+};
+
+const getCookie = (name: string) => {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+};
+
 export const getHardwareInfo = () => {
     try {
         const canvas = document.createElement('canvas');
@@ -64,9 +83,12 @@ export const getHardwareFingerprint = () => {
             window.screen.width,
             window.screen.height,
             window.screen.colorDepth,
+            window.devicePixelRatio || 1,
             navigator.hardwareConcurrency || 'unknown',
-            Intl.DateTimeFormat().resolvedOptions().timeZone,
-            navigator.languages ? navigator.languages.join(',') : 'unknown',
+            navigator.platform || 'unknown',
+            navigator.maxTouchPoints || 0,
+            navigator.vendor || 'unknown',
+            // We exclude Timezone and Languages as they change with VPNs/IPs
             getHardwareInfo(),
             getCanvasFingerprint()
         ];
@@ -78,9 +100,15 @@ export const getHardwareFingerprint = () => {
 
 export const getDeviceFingerprint = async () => {
     try {
-        // Poison pill check
-        if (localStorage.getItem('sys_dev_blocked') === 'true') {
-            return 'BANNED_DEVICE_' + (localStorage.getItem('sys_dev_id') || 'UNKNOWN');
+        // 1. Try to recover existing ID from multiple storages
+        let savedId = localStorage.getItem('sys_dev_id') || getCookie('sys_dev_id');
+        
+        // 2. Poison pill check (survives localStorage clear if cookie remains)
+        if (localStorage.getItem('sys_dev_blocked') === 'true' || getCookie('sys_dev_blocked') === 'true') {
+            // Re-sync both storages
+            localStorage.setItem('sys_dev_blocked', 'true');
+            setCookie('sys_dev_blocked', 'true');
+            return 'BANNED_DEVICE_' + (savedId || 'UNKNOWN');
         }
 
         const fp = await fpPromise.load();
@@ -88,17 +116,45 @@ export const getDeviceFingerprint = async () => {
         const fpId = result.visitorId;
         const hwId = getHardwareFingerprint();
         
-        const compositeId = `v2_${fpId}_${hwId}`;
-        localStorage.setItem('sys_dev_id', compositeId);
+        // Use v3 to distinguish from previous potentially unstable versions
+        const currentCompositeId = `v3_${fpId}_${hwId}`;
         
-        return compositeId;
+        // 3. Stability Logic: If we have a saved ID, try to stick to it
+        if (savedId && savedId.startsWith('v3_')) {
+            const parts = savedId.split('_');
+            if (parts.length === 3) {
+                const [, savedFp, savedHw] = parts;
+                
+                // If either the FingerprintJS ID OR the Hardware ID matches, 
+                // we consider it the same device to prevent ban evasion via IP/Browser minor changes
+                if (savedFp === fpId || savedHw === hwId) {
+                    // Update storages to ensure both have the same ID
+                    localStorage.setItem('sys_dev_id', savedId);
+                    setCookie('sys_dev_id', savedId);
+                    return savedId;
+                }
+            }
+        }
+
+        // New device or both parts changed significantly
+        localStorage.setItem('sys_dev_id', currentCompositeId);
+        setCookie('sys_dev_id', currentCompositeId);
+        
+        return currentCompositeId;
     } catch (e) {
         console.error("Fingerprint error:", e);
-        return 'fallback_v2_' + getHardwareFingerprint();
+        const fallbackId = 'fallback_v3_' + getHardwareFingerprint();
+        localStorage.setItem('sys_dev_id', fallbackId);
+        setCookie('sys_dev_id', fallbackId);
+        return fallbackId;
     }
 };
 
 export const setPoisonPill = (deviceId?: string) => {
     localStorage.setItem('sys_dev_blocked', 'true');
-    if (deviceId) localStorage.setItem('sys_dev_id', deviceId);
+    setCookie('sys_dev_blocked', 'true');
+    if (deviceId) {
+        localStorage.setItem('sys_dev_id', deviceId);
+        setCookie('sys_dev_id', deviceId);
+    }
 };

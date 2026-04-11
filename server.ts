@@ -515,15 +515,24 @@ async function startServer() {
                         return { key, id: p.id, data: p };
                     }
 
-                    // Fuzzy match for composite fingerprints (v2_FPID_HWID)
-                    if (fingerprint.startsWith('v2_') && p.fingerprint.startsWith('v2_')) {
-                        const [, fp1, hw1] = fingerprint.split('_');
-                        const [, fp2, hw2] = p.fingerprint.split('_');
+                    // Fuzzy match for composite fingerprints (v2_FPID_HWID or v3_FPID_HWID)
+                    const isV2orV3 = (f: string) => f.startsWith('v2_') || f.startsWith('v3_');
+                    if (isV2orV3(fingerprint) && isV2orV3(p.fingerprint)) {
+                        const parts1 = fingerprint.split('_');
+                        const parts2 = p.fingerprint.split('_');
                         
-                        // If Hardware ID matches, it's likely the same device even if browser changed
-                        if (hw1 === hw2 && hw1 !== 'canvas_err' && hw1 !== 'no_canvas') {
-                            console.log(`[SECURITY] Fuzzy fingerprint match (HWID: ${hw1}) for passenger ${p.id}`);
-                            return { key, id: p.id, data: p };
+                        if (parts1.length === 3 && parts2.length === 3) {
+                            const [, fp1, hw1] = parts1;
+                            const [, fp2, hw2] = parts2;
+                            
+                            // If Hardware ID matches OR FingerprintJS ID matches, it's likely the same device
+                            const hwMatch = hw1 === hw2 && hw1 !== 'canvas_err' && hw1 !== 'no_canvas' && !hw1.startsWith('hw_fallback');
+                            const fpMatch = fp1 === fp2;
+
+                            if (hwMatch || fpMatch) {
+                                console.log(`[SECURITY] Fuzzy fingerprint match (${hwMatch ? 'HWID' : 'FPID'}) for passenger ${p.id}`);
+                                return { key, id: p.id, data: p };
+                            }
                         }
                     }
                 }
