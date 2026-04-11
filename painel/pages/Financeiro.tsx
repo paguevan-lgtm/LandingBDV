@@ -6,6 +6,8 @@ import { formatDisplayDate, getTodayDate } from '../utils';
 export default function Financeiro({ data, theme, billingData, billingDate, prevBillingMonth, nextBillingMonth, togglePaymentStatus, sendBillingMessage, del, setFormData, setModal, openEditTrip, user, notify, systemContext, spList, pranchetaData, togglePranchetaPayment, weekId, pranchetaWeekOffset, setPranchetaWeekOffset, pranchetaValue, setPranchetaValue, sendPranchetaBillingMessage, pricePerPassenger }: any) {
     
     const [financeiroTab, setFinanceiroTab] = React.useState('geral');
+    const [caixinhaModal, setCaixinhaModal] = React.useState(false);
+    const [caixinhaValue, setCaixinhaValue] = React.useState('');
 
     // Verifica permissão para ver o total recebido
     const canSeeRevenue = user && (user.role === 'admin' || user.username === 'Breno');
@@ -58,8 +60,104 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
     const myTotal = operatorTotals[user.username] || 0;
     // -----------------------------
 
+    const generateDailyReport = () => {
+        const caixinha = parseFloat(caixinhaValue) || 0;
+        const todayFormatted = new Date().toLocaleDateString('pt-BR');
+        
+        // 1. Passageiros que viajaram no dia (Trips finalizadas/pagas hoje)
+        const totalPassengers = dailyTrips.reduce((acc: number, t: any) => {
+            let pCount = 0;
+            if (t.pCountSnapshot !== undefined) pCount = parseInt(t.pCountSnapshot || 0);
+            else if (t.passengersSnapshot) pCount = t.passengersSnapshot.reduce((a:number, p:any) => a + parseInt(p.passengerCount || 1), 0);
+            else pCount = parseInt(t.pCount || 0);
+            return acc + pCount;
+        }, 0);
+
+        // 2. Valor arrecadado com carro extra/frete
+        const extraValue = dailyTrips.filter((t: any) => t.isExtra).reduce((acc: number, t: any) => acc + calcTripValue(t), 0);
+
+        // 3. Pranchetas recebidas
+        const paidPranchetas = Object.entries(pranchetaData)
+            .filter(([_, data]: [string, any]) => data.paid && data.receivedAt === today)
+            .map(([vaga, _]) => vaga);
+        
+        const pranchetaTotal = paidPranchetas.length * (parseFloat(pranchetaValue) || 20);
+
+        // 4. Débitos não recebidos (Pendentes do dia operacional)
+        const pendingTrips = (data.trips || []).filter((t: any) => t.paymentStatus !== 'Pago' && t.date === today);
+        const pendingTotal = pendingTrips.reduce((acc: number, t: any) => acc + calcTripValue(t), 0);
+        const pendingVagas = pendingTrips.map((t: any) => {
+            if (t.isMadrugada) return `Madrugada (${t.vaga})`;
+            const sp = spList.find((s: any) => s.name === t.driverName);
+            return sp ? sp.vaga : t.driverName;
+        }).filter(Boolean);
+
+        // 5. Total Geral (O que entrou no caixa: Viagens Pagas + Pranchetas Pagas)
+        const totalArrecadado = grandTotal + pranchetaTotal;
+
+        let report = `Atendente: ${user.username}\n`;
+        report += `Caixa do dia: ${todayFormatted}\n\n`;
+        
+        report += `Tivemos ${totalPassengers} passageiros totalizando R$ ${formatCurrency(grandTotal)} reais\n\n`;
+        
+        if (extraValue > 0) {
+            report += `+ R$ ${formatCurrency(extraValue)} De carro extra/frete.\n\n`;
+        }
+
+        if (paidPranchetas.length > 0) {
+            report += `Recebi ${paidPranchetas.length} prancheta(s) das vagas: ${paidPranchetas.join(', ')}\n\n`;
+        }
+
+        if (pendingTotal > 0) {
+            report += `Os seguintes débitos não foram recebidos: R$ ${formatCurrency(pendingTotal)} Das seguintes vagas: ${pendingVagas.join(', ')}\n\n`;
+        }
+
+        report += `Totalizando: R$ ${formatCurrency(totalArrecadado)}\n`;
+        report += `Debito: ${pendingTotal > 0 ? 'R$ ' + formatCurrency(pendingTotal) : '*sem debito*'}\n\n`;
+        
+        report += `Caixinha: R$ ${formatCurrency(caixinha)}`;
+
+        // Copiar para o clipboard
+        navigator.clipboard.writeText(report).then(() => {
+            notify("Relatório copiado para a área de transferência!", "success");
+            setCaixinhaModal(false);
+            setCaixinhaValue('');
+        }).catch(err => {
+            console.error('Erro ao copiar relatório:', err);
+            notify("Erro ao copiar relatório. Tente novamente.", "error");
+        });
+    };
+
     return (
         <div className="space-y-6">
+            {/* Modal de Caixinha */}
+            {caixinhaModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className={`${theme.card} w-full max-w-sm p-6 rounded-2xl border ${theme.border} shadow-2xl anim-bounce-in`}>
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                            <Icons.Dollar className="text-yellow-400"/> Relatório do Dia
+                        </h3>
+                        <div className="space-y-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-bold opacity-70">Recebeu caixinha? Quanto:</label>
+                                <input 
+                                    type="number" 
+                                    className="bg-black/20 border border-white/10 text-white rounded-xl px-4 py-3 h-12 outline-none focus:border-yellow-500/50 transition-colors"
+                                    placeholder="0,00"
+                                    value={caixinhaValue}
+                                    onChange={(e) => setCaixinhaValue(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <Button theme={theme} variant="secondary" className="flex-1" onClick={() => setCaixinhaModal(false)}>Cancelar</Button>
+                                <Button theme={theme} className="flex-1" onClick={generateDailyReport}>Gerar</Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Cabeçalho com Navegação de Mês */}
             <div className="flex items-center justify-between pb-2 border-b border-white/10 stagger-in d-1">
                 <h3 className="text-lg font-bold opacity-80 flex items-center gap-2"><Icons.Dollar size={20}/> Financeiro</h3>
@@ -106,8 +204,16 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                 {canSeeRevenue ? dailyTrips.length : dailyTrips.filter((t:any) => t.receivedBy === user.username).length} pagamentos hoje
                             </div>
                         </div>
-                        <div className="p-3 bg-blue-500/20 rounded-full text-blue-400">
-                            <Icons.Dollar size={24} />
+                        <div className="flex flex-col items-end gap-2">
+                            <div className="p-3 bg-blue-500/20 rounded-full text-blue-400">
+                                <Icons.Dollar size={24} />
+                            </div>
+                            <button 
+                                onClick={() => setCaixinhaModal(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-white/5"
+                            >
+                                <Icons.Clipboard size={14}/> Relatório
+                            </button>
                         </div>
                     </div>
                     
