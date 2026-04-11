@@ -97,13 +97,27 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
         }).filter(Boolean);
 
         // 5. Total Geral (O que entrou no caixa: Viagens Pagas + Pranchetas Pagas)
-        const totalRevenueCalculated = totalPassengers * (pricePerPassenger || 4);
-        const totalArrecadado = totalRevenueCalculated + extraValue + pranchetaTotal;
+        // O usuário quer que o "totalizando" mostre apenas o que foi RECEBIDO.
+        // grandTotal já é a soma de dailyTrips (viagens marcadas como pagas HOJE).
+        const totalArrecadado = grandTotal + pranchetaTotal;
+
+        // Débitos de dias anteriores recebidos hoje
+        const pastDebtsPaidToday = dailyTrips.filter((t: any) => t.date !== today);
+        const debtsByDate: Record<string, number> = {};
+        pastDebtsPaidToday.forEach((t: any) => {
+            const d = formatDisplayDate(t.date);
+            debtsByDate[d] = (debtsByDate[d] || 0) + calcTripValue(t);
+        });
+
+        // Valor recebido APENAS das viagens que ocorreram HOJE (excluindo extras e débitos passados)
+        const receivedFromTodayTripsValue = dailyTrips
+            .filter((t: any) => t.date === today && !t.isExtra)
+            .reduce((acc: number, t: any) => acc + calcTripValue(t), 0);
 
         let report = `👤 *Atendente:* ${user.username}\n`;
         report += `📅 *Caixa do dia:* ${todayFormatted}\n\n`;
         
-        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(totalRevenueCalculated)}* reais\n\n`;
+        report += `🚐 *Tivemos ${totalPassengers} passageiros* totalizando *R$ ${formatCurrency(receivedFromTodayTripsValue)}* reais\n\n`;
         
         if (extraValue > 0) {
             report += `🚚 *+ R$ ${formatCurrency(extraValue)}* De carro extra/frete.\n\n`;
@@ -111,6 +125,12 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
 
         if (paidPranchetas.length > 0) {
             report += `📋 *Recebi ${paidPranchetas.length} prancheta(s)* das vagas: ${paidPranchetas.join(', ')}\n\n`;
+        }
+
+        if (Object.keys(debtsByDate).length > 0) {
+            Object.entries(debtsByDate).forEach(([date, val]) => {
+                report += `✅ *Recebi o débito do dia ${date} no valor de R$ ${formatCurrency(val)}.*\n\n`;
+            });
         }
 
         if (pendingTotal > 0) {
