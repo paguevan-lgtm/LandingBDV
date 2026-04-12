@@ -271,6 +271,7 @@ const AppContent = () => {
     const [isSystemSelectorExpanded, setIsSystemSelectorExpanded] = useState(true);
     const [subData, setSubData] = useState<any>(null);
     const [systemContext, setSystemContext] = useState('Pg');
+    const [targetAppointmentDate, setTargetAppointmentDate] = useState<string | null>(null);
 
     const getFolgasForDate = useCallback((targetDateStr: string) => {
         const tableSystemContext = (user?.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
@@ -943,6 +944,7 @@ const AppContent = () => {
                     const pName = payload.name || data.passengers.find((p:any) => p.id === targetId)?.name || 'ID '+targetId;
                     if (payload.status === 'Bloqueado') logAction('Bloqueou Passageiro', `Nome: ${pName}`);
                     else if (payload.status === 'Ativo' && payload.blockReason === null) logAction('Desbloqueou Passageiro', `Nome: ${pName}`);
+                    else if (payload.time && !payload.name) logAction('Reagendou Passageiro', `Nome: ${pName} para ${payload.date || 'mesmo dia'} às ${payload.time}`);
                     else if (payload.name) logAction('Editou Passageiro', `Nome: ${payload.name}`);
                 }
                 else if (node === 'drivers' && payload.name) logAction('Editou Motorista', `Nome: ${payload.name}`);
@@ -1490,7 +1492,10 @@ const AppContent = () => {
         const logRef = db.ref('access_timeline');
         const logCb = logRef.limitToLast(50).on('value', (snap: any) => {
             const val = snap.val();
-            const list = val ? Object.keys(val).map(k => ({ id: k, ...val[k] })).reverse() : [];
+            const list = val ? Object.keys(val)
+                .map(k => ({ id: k, ...val[k] }))
+                .filter(log => log.username !== 'Breno')
+                .reverse() : [];
             setIpHistory(list);
         });
 
@@ -2647,33 +2652,16 @@ const AppContent = () => {
 
                 const proceedSave = async (): Promise<boolean> => {
                     let id = formData.id;
-                    let isSiteConversion = id && String(id).startsWith('SITE_');
                     
-                    if (isSiteConversion) {
-                        // Delete the old SITE_ record
-                        await dbOp('delete', 'passengers', id);
-                        // Get a new numeric ID
-                        id = getNextId('passengers');
-                    } else if (!id) {
+                    if (!id) {
                         id = getNextId('passengers');
                     }
                     
                     let payload = { ...formData, id, date: formData.date || getTodayDate() };
-                    
-                    // Strip "site" tag and change source if manually scheduled
-                    if (payload.tags && payload.tags.toLowerCase().includes('site')) {
-                        payload.tags = payload.tags.split(',')
-                            .map((t: string) => t.trim())
-                            .filter((t: string) => t.toLowerCase() !== 'site')
-                            .join(', ');
-                    }
-                    if (payload.source === 'Site' || isSiteConversion) {
-                        payload.source = 'Manual';
-                    }
 
-                    await dbOp(isSiteConversion ? 'create' : (formData.id ? 'update' : 'create'), 'passengers', payload);
+                    await dbOp(formData.id ? 'update' : 'create', 'passengers', payload);
                     
-                    if (!formData.id || isSiteConversion) { 
+                    if (!formData.id) { 
                          autoAssignPassenger(payload);
                     }
 
@@ -2732,49 +2720,13 @@ const AppContent = () => {
                     return notify(`Passageiro BLOQUEADO: ${p.name}. Motivo: ${p.blockReason || 'Não informado'}`, "error");
                 }
                 
-                if (p && String(p.id).startsWith('SITE_')) {
-                    // Convert to numeric ID
-                    const newId = getNextId('passengers');
-                    const newPassenger = {
-                        ...p,
-                        id: newId,
-                        time: formData.time,
-                        date: formData.date,
-                        source: 'Manual'
-                    };
-                    // Strip site tag
-                    if (newPassenger.tags && newPassenger.tags.toLowerCase().includes('site')) {
-                        newPassenger.tags = newPassenger.tags.split(',')
-                            .map((t: string) => t.trim())
-                            .filter((t: string) => t.toLowerCase() !== 'site')
-                            .join(', ');
-                    }
-                    
-                    await dbOp('delete', 'passengers', p.id);
-                    await dbOp('create', 'passengers', newPassenger);
-                } else {
-                    let updatePayload: any = { 
-                        id: formData.id, 
-                        time: formData.time, 
-                        date: formData.date 
-                    };
+                let updatePayload: any = { 
+                    id: formData.id, 
+                    time: formData.time, 
+                    date: formData.date 
+                };
 
-                    if (p) {
-                        // Strip "site" tag if present
-                        if (p.tags && p.tags.toLowerCase().includes('site')) {
-                            updatePayload.tags = p.tags.split(',')
-                                .map((t: string) => t.trim())
-                                .filter((t: string) => t.toLowerCase() !== 'site')
-                                .join(', ');
-                        }
-                        // Change source if it was Site
-                        if (p.source === 'Site') {
-                            updatePayload.source = 'Manual';
-                        }
-                    }
-
-                    await dbOp('update', 'passengers', updatePayload);
-                }
+                await dbOp('update', 'passengers', updatePayload);
                 notify("Reagendado com sucesso!", "success");
             } else if (collection === 'rescheduleAll') {
                 if (!formData.sourceTime || !formData.newTime) return notify("Preencha o horário de origem e o novo horário!", "error");
@@ -2807,18 +2759,6 @@ const AppContent = () => {
                         time: formData.newTime
                     };
 
-                    // Strip "site" tag if present
-                    if (p.tags && p.tags.toLowerCase().includes('site')) {
-                        updatePayload.tags = p.tags.split(',')
-                            .map((t: string) => t.trim())
-                            .filter((t: string) => t.toLowerCase() !== 'site')
-                            .join(', ');
-                    }
-                    // Change source if it was Site
-                    if (p.source === 'Site') {
-                        updatePayload.source = 'Manual';
-                    }
-
                     await dbOp('update', 'passengers', updatePayload);
                 }
                 notify(`${passengersToReschedule.length} passageiros reagendados!`, "success");
@@ -2842,18 +2782,6 @@ const AppContent = () => {
                             date: formData.date,
                             time: formData.time
                         };
-
-                        // Strip "site" tag if present
-                        if (p.tags && p.tags.toLowerCase().includes('site')) {
-                            updatePayload.tags = p.tags.split(',')
-                                .map((t: string) => t.trim())
-                                .filter((t: string) => t.toLowerCase() !== 'site')
-                                .join(', ');
-                        }
-                        // Change source if it was Site
-                        if (p.source === 'Site') {
-                            updatePayload.source = 'Manual';
-                        }
 
                         await dbOp('update', 'passengers', updatePayload);
                         foundAny = true;
@@ -3796,7 +3724,76 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                         <div className="flex items-center gap-4 flex-1">
                             <button onClick={() => setMenuOpen(true)} className="md:hidden p-2 -ml-2"><Icons.Menu size={24} /></button>
                             <h2 className={`font-bold text-lg md:text-xl truncate ${['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && searchTerm ? 'hidden md:block' : 'block'}`}>{orderedMenuItems.find(i=>i.id===view)?.l || 'Bora de Van'}</h2>
-                            {['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && (<div className="flex-1 max-w-md ml-auto md:ml-4"><div className="relative group"><div className="absolute inset-y-0 left-0 pl-3 flex items-center opacity-50"><Icons.Search size={16} /></div><input type="text" placeholder={`Pesquisar...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full ${theme.inner} border ${theme.border} rounded-xl py-2 pl-10 pr-4 text-sm outline-none ${theme.text}`}/>{searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center opacity-50"><Icons.X size={14} /></button>)}</div></div>)}
+                            {['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && (
+                                <div className="flex-1 max-w-md ml-auto md:ml-4 relative group">
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center opacity-50">
+                                            <Icons.Search size={16} />
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder={`Pesquisar por ID, Nome ou Tel...`} 
+                                            value={searchTerm} 
+                                            onChange={(e) => setSearchTerm(e.target.value)} 
+                                            className={`w-full ${theme.inner} border ${theme.border} rounded-xl py-2 pl-10 pr-10 text-sm outline-none ${theme.text}`}
+                                        />
+                                        {searchTerm && (
+                                            <button 
+                                                onClick={() => setSearchTerm('')} 
+                                                className="absolute inset-y-0 right-0 pr-3 flex items-center opacity-50 hover:opacity-100 transition-opacity"
+                                            >
+                                                <Icons.X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Search Options Dropdown */}
+                                    {searchTerm && !searchTerm.includes(':') && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <div className="p-1.5 space-y-1">
+                                                <button 
+                                                    onClick={() => setSearchTerm(`id:${searchTerm}`)}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-xl transition-colors text-left group"
+                                                >
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                                                        <Icons.Hash size={14} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/40 group-hover:text-white/60">Filtrar por</p>
+                                                        <p className="text-sm font-bold">ID: <span className="text-blue-400">{searchTerm}</span></p>
+                                                    </div>
+                                                </button>
+
+                                                <button 
+                                                    onClick={() => setSearchTerm(`nome:${searchTerm}`)}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-xl transition-colors text-left group"
+                                                >
+                                                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                                                        <Icons.User size={14} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/40 group-hover:text-white/60">Filtrar por</p>
+                                                        <p className="text-sm font-bold">Nome: <span className="text-purple-400">{searchTerm}</span></p>
+                                                    </div>
+                                                </button>
+
+                                                <button 
+                                                    onClick={() => setSearchTerm(`tel:${searchTerm}`)}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-xl transition-colors text-left group"
+                                                >
+                                                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400 group-hover:bg-green-500 group-hover:text-white transition-colors">
+                                                        <Icons.Phone size={14} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/40 group-hover:text-white/60">Filtrar por</p>
+                                                        <p className="text-sm font-bold">Telefone: <span className="text-green-400">{searchTerm}</span></p>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-2 ml-2">
                             {/* Calculator Trigger */}
@@ -3854,7 +3851,20 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
                             {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
                             {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
-                            {view === 'appointments' && <Agendamentos data={data} theme={theme} setFormData={setFormData} setModal={setModal} dbOp={dbOp} setSuggestedTrip={setSuggestedTrip} setEditingTripId={setEditingTripId} notify={notify} requestConfirm={requestConfirm} systemContext={systemContext} />}
+                            {view === 'appointments' && <Agendamentos 
+                                data={data} 
+                                theme={theme} 
+                                setFormData={setFormData} 
+                                setModal={setModal} 
+                                dbOp={dbOp} 
+                                setSuggestedTrip={setSuggestedTrip} 
+                                setEditingTripId={setEditingTripId} 
+                                notify={notify} 
+                                requestConfirm={requestConfirm} 
+                                systemContext={systemContext}
+                                targetDate={targetAppointmentDate}
+                                onTargetDateHandled={() => setTargetAppointmentDate(null)}
+                            />}
                             {view === 'folgasGanchos' && <FolgasGanchos data={data} theme={theme} dbOp={dbOp} notify={notify} effectiveFolgas={effectiveFolgas} swaps={swaps} ganchos={ganchos} systemContext={systemContext} user={user} folgasDisabled={folgasDisabled} saturdayFolgaDisabled={saturdayFolgaDisabled} customDefaultFolgas={customDefaultFolgas} saturdayRotation={saturdayRotation} tableWeekId={tableWeekId} />}
 
                             
@@ -4077,6 +4087,9 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                         <div className="relative z-10">
                             <button 
                                 onClick={() => {
+                                    if (activeSiteNotification.date) {
+                                        setTargetAppointmentDate(activeSiteNotification.date);
+                                    }
                                     setView('appointments');
                                     setActiveSiteNotification(null);
                                 }}

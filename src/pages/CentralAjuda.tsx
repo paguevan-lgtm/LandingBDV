@@ -164,13 +164,13 @@ export default function CentralAjuda() {
 
           <div className="flex justify-center">
             <a 
-              href="https://wa.me/5511956733789"
+              href="https://wa.me/551334711830"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-3 bg-[#25D366] hover:bg-[#20ba5a] text-white py-4 px-8 rounded-xl font-bold text-base shadow-lg shadow-green-500/10 transition-all hover:scale-[1.02] active:scale-95 min-h-[64px] w-full md:w-auto md:min-w-[280px]"
             >
               <MessageCircle size={20} className="flex-shrink-0" />
-              <span className="text-center">WhatsApp Jabaquara</span>
+              <span className="text-center">Suporte WhatsApp</span>
             </a>
           </div>
 

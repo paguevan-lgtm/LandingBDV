@@ -51,7 +51,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
 
     // Filtra para não mostrar o Breno e filtra pelo sistema atual (se não for o Breno logado)
     const userList = (data.users || []).filter((u:any) => 
-        (u.username !== 'Breno' || currentUser.username === 'Breno') && 
+        u.username !== 'Breno' && 
         (currentUser.username === 'Breno' || (u.systems && u.systems.includes(systemContext)) || u.system === systemContext)
     );
 

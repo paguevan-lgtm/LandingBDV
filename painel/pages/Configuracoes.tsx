@@ -109,9 +109,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
         const handleValue = (snap: any) => {
             const val = snap.val();
             let list = val ? Object.values(val).sort((a:any, b:any) => b.timestamp - a.timestamp) : [];
-            if (user.username !== 'Breno') {
-                list = list.filter((l: any) => l.username !== 'Breno');
-            }
+            list = list.filter((l: any) => l.username !== 'Breno');
             setAuditLogs(list);
             setLoadingLogs(false);
         };
@@ -1698,16 +1696,16 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             {/* Header / Login Card */}
                                             <div 
                                                 onClick={() => hasActions && setExpandedSessions(prev => isExpanded ? prev.filter(id => id !== group.id) : [...prev, group.id])}
-                                                className={`p-5 flex items-center gap-5 cursor-pointer hover:bg-white/5 transition-all ${!hasActions ? 'cursor-default' : ''}`}
+                                                className={`p-5 flex items-start sm:items-center gap-5 cursor-pointer hover:bg-white/5 transition-all ${!hasActions ? 'cursor-default' : ''}`}
                                             >
-                                                <div className={`w-14 h-14 rounded-2xl ${theme.accent} bg-opacity-10 border border-current border-opacity-20 flex flex-col items-center justify-center shadow-inner`}>
+                                                <div className={`w-14 h-14 rounded-2xl ${theme.accent} bg-opacity-10 border border-current border-opacity-20 flex flex-col items-center justify-center shadow-inner shrink-0`}>
                                                     <span className="text-xs font-black tracking-tighter">{formatTime(mainLog.timestamp)}</span>
                                                     <Icons.Clock size={12} className="opacity-40 mt-0.5" />
                                                 </div>
                                                 
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                                        <span className={`font-black text-base tracking-tight ${theme.accent}`}>{mainLog.username}</span>
+                                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                        <span className={`font-black text-lg tracking-tight ${theme.accent}`}>{mainLog.username}</span>
                                                         {isSuperAdmin && deviceLabels?.[mainLog.deviceId] && (
                                                             <span className="text-[9px] font-black text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-lg uppercase tracking-widest border border-blue-500/20">
                                                                 {deviceLabels[mainLog.deviceId]}
@@ -1722,19 +1720,22 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                                        <p className={`text-sm ${theme.text} opacity-60 font-medium truncate max-w-md`}>
+                                                    
+                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                                        <p className={`text-sm ${theme.text} opacity-70 font-medium truncate max-w-md`}>
                                                             {group.login ? group.login.details : `Atividade registrada às ${formatTime(mainLog.timestamp)}`}
                                                         </p>
-                                                        <div className="flex items-center gap-3">
+                                                        
+                                                        <div className="flex items-center gap-2">
                                                             {mainLog.location?.coords?.lat != null && (
-                                                                <span className="flex items-center gap-1 text-[10px] opacity-30 font-mono bg-black/20 px-1.5 py-0.5 rounded">
+                                                                <span className="flex items-center gap-1 text-[10px] opacity-40 font-mono bg-black/20 px-2 py-1 rounded-md border border-white/5">
                                                                     <Icons.MapPin size={10} />
                                                                     {Number(mainLog.location.coords.lat).toFixed(4)}, {Number(mainLog.location.coords.lng).toFixed(4)}
                                                                 </span>
                                                             )}
                                                             {group.login?.ip && (
-                                                                <span className="text-[10px] opacity-30 font-mono bg-black/20 px-1.5 py-0.5 rounded">
+                                                                <span className="flex items-center gap-1 text-[10px] opacity-40 font-mono bg-black/20 px-2 py-1 rounded-md border border-white/5">
+                                                                    <Icons.Map size={10} />
                                                                     {group.login.ip}
                                                                 </span>
                                                             )}
@@ -1743,7 +1744,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                 </div>
 
                                                 {hasActions && (
-                                                    <div className={`w-10 h-10 rounded-xl ${theme.inner} flex items-center justify-center transition-all duration-500 ${isExpanded ? 'rotate-180 bg-opacity-100' : 'bg-opacity-40'}`}>
+                                                    <div className={`w-10 h-10 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 transition-all duration-500 ${isExpanded ? 'rotate-180 bg-opacity-100 shadow-md' : 'bg-opacity-40'}`}>
                                                         <Icons.ChevronDown size={20} className={isExpanded ? theme.accent : 'opacity-30'} />
                                                     </div>
                                                 )}
@@ -1759,16 +1760,18 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                                         className={`border-t ${theme.divider} ${theme.inner} bg-opacity-30 divide-y ${theme.divider} overflow-hidden`}
                                                     >
                                                         {group.actions.sort((a:any, b:any) => b.timestamp - a.timestamp).map((action: any, aIdx: number) => (
-                                                            <div key={aIdx} className="p-4 pl-20 flex items-center gap-6 hover:bg-white/5 transition-colors group/item">
-                                                                <div className="text-[10px] font-black font-mono opacity-30 w-14 tracking-tighter group-hover/item:opacity-60 transition-opacity">
-                                                                    {formatTime(action.timestamp)}
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-3 mb-1">
-                                                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${theme.accent} opacity-60`}>{action.action}</span>
-                                                                        <div className="h-px flex-1 bg-white/5"></div>
+                                                            <div key={aIdx} className="p-4 pl-6 sm:pl-20 flex items-start sm:items-center gap-4 sm:gap-6 hover:bg-white/5 transition-colors group/item">
+                                                                <div className="flex flex-col items-center gap-1 shrink-0">
+                                                                    <div className="w-2 h-2 rounded-full bg-blue-500/50 group-hover/item:bg-blue-400 transition-colors"></div>
+                                                                    <div className="text-[10px] font-black font-mono opacity-40 tracking-tighter group-hover/item:opacity-80 transition-opacity">
+                                                                        {formatTime(action.timestamp)}
                                                                     </div>
-                                                                    <p className={`text-sm ${theme.text} opacity-70 font-medium leading-relaxed`}>{action.details}</p>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0 bg-black/20 p-3 rounded-xl border border-white/5 group-hover/item:border-white/10 transition-colors">
+                                                                    <div className="flex items-center gap-3 mb-1.5">
+                                                                        <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${theme.accent} opacity-80`}>{action.action}</span>
+                                                                    </div>
+                                                                    <p className={`text-sm ${theme.text} opacity-80 font-medium leading-relaxed`}>{action.details}</p>
                                                                 </div>
                                                             </div>
                                                         ))}

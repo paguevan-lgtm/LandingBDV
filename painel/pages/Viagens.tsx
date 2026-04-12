@@ -51,7 +51,15 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
         let list = data.trips.filter((t:any) => t.status === 'Em andamento' || t.status === 'Ativo' || t.status === 'Aguardando');
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
-            list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
+            if (lower.startsWith('id:')) {
+                const id = lower.replace('id:', '').trim();
+                list = list.filter((t:any) => String(t.id).toLowerCase().includes(id));
+            } else if (lower.startsWith('nome:')) {
+                const name = lower.replace('nome:', '').trim();
+                list = list.filter((t:any) => t.driverName && t.driverName.toLowerCase().includes(name));
+            } else {
+                list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
+            }
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
     }, [data.trips, searchTerm]);
@@ -60,7 +68,15 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
         let list = data.trips.filter((t:any) => t.status !== 'Em andamento' && t.status !== 'Ativo' && t.status !== 'Aguardando');
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
-            list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
+            if (lower.startsWith('id:')) {
+                const id = lower.replace('id:', '').trim();
+                list = list.filter((t:any) => String(t.id).toLowerCase().includes(id));
+            } else if (lower.startsWith('nome:')) {
+                const name = lower.replace('nome:', '').trim();
+                list = list.filter((t:any) => t.driverName && t.driverName.toLowerCase().includes(name));
+            } else {
+                list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
+            }
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
     }, [data.trips, searchTerm]);
@@ -93,6 +109,12 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
     const copyToClip = (txt: string) => {
         navigator.clipboard.writeText(txt);
         notify('Lista copiada!', 'success');
+    };
+
+    const copyPassengerData = (p: any) => {
+        const text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📍 Bairro: ${p.neighborhood}\n🏠 Endereço: ${p.address || 'Não informado'}\n⏰ Horário: ${formatTime(p.time)}\n👥 Passageiros: ${p.passengerCount}\n🎒 Malas: ${p.luggageCount || 0}${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n📱 Telefone: ${p.phone || 'Não informado'}`;
+        navigator.clipboard.writeText(text);
+        notify("Dados do passageiro copiados!", "success");
     };
 
     const sendWhatsapp = (trip: any) => {
@@ -274,6 +296,33 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
                                     <div className="flex items-center gap-1 text-sm font-bold text-green-400"><Icons.Dollar size={16}/> {totalValue.toFixed(2)}</div>
                                 </div>
                             </div>
+
+                            {/* Passenger List with Copy Button */}
+                            {tripPassengers.length > 0 && (
+                                <div className="mb-4 space-y-2">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 pl-1">Passageiros</h4>
+                                    <div className="grid grid-cols-1 gap-1.5">
+                                        {tripPassengers.map((p: any) => (
+                                            <div key={p.id} className="flex items-center justify-between bg-white/5 p-2 rounded-lg group/pass">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center shrink-0">
+                                                        <Icons.User size={12} className="opacity-50" />
+                                                    </div>
+                                                    <span className="text-xs font-bold truncate opacity-80">{p.name}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); copyPassengerData(p); }}
+                                                    className="p-1.5 hover:bg-white/10 rounded-md text-white/30 hover:text-white transition-all opacity-0 group-hover/pass:opacity-100"
+                                                    title="Copiar Dados"
+                                                >
+                                                    <Icons.Copy size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-3 gap-2 mb-4">
                                 <Button 
                                     id="tut-btn-trip-finish" 

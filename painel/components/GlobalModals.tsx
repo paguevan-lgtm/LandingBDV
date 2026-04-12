@@ -264,25 +264,43 @@ export const GlobalModals = ({
                                         </button>
                                         <div className="space-y-3 overflow-y-auto flex-1 pr-1 max-h-[40vh] custom-scrollbar">
                                             {suggestedTrip.passengers.map((p:any, i:number) => (
-                                                <div key={p.id} className={`${theme.inner} p-4 rounded-2xl border ${theme.divider} flex justify-between items-center shadow-sm hover:border-white/20 transition-colors group`}>
+                                                <div key={p.id} className={`${theme.inner} p-4 rounded-2xl border ${theme.divider} flex justify-between items-center shadow-sm hover:shadow-md hover:border-white/20 transition-all group relative overflow-hidden`}>
+                                                    {p.source === 'Site' && (
+                                                        <div className="absolute top-0 right-0 z-10">
+                                                            <div className="bg-blue-600 text-white text-[8px] px-2 py-0.5 font-black uppercase rounded-bl-lg shadow-lg tracking-widest">Site</div>
+                                                        </div>
+                                                    )}
                                                     <div className="flex items-center gap-4">
                                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black text-white ${theme.primary} shadow-lg group-hover:scale-110 transition-transform`}>{i+1}</div>
                                                         <div>
                                                             <div className="text-sm font-black flex items-center gap-2">
                                                                 {p.name} 
                                                                 <span className="text-[9px] opacity-30 font-mono bg-white/5 px-1.5 py-0.5 rounded">
-                                                                    {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
+                                                                    #{p.id}
                                                                 </span>
                                                             </div>
-                                                            <div className="text-[10px] opacity-50 font-bold uppercase tracking-wider mt-0.5 flex items-center gap-1">
-                                                                <Icons.MapPin size={10} /> {p.neighborhood}
+                                                            <div className="flex gap-3 mt-1">
+                                                                <div className="text-[10px] opacity-50 font-bold uppercase tracking-wider flex items-center gap-1">
+                                                                    <Icons.MapPin size={10} /> {p.neighborhood}
+                                                                </div>
+                                                                {p.time && (
+                                                                    <div className="text-[10px] opacity-50 font-bold uppercase tracking-wider flex items-center gap-1">
+                                                                        <Icons.Clock size={10} /> {p.time}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4">
-                                                        <div className="text-right">
-                                                            <div className={`${theme.accent} font-black text-sm`}>{p.passengerCount} pass</div>
-                                                            {p.luggageCount > 0 && <div className="text-[9px] opacity-40 font-bold uppercase tracking-tighter">{p.luggageCount} malas</div>}
+                                                        <div className="text-right flex flex-col items-end gap-1">
+                                                            <div className={`flex items-center gap-1 text-xs font-bold bg-white/5 px-2 py-1 rounded-md ${theme.accent}`}>
+                                                                <Icons.Users size={12} className="opacity-50"/> {p.passengerCount}
+                                                            </div>
+                                                            {p.luggageCount > 0 && (
+                                                                <div className="flex items-center gap-1 text-[10px] font-bold bg-white/5 px-2 py-0.5 rounded-md opacity-60">
+                                                                    <Icons.Briefcase size={10} className="opacity-50"/> {p.luggageCount}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <button 
                                                             onClick={()=>removePass(p.id)} 

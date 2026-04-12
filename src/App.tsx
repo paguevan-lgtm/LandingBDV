@@ -25,6 +25,7 @@ import {
   ArrowLeftRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { CustomSelect } from './components/CustomSelect';
 import { CustomDatePicker } from './components/CustomDatePicker';
 import { db } from './firebase';
@@ -173,6 +174,7 @@ function LandingPage() {
   const [confirmedPhone, setConfirmedPhone] = useState('');
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
   const [visitorId, setVisitorId] = useState<string>('');
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [lastBookingInfo, setLastBookingInfo] = useState<{name: string, date: string, time: string} | null>(null);
   const [formData, setFormData] = useState({
@@ -960,6 +962,11 @@ function LandingPage() {
                     }
 
                     try {
+                      let recaptchaToken = '';
+                      if (executeRecaptcha) {
+                        recaptchaToken = await executeRecaptcha('booking');
+                      }
+
                       let formattedDate = '';
                       if (date) {
                         const d = new Date(date);
@@ -995,6 +1002,18 @@ function LandingPage() {
                       };
 
                       setPendingBookingData(passengerData);
+                      
+                      const response = await fetch('/api/create-booking', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ passengerData, recaptchaToken })
+                      });
+
+                      if (!response.ok) {
+                        const errData = await response.json();
+                        throw new Error(errData.error || 'Erro ao processar agendamento');
+                      }
+
                       setLastBookingInfo({
                         name: formData.name,
                         date: date ? new Date(date).toLocaleDateString('pt-BR') : '',
@@ -1161,7 +1180,7 @@ function LandingPage() {
                   <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Caso queira adiantar o processo chame nossa equipe no whatsapp</p>
                   
                   <a 
-                    href={`https://wa.me/551334711830?text=${encodeURIComponent(`Olá me chamo ${lastBookingInfo.name}, acabei de me auto agendar para fazer uma viagem no dia ${lastBookingInfo.date} as ${lastBookingInfo.time} e gostaria de confirmar a disponibilidade.`)}`}
+                    href={`https://wa.me/551334711830`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-3 w-full bg-[#25D366] hover:bg-[#20ba5a] text-white py-5 rounded-2xl font-extrabold text-xl shadow-xl shadow-green-500/20 transition-all hover:scale-[1.02] active:scale-95"

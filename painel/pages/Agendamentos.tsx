@@ -3,9 +3,17 @@ import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
 import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime, sendPassWhatsapp } from '../utils';
 
-export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext, isTutorialActive }: any) {
+export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext, isTutorialActive, targetDate, onTargetDateHandled }: any) {
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [calendarDate, setCalendarDate] = useState(new Date());
+
+    React.useEffect(() => {
+        if (targetDate) {
+            setSelectedDate(targetDate);
+            setCalendarDate(new Date(targetDate + 'T12:00:00'));
+            if (onTargetDateHandled) onTargetDateHandled();
+        }
+    }, [targetDate, onTargetDateHandled]);
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear(); const month = date.getMonth();
@@ -155,7 +163,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                 </div>
                 
                 <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-widest opacity-60 pl-1 text-yellow-400">Pendentes</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest pl-1 text-amber-500">Pendentes</h4>
                     {(() => {
                         if (pendingPass.length === 0) return <p className="text-sm opacity-40 italic pl-1">Todos os passageiros estão alocados ou sem horário.</p>;
                         
@@ -177,54 +185,78 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                 </div>
                                 <div className="space-y-3 pl-2 border-l border-white/5">
                                     {grouped[time].map((p:any) => (
-                                        <div key={p.id} className={`${theme.card} ${theme.radius} border border-yellow-500/30 p-4 relative bg-yellow-500/5 overflow-hidden`}>
+                                        <div key={p.id} className={`${theme.card} rounded-2xl border border-yellow-500/30 p-5 relative bg-yellow-500/5 overflow-hidden hover:shadow-lg transition-all group`}>
+                                            {/* Background ID - Large and Transparent */}
+                                            <div className="absolute top-1/2 -translate-y-1/2 right-4 sm:right-8 pointer-events-none select-none">
+                                                <span className="text-4xl sm:text-6xl font-black text-white/[0.03] tracking-tighter italic">#{p.id}</span>
+                                            </div>
+
                                             {p.source === 'Site' && (
-                                                <div className="absolute top-0 right-0">
-                                                    <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
+                                                <div className="absolute top-0 right-0 z-20">
+                                                    <div className="bg-blue-600 text-white text-[10px] px-4 py-1.5 font-black uppercase rounded-bl-2xl shadow-xl tracking-widest border-l border-b border-white/20">SITE</div>
                                                 </div>
                                             )}
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <div className="font-bold text-lg flex items-center gap-2">
-                                                        {p.name}
-                                                        <span className="text-xs opacity-40 font-mono">
-                                                            {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
-                                                        </span>
+                                            <div className="flex items-start justify-between gap-4 mb-4">
+                                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                    <div className="w-12 h-12 rounded-2xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center shrink-0 border border-yellow-500/30 group-hover:scale-110 transition-transform duration-500">
+                                                        <Icons.User size={24} />
                                                     </div>
-                                                    <div className="text-xs opacity-70">{p.neighborhood} • {formatTime(p.time)}</div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h3 className="font-black text-lg truncate text-white">{p.name}</h3>
+                                                            <span className="text-sm font-bold opacity-80 font-mono bg-white/10 px-3 py-1 rounded-lg border border-white/10">#{p.id}</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                            <span className="flex items-center gap-1 text-xs opacity-70 font-medium">
+                                                                <Icons.MapPin size={12} />
+                                                                {p.neighborhood}
+                                                            </span>
+                                                            <span className="flex items-center gap-1 text-xs opacity-70 font-medium">
+                                                                <Icons.Clock size={12} />
+                                                                {formatTime(p.time)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex gap-2 items-center">
-                                                    <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded" title={p.luggageDetails || ''}>{p.luggageCount || 0}🎒</div>
-                                                    <div className="text-sm font-bold bg-white/10 px-2 py-1 rounded">{p.passengerCount} pass</div>
-                                                    <button 
-                                                        id="tut-btn-reschedule-pass"
-                                                        onClick={(e) => !isTutorialActive && handleQuickReschedule(e, p)}
-                                                        className={`ml-1 p-1.5 bg-blue-500/20 text-blue-400 rounded-lg transition-colors active:scale-95 ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-500/30 cursor-pointer'}`}
-                                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Reagendar Passageiro"}
-                                                        disabled={isTutorialActive}
-                                                    >
-                                                        <Icons.Clock size={16} />
-                                                    </button>
-
-                                                    <button 
-                                                        id="tut-btn-cancel-app"
-                                                        onClick={(e) => {
-                                                            if (isTutorialActive) return;
-                                                            e.stopPropagation();
-                                                            clearPassSchedule(p.id);
-                                                        }} 
-                                                        className={`ml-1 p-1.5 bg-red-500/20 text-red-400 rounded-lg transition-colors active:scale-95 ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-red-500/30 cursor-pointer'}`}
-                                                        title={isTutorialActive ? "Desativado durante o tutorial" : "Remover Agendamento"}
-                                                        disabled={isTutorialActive}
-                                                    >
-                                                        <Icons.CalendarX size={16} />
-                                                    </button>
+                                                <div className="flex flex-col items-end gap-2">
+                                                    <div className="flex gap-2 items-center">
+                                                        <div className="flex items-center gap-1 text-xs font-bold bg-white/10 px-2 py-1 rounded-lg" title={p.luggageDetails || ''}>
+                                                            <Icons.Briefcase size={12} className="opacity-50"/> {p.luggageCount || 0}
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-xs font-bold bg-white/10 px-2 py-1 rounded-lg">
+                                                            <Icons.Users size={12} className="opacity-50"/> {p.passengerCount}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        <button 
+                                                            id="tut-btn-reschedule-pass"
+                                                            onClick={(e) => !isTutorialActive && handleQuickReschedule(e, p)}
+                                                            className={`p-1.5 bg-blue-500/20 text-blue-400 rounded-lg transition-colors active:scale-95 ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-500/30 cursor-pointer'}`}
+                                                            title={isTutorialActive ? "Desativado durante o tutorial" : "Reagendar Passageiro"}
+                                                            disabled={isTutorialActive}
+                                                        >
+                                                            <Icons.Clock size={16} />
+                                                        </button>
+                                                        <button 
+                                                            id="tut-btn-cancel-app"
+                                                            onClick={(e) => {
+                                                                if (isTutorialActive) return;
+                                                                e.stopPropagation();
+                                                                clearPassSchedule(p.id);
+                                                            }} 
+                                                            className={`p-1.5 bg-red-500/20 text-red-400 rounded-lg transition-colors active:scale-95 ${isTutorialActive ? 'opacity-30 cursor-not-allowed' : 'hover:bg-red-500/30 cursor-pointer'}`}
+                                                            title={isTutorialActive ? "Desativado durante o tutorial" : "Remover Agendamento"}
+                                                            disabled={isTutorialActive}
+                                                        >
+                                                            <Icons.CalendarX size={16} />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-2 mt-3 pt-3 border-t border-white/10">
-                                                <button id="tut-btn-copy-pass" onClick={() => copyPassengerData(p)} className="flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> Copiar</button>
-                                                <button id="tut-btn-wa-confirm" onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Message size={16}/> WhatsApp</button>
-                                                <button onClick={() => handleCreateTripFromPass(p)} className="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"><Icons.Plus size={16}/> Criar Viagem</button>
+                                            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/10">
+                                                <button id="tut-btn-copy-pass" onClick={() => copyPassengerData(p)} className="flex-1 bg-white/5 hover:bg-white/10 py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> Copiar</button>
+                                                <button id="tut-btn-wa-confirm" onClick={() => sendPassWhatsapp(p)} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600/30 py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Message size={16}/> WhatsApp</button>
+                                                <button onClick={() => handleCreateTripFromPass(p)} className="flex-[1.5] bg-blue-600 text-white hover:bg-blue-500 py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-colors"><Icons.Plus size={16}/> Criar Viagem</button>
                                             </div>
                                         </div>
                                     ))}
@@ -235,7 +267,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-white/10">
-                    <h4 className="text-xs font-bold uppercase tracking-widest opacity-60 pl-1 text-blue-400">Em Viagem</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest pl-1 text-blue-500">Em Viagem</h4>
                     {assignedPass.length > 0 ? (
                         assignedPass.map((p:any) => {
                             const pId = p.realId || p.id;
@@ -250,26 +282,51 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                             const displayTime = trip ? formatTime(trip.time) : (formatTime(p.time) || 'Sem horário');
 
                             return (
-                                <div key={p.id} className={`${theme.card} ${theme.radius} border border-white/5 p-3 relative opacity-60 hover:opacity-100 transition-opacity overflow-hidden`}>
+                                <div key={p.id} className={`${theme.card} rounded-2xl border border-white/5 p-4 relative opacity-60 hover:opacity-100 transition-all overflow-hidden hover:shadow-lg group`}>
+                                    {/* Background ID - Large and Transparent */}
+                                    <div className="absolute top-1/2 -translate-y-1/2 right-4 sm:right-8 pointer-events-none select-none">
+                                        <span className="text-4xl sm:text-6xl font-black text-white/[0.03] tracking-tighter italic">#{p.id}</span>
+                                    </div>
+
                                     {p.source === 'Site' && (
-                                        <div className="absolute top-0 right-0">
-                                            <div className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-bold uppercase rounded-bl-lg">Site</div>
+                                        <div className="absolute top-0 right-0 z-20">
+                                            <div className="bg-blue-600 text-white text-[10px] px-4 py-1.5 font-black uppercase rounded-bl-2xl shadow-xl tracking-widest border-l border-b border-white/20">SITE</div>
                                         </div>
                                     )}
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <div className="font-bold flex items-center gap-2">
-                                                {p.name}
-                                                <span className="text-[10px] opacity-40 font-mono">
-                                                    {String(p.id).startsWith('SITE_') ? String(p.id).replace('_', ' #') : `#${p.id}`}
-                                                </span>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isFinalized ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' : 'bg-green-500/20 text-green-400 border-green-500/30'} group-hover:scale-110 transition-transform duration-500`}>
+                                                <Icons.User size={20} />
                                             </div>
-                                            <div className="text-xs opacity-70">
-                                                {p.neighborhood} • {displayTime}
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h3 className="font-black text-base truncate">{p.name}</h3>
+                                                    <span className="text-sm font-bold opacity-80 font-mono bg-white/10 px-2 py-0.5 rounded-md border border-white/10">#{p.id}</span>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                    <span className="flex items-center gap-1 text-xs opacity-70 font-medium">
+                                                        <Icons.MapPin size={12} />
+                                                        {p.neighborhood}
+                                                    </span>
+                                                    <span className="flex items-center gap-1 text-xs opacity-70 font-medium">
+                                                        <Icons.Clock size={12} />
+                                                        {displayTime}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className={`text-xs px-2 py-1 rounded font-bold ${isFinalized ? 'bg-gray-500/20 text-gray-400' : 'bg-green-500/20 text-green-400'}`}>
-                                            {isFinalized ? 'Viagem Finalizada' : 'Em Viagem'}
+                                        <div className="flex items-center gap-2">
+                                            <IconButton 
+                                                theme={theme} 
+                                                onClick={() => copyPassengerData(p)} 
+                                                icon={Icons.Copy} 
+                                                variant="secondary" 
+                                                className="p-2"
+                                                title="Copiar Dados"
+                                            />
+                                            <div className={`text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-lg font-black ${isFinalized ? 'bg-gray-500/20 text-gray-400' : 'bg-green-500/20 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.2)]'}`}>
+                                                {isFinalized ? 'Finalizada' : 'Em Viagem'}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

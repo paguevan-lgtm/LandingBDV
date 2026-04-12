@@ -54,6 +54,27 @@ const formLimiter = rateLimit({
     }
 });
 
+// reCaptcha Verification
+const verifyRecaptcha = async (token: string) => {
+    if (!token) return false;
+    const secret = process.env.RECAPTCHA_SECRET_KEY;
+    if (!secret) {
+        console.warn('[RECAPTCHA] Secret key missing, skipping verification.');
+        return true; // Don't block if not configured
+    }
+    
+    try {
+        const response = await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        return data.success && data.score >= 0.5; // Score 0.5 is a reasonable threshold for v3
+    } catch (error) {
+        console.error('[RECAPTCHA] Error verifying token:', error);
+        return false;
+    }
+};
+
 // Origin Validation Middleware
 const validateOrigin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (req.originalUrl === '/api/webhook') return next();
@@ -204,6 +225,31 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
     }
 }
 
+// Helper to log actions to audit_logs
+async function logAction(action: string, details: string, username: string = 'Sistema') {
+    try {
+        const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+        const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+        const logUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/audit_logs.json${authParam}`;
+        
+        const logEntry = {
+            username,
+            action,
+            details,
+            timestamp: Date.now(),
+            date: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }).split('/').reverse().join('-')
+        };
+
+        await fetchWithRetry(logUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(logEntry)
+        });
+    } catch (e) {
+        console.error("Error logging action in server:", e);
+    }
+}
+
 async function startServer() {
     const app = express();
     const PORT = Number(process.env.PORT) || 3000;
@@ -231,7 +277,15 @@ async function startServer() {
     // API Routes
     app.post('/api/send-login-token', async (req, res) => {
         try {
-            const { email, name, type, uid, deviceId } = req.body;
+            const { email, name, type, uid, deviceId, recaptchaToken } = req.body;
+
+            if (recaptchaToken) {
+                const isValid = await verifyRecaptcha(recaptchaToken);
+                if (!isValid) {
+                    return res.status(403).json({ error: 'Atividade suspeita detectada pelo reCaptcha.' });
+                }
+            }
+
             if (!email) return res.status(400).json({ error: 'Email is required' });
 
             const emailKey = email.toLowerCase();
@@ -405,7 +459,7 @@ async function startServer() {
                   </td>
                   <td style="color: #334155;">&bull;</td>
                   <td style="padding: 0 8px;">
-                    <a href="https://wa.me/551334711830" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
+                    <a href="https://wa.me/5513997744720" style="color: #94a3b8; text-decoration: none; font-size: 12px; font-weight: 600;">Suporte WhatsApp</a>
                   </td>
                 </tr>
               </table>
@@ -606,33 +660,32 @@ async function startServer() {
                 
                 console.log(`Reusing existing passenger: ${displayId} (key: ${firebaseKey})`);
             } else {
-                // 3. Get and increment the site booking counter
-                const counterUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/site_booking_counter.json${authParam}`;
-                let currentCounter = 1;
-                
+                // 3. Get the last passenger ID to continue sequence
                 try {
-                    const counterRes = await fetchWithRetry(counterUrl);
-                    const counterData = await counterRes.json();
-                    if (typeof counterData === 'number') {
-                        currentCounter = counterData + 1;
+                    const lastPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}&orderBy="id"&limitToLast=1`;
+                    const lastPassRes = await fetchWithRetry(lastPassUrl);
+                    const lastPassData = await lastPassRes.json();
+                    
+                    let lastId = 0;
+                    if (lastPassData && typeof lastPassData === 'object') {
+                        const keys = Object.keys(lastPassData);
+                        if (keys.length > 0) {
+                            const lastItem = lastPassData[keys[0]];
+                            lastId = parseInt(lastItem.id) || 0;
+                        }
                     }
+                    
+                    displayId = `${lastId + 1}`;
+                    firebaseKey = displayId;
                 } catch (e) {
-                    console.warn("Could not fetch counter, starting at 1");
+                    console.warn("Could not fetch last ID, using timestamp fallback", e);
+                    displayId = Date.now().toString().slice(-6);
+                    firebaseKey = displayId;
                 }
-
-                // Save the new counter
-                await fetchWithRetry(counterUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentCounter)
-                });
-
-                // 4. Generate new ID
-                displayId = `SITE #${currentCounter}`;
-                firebaseKey = `SITE_${currentCounter}`;
             }
 
             passengerData.id = displayId;
+            passengerData.source = 'Site'; // Ensure source is always Site
 
             // 5. Save to Firebase
             let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
@@ -654,6 +707,9 @@ async function startServer() {
                 return res.status(500).json({ error: 'Failed to create booking' });
             }
 
+            // Log the action
+            await logAction('Auto-Agendamento Site', `Passageiro ${passengerData.name} (#${displayId}) se agendou via site para ${passengerData.date} às ${passengerData.time}`);
+
             // 5. Push notification for real-time alerts in the panel
             try {
                 const notificationUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/site_notifications.json${authParam}`;
@@ -662,6 +718,7 @@ async function startServer() {
                     type: 'new_booking',
                     system: systemToSave,
                     passengerName: passengerData.name,
+                    date: passengerData.date,
                     timestamp: Date.now(),
                     read: false
                 };
@@ -713,6 +770,7 @@ async function startServer() {
                 return res.status(500).json({ error: 'Failed to update phone' });
             }
 
+            await logAction('Update Telefone Site', `Telefone do passageiro #${id} atualizado para ${phone} via site`);
             res.json({ success: true });
         } catch (error: any) {
             console.error('Error updating phone:', error);

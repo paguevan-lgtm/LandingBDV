@@ -1,14 +1,16 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Input, Toast, Icons, Button, AlertModal } from '../components/Shared';
 import { useAuth } from '../contexts/AuthContext';
 import { USERS_DB, THEMES } from '../constants'; 
 import { db, auth } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, theme?: any }) => {
     const { login, findUsersByCredentials, logoutReason, setLogoutReason } = useAuth(); 
     const theme = appTheme || THEMES.default;
+    const { executeRecaptcha } = useGoogleReCaptcha();
     
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -179,10 +181,16 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const sendToken = async (email: string, name: string, type: 'login' | 'reset' = 'login', uid?: string) => {
         try {
             const deviceId = getDeviceId();
+            
+            let recaptchaToken = '';
+            if (executeRecaptcha) {
+                recaptchaToken = await executeRecaptcha('login_token');
+            }
+
             const response = await fetch('/api/send-login-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, name, type, uid, deviceId })
+                body: JSON.stringify({ email, name, type, uid, deviceId, recaptchaToken })
             });
             
             const contentType = response.headers.get("content-type");

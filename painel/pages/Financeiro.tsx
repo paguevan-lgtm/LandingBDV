@@ -343,7 +343,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                  {/* Mostra quem recebeu o pagamento se estiver pago */}
                                                  {trip.isPaid && trip.receivedBy && (
                                                      <div className="text-[10px] text-green-500/70 font-medium mt-1 flex items-center gap-1">
-                                                         <Icons.CheckCircle size={10} className="shrink-0"/> <span className="truncate">Recebido por {trip.receivedBy}</span>
+                                                         <Icons.CheckCircle size={10} className="shrink-0"/> <span className="truncate">Recebido por {trip.receivedBy === 'Breno' ? 'Sistema' : trip.receivedBy}</span>
                                                      </div>
                                                  )}
                                              </div>

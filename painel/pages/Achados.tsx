@@ -8,6 +8,12 @@ export default function Achados({ data, theme, searchTerm, dbOp, del, notify, sy
     const filteredList = data.lostFound.filter((item:any) => {
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
+        
+        if (lower.startsWith('nome:')) {
+            const name = lower.replace('nome:', '').trim();
+            return item.description && item.description.toLowerCase().includes(name);
+        }
+
         return (item.description && item.description.toLowerCase().includes(lower)) || 
                (item.location && item.location.toLowerCase().includes(lower));
     });
