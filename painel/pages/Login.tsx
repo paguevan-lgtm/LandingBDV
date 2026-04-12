@@ -680,6 +680,11 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     Iniciar Viagem
                 </Button>
 
+                <p className="text-[10px] text-slate-500 text-center mt-2 leading-tight opacity-50">
+                    Protegido por reCAPTCHA. <br/>
+                    <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noreferrer">Privacidade</a> e <a href="https://policies.google.com/terms" className="underline" target="_blank" rel="noreferrer">Termos</a> do Google.
+                </p>
+
                 <div className="text-center mt-4">
                     <button
                         onClick={() => {

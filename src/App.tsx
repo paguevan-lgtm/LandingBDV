@@ -1010,8 +1010,21 @@ function LandingPage() {
                       });
 
                       if (!response.ok) {
-                        const errData = await response.json();
-                        throw new Error(errData.error || 'Erro ao processar agendamento');
+                        let errorMessage = 'Erro ao processar agendamento';
+                        try {
+                          const contentType = response.headers.get('content-type');
+                          if (contentType && contentType.includes('application/json')) {
+                            const errData = await response.json();
+                            errorMessage = errData.error || errorMessage;
+                          } else {
+                            const errorText = await response.text();
+                            console.error('Server returned non-JSON error:', errorText.substring(0, 200));
+                            errorMessage = `Erro no servidor (${response.status})`;
+                          }
+                        } catch (e) {
+                          console.error('Error parsing error response:', e);
+                        }
+                        throw new Error(errorMessage);
                       }
 
                       setLastBookingInfo({
@@ -1031,6 +1044,9 @@ function LandingPage() {
                 >
                   Finalizar Reserva
                 </button>
+                <p className="text-[10px] text-slate-500 text-center mt-4 leading-tight">
+                  Este site é protegido pelo reCAPTCHA e a <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noreferrer">Política de Privacidade</a> e os <a href="https://policies.google.com/terms" className="underline" target="_blank" rel="noreferrer">Termos de Serviço</a> do Google se aplicam.
+                </p>
               </div>
             </motion.div>
           </motion.div>
@@ -1116,11 +1132,24 @@ function LandingPage() {
                         });
 
                         if (!response.ok) {
-                          const errorData = await response.json();
-                          if (errorData.isBlocked) {
-                            setPoisonPill(visitorId);
+                          let errorMessage = 'Failed to create booking';
+                          try {
+                            const contentType = response.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                              const errorData = await response.json();
+                              if (errorData.isBlocked) {
+                                setPoisonPill(visitorId);
+                              }
+                              errorMessage = errorData.error || errorMessage;
+                            } else {
+                              const errorText = await response.text();
+                              console.error('Server returned non-JSON error:', errorText.substring(0, 200));
+                              errorMessage = `Erro no servidor (${response.status})`;
+                            }
+                          } catch (e) {
+                            console.error('Error parsing error response:', e);
                           }
-                          throw new Error(errorData.error || 'Failed to create booking');
+                          throw new Error(errorMessage);
                         }
 
                         setIsPhoneConfirmationModalOpen(false);
