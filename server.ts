@@ -633,20 +633,23 @@ async function startServer() {
             } else {
                 // 3. Get the last passenger ID to continue sequence
                 try {
-                    const lastPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}&orderBy="id"&limitToLast=1`;
-                    const lastPassRes = await fetchWithRetry(lastPassUrl);
-                    const lastPassData = await lastPassRes.json();
+                    const allPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
+                    const allPassRes = await fetchWithRetry(allPassUrl);
+                    const allPassData = await allPassRes.json();
                     
-                    let lastId = 0;
-                    if (lastPassData && typeof lastPassData === 'object') {
-                        const keys = Object.keys(lastPassData);
-                        if (keys.length > 0) {
-                            const lastItem = lastPassData[keys[0]];
-                            lastId = parseInt(lastItem.id) || 0;
-                        }
+                    let maxId = 0;
+                    if (allPassData && typeof allPassData === 'object') {
+                        Object.values(allPassData).forEach((item: any) => {
+                            if (item && item.id) {
+                                const numericId = parseInt(item.id);
+                                if (!isNaN(numericId) && numericId > maxId) {
+                                    maxId = numericId;
+                                }
+                            }
+                        });
                     }
                     
-                    displayId = `${lastId + 1}`;
+                    displayId = `${maxId + 1}`;
                     firebaseKey = displayId;
                 } catch (e) {
                     console.warn("Could not fetch last ID, using timestamp fallback", e);

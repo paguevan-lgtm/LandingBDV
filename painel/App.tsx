@@ -3755,7 +3755,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
 
                                     {/* Search Suggestions Dropdown */}
                                     <AnimatePresence>
-                                        {showSearchSuggestions && view === 'passengers' && (
+                                        {showSearchSuggestions && ['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && (
                                             <motion.div 
                                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3768,8 +3768,9 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'all' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
                                                 >
                                                     <Icons.Search size={16} />
-                                                    <span>Tudo (ID, Nome, Tel)</span>
+                                                    <span>Tudo</span>
                                                 </button>
+                                                
                                                 <button 
                                                     onClick={() => { setSearchType('id'); setShowSearchSuggestions(false); }}
                                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'id' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
@@ -3777,20 +3778,45 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                                     <span className="w-4 text-center font-mono text-xs">#</span>
                                                     <span>Somente ID</span>
                                                 </button>
-                                                <button 
-                                                    onClick={() => { setSearchType('name'); setShowSearchSuggestions(false); }}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'name' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                >
-                                                    <Icons.User size={16} />
-                                                    <span>Somente Nome</span>
-                                                </button>
-                                                <button 
-                                                    onClick={() => { setSearchType('phone'); setShowSearchSuggestions(false); }}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'phone' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                >
-                                                    <Icons.Phone size={16} />
-                                                    <span>Somente Telefone</span>
-                                                </button>
+
+                                                {['passengers', 'drivers'].includes(view) && (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => { setSearchType('name'); setShowSearchSuggestions(false); }}
+                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'name' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+                                                        >
+                                                            <Icons.User size={16} />
+                                                            <span>Somente Nome</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setSearchType('phone'); setShowSearchSuggestions(false); }}
+                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'phone' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+                                                        >
+                                                            <Icons.Phone size={16} />
+                                                            <span>Somente Telefone</span>
+                                                        </button>
+                                                    </>
+                                                )}
+
+                                                {view === 'trips' && (
+                                                    <button 
+                                                        onClick={() => { setSearchType('driver'); setShowSearchSuggestions(false); }}
+                                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'driver' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+                                                    >
+                                                        <Icons.Car size={16} />
+                                                        <span>Somente Motorista</span>
+                                                    </button>
+                                                )}
+
+                                                {['achados', 'lostFound'].includes(view) && (
+                                                    <button 
+                                                        onClick={() => { setSearchType('item'); setShowSearchSuggestions(false); }}
+                                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'item' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+                                                    >
+                                                        <Icons.Box size={16} />
+                                                        <span>Somente Item</span>
+                                                    </button>
+                                                )}
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
@@ -3851,8 +3877,8 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 } else { setModal('trip'); setFormData({}); } 
                             }} dbOp={dbOp} setAiModal={setAiModal} user={user} systemContext={systemContext} notify={notify} />}
                             {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
-                            {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
-                            {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
+                            {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
+                            {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
                             {view === 'appointments' && <Agendamentos 
                                 data={data} 
                                 theme={theme} 
@@ -3953,8 +3979,8 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 systemContext={systemContext}
                                 pricePerPassenger={pricePerPassenger}
                             />}
-                            {view === 'achados' && <Achados data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
-                            {view === 'lostFound' && <Achados data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
+                            {view === 'achados' && <Achados data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
+                            {view === 'lostFound' && <Achados data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
                             {view === 'tutorial' && <Tutorial theme={theme} systemContext={systemContext} notify={notify} />}
                             {view === 'settings' && <Configuracoes 
                                 user={user} 
