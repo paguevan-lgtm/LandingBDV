@@ -5,13 +5,16 @@ import { formatDisplayDate, getTodayDate, formatTime, sendPassWhatsapp } from '.
 
 export default function Passageiros({ data, theme, searchTerm, searchType = 'all', setFormData, setModal, del, notify, systemContext, dbOp }: any) {
     const [expandedPass, setExpandedPass] = useState<string|null>(null);
-    const [activeTab, setActiveTab] = useState<'ativos' | 'bloqueados'>('ativos');
+    const [activeTab, setActiveTab] = useState<'ativos' | 'bloqueados' | 'site'>('ativos');
     const [limit, setLimit] = useState(50);
 
     const filteredList = data.passengers.filter((item:any) => {
         const isBlocked = item.status === 'Bloqueado';
-        if (activeTab === 'ativos' && isBlocked) return false;
+        const isSite = String(item.id).startsWith('S');
+        
+        if (activeTab === 'ativos' && (isBlocked || isSite)) return false;
         if (activeTab === 'bloqueados' && !isBlocked) return false;
+        if (activeTab === 'site' && !isSite) return false;
 
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
@@ -90,6 +93,12 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                         className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'ativos' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
                     >
                         Ativos
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('site')}
+                        className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'site' ? 'bg-blue-500/20 text-blue-400 shadow-lg border border-blue-500/30' : 'text-white/40 hover:text-white/60'}`}
+                    >
+                        Site
                     </button>
                     <button 
                         onClick={() => setActiveTab('bloqueados')}

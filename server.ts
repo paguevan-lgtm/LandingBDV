@@ -633,59 +633,31 @@ async function startServer() {
                 
                 console.log(`Reusing existing passenger: ${displayId} (key: ${firebaseKey}) from system: ${existing.system}`);
             } else {
-                // 3. Get the last passenger ID to continue sequence (Global Max across all systems)
+                // 3. Get the last passenger ID to continue sequence
                 try {
-                    const systems = ['Pg', 'Mip', 'Sv'];
-                    const promises = systems.map(sys => {
-                        let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
-                        if (sys === 'Pg') url += `passengers.json${authParam}`;
-                        else url += `${sys}/passengers.json${authParam}`;
-                        return fetchWithRetry(url).then(r => r.json());
-                    });
+                    const allPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
+                    const allPassRes = await fetchWithRetry(allPassUrl);
+                    const allPassData = await allPassRes.json();
                     
-                    const results = await Promise.all(promises);
-                    const usedIds = new Set<number>();
                     let maxId = 0;
-                    
-                    results.forEach(allPassData => {
-                        if (allPassData && typeof allPassData === 'object') {
-                            for (const key in allPassData) {
-                                const item = allPassData[key];
-                                if (!item) continue;
-                                
-                                const idStr = item.id ? String(item.id) : '';
-                                const cleanId = idStr.includes('_') ? idStr.split('_')[1] : idStr;
-                                const idFromProp = parseInt(cleanId);
-                                
-                                const cleanKey = key.includes('_') ? key.split('_')[1] : key;
-                                const idFromKey = parseInt(cleanKey);
-                                
-                                const numericId = Math.max(
-                                    isNaN(idFromProp) ? 0 : idFromProp,
-                                    isNaN(idFromKey) ? 0 : idFromKey
-                                );
-                                
-                                if (numericId > 0) {
-                                    usedIds.add(numericId);
-                                    if (numericId > maxId) {
-                                        maxId = numericId;
-                                    }
+                    if (allPassData && typeof allPassData === 'object') {
+                        Object.values(allPassData).forEach((item: any) => {
+                            if (item && item.id) {
+                                const numericId = parseInt(item.id);
+                                if (!isNaN(numericId) && numericId > maxId) {
+                                    maxId = numericId;
                                 }
                             }
-                        }
-                    });
-                    
-                    let newId = maxId + 1;
-                    while (usedIds.has(newId)) {
-                        newId++;
+                        });
                     }
                     
-                    displayId = `${newId}`;
-                    firebaseKey = displayId;
-                    console.log(`Generated new global ID: ${displayId} (Max found: ${maxId})`);
+                    const nextId = maxId + 1;
+                    displayId = `S${nextId}`;
+                    firebaseKey = `${nextId}`;
+                    console.log(`Generated new ID: ${displayId}`);
                 } catch (e) {
                     console.warn("Could not fetch last ID, using timestamp fallback", e);
-                    displayId = Date.now().toString().slice(-6);
+                    displayId = `S${Date.now().toString().slice(-6)}`;
                     firebaseKey = displayId;
                 }
             }
