@@ -43,7 +43,7 @@ const TempTripTimer = ({ date, time }: any) => {
     return <span>{timeLeft}</span>;
 };
 
-export default function Viagens({ data, theme, searchTerm, searchType = 'all', setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue, isTutorialActive }: any) {
+export default function Viagens({ data, theme, searchTerm, setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue, isTutorialActive }: any) {
     const [historyDate, setHistoryDate] = useState(new Date());
     const [expandedDays, setExpandedDays] = useState<any>({});
 
@@ -51,27 +51,19 @@ export default function Viagens({ data, theme, searchTerm, searchType = 'all', s
         let list = data.trips.filter((t:any) => t.status === 'Em andamento' || t.status === 'Ativo' || t.status === 'Aguardando');
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
-            list = list.filter((t:any) => {
-                if (searchType === 'id') return String(t.id).includes(lower);
-                if (searchType === 'driver') return t.driverName && t.driverName.toLowerCase().includes(lower);
-                return String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower));
-            });
+            list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
-    }, [data.trips, searchTerm, searchType]);
+    }, [data.trips, searchTerm]);
 
     const historyTrips = useMemo(() => {
         let list = data.trips.filter((t:any) => t.status !== 'Em andamento' && t.status !== 'Ativo' && t.status !== 'Aguardando');
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
-            list = list.filter((t:any) => {
-                if (searchType === 'id') return String(t.id).includes(lower);
-                if (searchType === 'driver') return t.driverName && t.driverName.toLowerCase().includes(lower);
-                return String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower));
-            });
+            list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
-    }, [data.trips, searchTerm, searchType]);
+    }, [data.trips, searchTerm]);
 
     const historyGroups = useMemo(() => {
         const targetMonth = historyDate.getMonth();

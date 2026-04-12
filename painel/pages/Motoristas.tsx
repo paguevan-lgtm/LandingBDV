@@ -3,17 +3,12 @@ import React from 'react';
 import { Icons, Button, IconButton, PageHeader, EmptyState } from '../components/Shared';
 import { getAvatarUrl, formatDisplayDate } from '../utils';
 
-export default function Motoristas({ data, theme, searchTerm, searchType = 'all', setFormData, setModal, del, notify }: any) {
+export default function Motoristas({ data, theme, searchTerm, setFormData, setModal, del, notify }: any) {
     
     const filteredList = data.drivers.filter((item:any) => {
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
-        
-        if (searchType === 'id') return String(item.id).toLowerCase().includes(lower);
-        if (searchType === 'name') return item.name && item.name.toLowerCase().includes(lower);
-        if (searchType === 'phone') return item.phone && item.phone.includes(lower);
-        
-        return (item.name && item.name.toLowerCase().includes(lower)) || (item.phone && item.phone.includes(lower)) || (String(item.id).toLowerCase().includes(lower));
+        return (item.name && item.name.toLowerCase().includes(lower)) || (item.phone && item.phone.includes(lower));
     });
 
     return (

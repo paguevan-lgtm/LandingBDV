@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from './firebase';
 import { THEMES, INITIAL_SP_LIST, BAIRROS, BAIRROS_MIP, DEFAULT_FOLGAS } from './constants';
 import { Icons, Toast, PersistentNotifications, ConfirmModal, AlertModal, AdminAuthModal, CommandPalette, QuickCalculator } from './components/Shared';
@@ -262,8 +261,6 @@ const AppContent = () => {
     const [editingTripId, setEditingTripId] = useState<string|null>(null);
     
     const [searchTerm, setSearchTerm] = useState('');
-    const [searchType, setSearchType] = useState('all'); // 'all', 'id', 'name', 'phone'
-    const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
     const [filterStatus, setFilterStatus] = useState('Ativo');
     
     const [ipReason, setIpReason] = useState('');
@@ -3727,101 +3724,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                         <div className="flex items-center gap-4 flex-1">
                             <button onClick={() => setMenuOpen(true)} className="md:hidden p-2 -ml-2"><Icons.Menu size={24} /></button>
                             <h2 className={`font-bold text-lg md:text-xl truncate ${['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && searchTerm ? 'hidden md:block' : 'block'}`}>{orderedMenuItems.find(i=>i.id===view)?.l || 'Bora de Van'}</h2>
-                            {['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && (
-                                <div className="flex-1 max-w-md ml-auto md:ml-4 relative">
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center opacity-50">
-                                            <Icons.Search size={16} />
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            placeholder={`Pesquisar...`} 
-                                            value={searchTerm} 
-                                            onChange={(e) => {
-                                                setSearchTerm(e.target.value);
-                                                if (e.target.value.length > 0) setShowSearchSuggestions(true);
-                                                else setShowSearchSuggestions(false);
-                                            }} 
-                                            onFocus={() => searchTerm && setShowSearchSuggestions(true)}
-                                            onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 200)}
-                                            className={`w-full ${theme.inner} border ${theme.border} rounded-xl py-2 pl-10 pr-4 text-sm outline-none ${theme.text}`}
-                                        />
-                                        {searchTerm && (
-                                            <button onClick={() => { setSearchTerm(''); setSearchType('all'); setShowSearchSuggestions(false); }} className="absolute inset-y-0 right-0 pr-3 flex items-center opacity-50">
-                                                <Icons.X size={14} />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Search Suggestions Dropdown */}
-                                    <AnimatePresence>
-                                        {showSearchSuggestions && ['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                className={`absolute top-full left-0 right-0 mt-2 ${theme.card} border ${theme.border} rounded-2xl shadow-2xl z-[100] overflow-hidden p-1.5`}
-                                            >
-                                                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest opacity-40">Filtrar por:</div>
-                                                <button 
-                                                    onClick={() => { setSearchType('all'); setShowSearchSuggestions(false); }}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'all' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                >
-                                                    <Icons.Search size={16} />
-                                                    <span>Tudo</span>
-                                                </button>
-                                                
-                                                <button 
-                                                    onClick={() => { setSearchType('id'); setShowSearchSuggestions(false); }}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'id' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                >
-                                                    <span className="w-4 text-center font-mono text-xs">#</span>
-                                                    <span>Somente ID</span>
-                                                </button>
-
-                                                {['passengers', 'drivers'].includes(view) && (
-                                                    <>
-                                                        <button 
-                                                            onClick={() => { setSearchType('name'); setShowSearchSuggestions(false); }}
-                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'name' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                        >
-                                                            <Icons.User size={16} />
-                                                            <span>Somente Nome</span>
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => { setSearchType('phone'); setShowSearchSuggestions(false); }}
-                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'phone' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                        >
-                                                            <Icons.Phone size={16} />
-                                                            <span>Somente Telefone</span>
-                                                        </button>
-                                                    </>
-                                                )}
-
-                                                {view === 'trips' && (
-                                                    <button 
-                                                        onClick={() => { setSearchType('driver'); setShowSearchSuggestions(false); }}
-                                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'driver' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                    >
-                                                        <Icons.Car size={16} />
-                                                        <span>Somente Motorista</span>
-                                                    </button>
-                                                )}
-
-                                                {['achados', 'lostFound'].includes(view) && (
-                                                    <button 
-                                                        onClick={() => { setSearchType('item'); setShowSearchSuggestions(false); }}
-                                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${searchType === 'item' ? theme.primary : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
-                                                    >
-                                                        <Icons.Box size={16} />
-                                                        <span>Somente Item</span>
-                                                    </button>
-                                                )}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            )}
+                            {['passengers', 'drivers', 'trips', 'achados', 'lostFound'].includes(view) && (<div className="flex-1 max-w-md ml-auto md:ml-4"><div className="relative group"><div className="absolute inset-y-0 left-0 pl-3 flex items-center opacity-50"><Icons.Search size={16} /></div><input type="text" placeholder={`Pesquisar...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full ${theme.inner} border ${theme.border} rounded-xl py-2 pl-10 pr-4 text-sm outline-none ${theme.text}`}/>{searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center opacity-50"><Icons.X size={14} /></button>)}</div></div>)}
                         </div>
                         <div className="flex gap-2 ml-2">
                             {/* Calculator Trigger */}
@@ -3876,9 +3779,9 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                     setModal('passenger'); 
                                 } else { setModal('trip'); setFormData({}); } 
                             }} dbOp={dbOp} setAiModal={setAiModal} user={user} systemContext={systemContext} notify={notify} />}
-                            {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
-                            {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
-                            {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
+                            {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
+                            {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
+                            {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
                             {view === 'appointments' && <Agendamentos 
                                 data={data} 
                                 theme={theme} 
@@ -3979,8 +3882,8 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 systemContext={systemContext}
                                 pricePerPassenger={pricePerPassenger}
                             />}
-                            {view === 'achados' && <Achados data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
-                            {view === 'lostFound' && <Achados data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
+                            {view === 'achados' && <Achados data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
+                            {view === 'lostFound' && <Achados data={data} theme={theme} searchTerm={searchTerm} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
                             {view === 'tutorial' && <Tutorial theme={theme} systemContext={systemContext} notify={notify} />}
                             {view === 'settings' && <Configuracoes 
                                 user={user} 

@@ -3,18 +3,13 @@ import React from 'react';
 import { Icons, IconButton } from '../components/Shared';
 import { formatDisplayDate } from '../utils';
 
-export default function Achados({ data, theme, searchTerm, searchType = 'all', dbOp, del, notify, systemContext }: any) {
+export default function Achados({ data, theme, searchTerm, dbOp, del, notify, systemContext }: any) {
 
     const filteredList = data.lostFound.filter((item:any) => {
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
-        
-        if (searchType === 'id') return String(item.id).toLowerCase().includes(lower);
-        if (searchType === 'item') return item.description && item.description.toLowerCase().includes(lower);
-        
         return (item.description && item.description.toLowerCase().includes(lower)) || 
-               (item.location && item.location.toLowerCase().includes(lower)) ||
-               (String(item.id).toLowerCase().includes(lower));
+               (item.location && item.location.toLowerCase().includes(lower));
     });
 
     return (
