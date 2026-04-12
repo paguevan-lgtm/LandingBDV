@@ -8,16 +8,6 @@ export default function Motoristas({ data, theme, searchTerm, setFormData, setMo
     const filteredList = data.drivers.filter((item:any) => {
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
-        
-        if (lower.startsWith('nome:')) {
-            const name = lower.replace('nome:', '').trim();
-            return item.name && item.name.toLowerCase().includes(name);
-        }
-        if (lower.startsWith('tel:')) {
-            const tel = lower.replace('tel:', '').trim();
-            return (item.phone && item.phone.includes(tel)) || (item.phones && item.phones.some((p:any) => p.phone && p.phone.includes(tel)));
-        }
-
         return (item.name && item.name.toLowerCase().includes(lower)) || (item.phone && item.phone.includes(lower));
     });
 

@@ -421,7 +421,3 @@
 .animate-pulse-gentle {
   animation: pulse-gentle 2s infinite ease-in-out;
 }
-
-.grecaptcha-badge { 
-  visibility: hidden !important; 
-}

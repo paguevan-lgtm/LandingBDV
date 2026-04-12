@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
 import { formatDisplayDate, getTodayDate, formatTime, sendPassWhatsapp } from '../utils';
 
-export default function Passageiros({ data, theme, searchTerm, setFormData, setModal, del, notify, systemContext, dbOp }: any) {
+export default function Passageiros({ data, theme, searchTerm, searchType = 'all', setFormData, setModal, del, notify, systemContext, dbOp }: any) {
     const [expandedPass, setExpandedPass] = useState<string|null>(null);
     const [activeTab, setActiveTab] = useState<'ativos' | 'bloqueados'>('ativos');
     const [limit, setLimit] = useState(50);
@@ -16,19 +16,10 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
         
-        if (lower.startsWith('id:')) {
-            const id = lower.replace('id:', '').trim();
-            return String(item.id).toLowerCase().includes(id);
-        }
-        if (lower.startsWith('nome:')) {
-            const name = lower.replace('nome:', '').trim();
-            return item.name && item.name.toLowerCase().includes(name);
-        }
-        if (lower.startsWith('tel:')) {
-            const tel = lower.replace('tel:', '').trim();
-            return item.phone && item.phone.includes(tel);
-        }
-
+        if (searchType === 'id') return String(item.id).toLowerCase().includes(lower);
+        if (searchType === 'name') return item.name && item.name.toLowerCase().includes(lower);
+        if (searchType === 'phone') return item.phone && item.phone.includes(lower);
+        
         return (item.name && item.name.toLowerCase().includes(lower)) || (item.neighborhood && item.neighborhood.toLowerCase().includes(lower)) || (item.phone && item.phone.includes(lower)) || (String(item.id).toLowerCase().includes(lower));
     });
 
@@ -249,7 +240,7 @@ export default function Passageiros({ data, theme, searchTerm, setFormData, setM
                                 <div className="flex flex-wrap gap-3 pt-2">
                                     <button 
                                         onClick={(e:any)=>handleEdit(e, item)}
-                                        className="flex-1 min-w-[160px] bg-gradient-brand text-white py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-[0_10px_25px_-8px_rgba(168,85,247,0.6)] hover:shadow-[0_15px_30px_-5px_rgba(168,85,247,0.7)] hover:scale-[1.02] active:scale-95 transition-all border border-white/20"
+                                        className="flex-1 min-w-[160px] bg-gradient-brand text-white py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all border border-white/20"
                                     >
                                         <Icons.Edit size={18} /> Editar / Agendar
                                     </button>

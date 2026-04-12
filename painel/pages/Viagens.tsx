@@ -51,15 +51,7 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
         let list = data.trips.filter((t:any) => t.status === 'Em andamento' || t.status === 'Ativo' || t.status === 'Aguardando');
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
-            if (lower.startsWith('id:')) {
-                const id = lower.replace('id:', '').trim();
-                list = list.filter((t:any) => String(t.id).toLowerCase().includes(id));
-            } else if (lower.startsWith('nome:')) {
-                const name = lower.replace('nome:', '').trim();
-                list = list.filter((t:any) => t.driverName && t.driverName.toLowerCase().includes(name));
-            } else {
-                list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
-            }
+            list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
     }, [data.trips, searchTerm]);
@@ -68,15 +60,7 @@ export default function Viagens({ data, theme, searchTerm, setSearchTerm, setMod
         let list = data.trips.filter((t:any) => t.status !== 'Em andamento' && t.status !== 'Ativo' && t.status !== 'Aguardando');
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
-            if (lower.startsWith('id:')) {
-                const id = lower.replace('id:', '').trim();
-                list = list.filter((t:any) => String(t.id).toLowerCase().includes(id));
-            } else if (lower.startsWith('nome:')) {
-                const name = lower.replace('nome:', '').trim();
-                list = list.filter((t:any) => t.driverName && t.driverName.toLowerCase().includes(name));
-            } else {
-                list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
-            }
+            list = list.filter((t:any) => String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower)));
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
     }, [data.trips, searchTerm]);

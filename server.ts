@@ -40,7 +40,7 @@ const globalLimiter = rateLimit({
     message: { error: 'Muitas requisições. Tente novamente mais tarde.' },
     handler: (req, res, next, options) => {
         console.warn(`[RATE LIMIT] IP bloqueado globalmente: ${req.ip}`);
-        res.status(options.statusCode).json(options.message);
+        res.status(options.statusCode).send(options.message);
     }
 });
 
@@ -50,30 +50,9 @@ const formLimiter = rateLimit({
     message: { error: 'Limite de envios atingido. Tente novamente em 15 minutos.' },
     handler: (req, res, next, options) => {
         console.warn(`[RATE LIMIT] IP bloqueado no formulário: ${req.ip}`);
-        res.status(options.statusCode).json(options.message);
+        res.status(options.statusCode).send(options.message);
     }
 });
-
-// reCaptcha Verification
-const verifyRecaptcha = async (token: string) => {
-    if (!token) return false;
-    const secret = process.env.RECAPTCHA_SECRET_KEY;
-    if (!secret) {
-        console.warn('[RECAPTCHA] Secret key missing, skipping verification.');
-        return true; // Don't block if not configured
-    }
-    
-    try {
-        const response = await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`, {
-            method: 'POST'
-        });
-        const data = await response.json();
-        return data.success && data.score >= 0.5; // Score 0.5 is a reasonable threshold for v3
-    } catch (error) {
-        console.error('[RECAPTCHA] Error verifying token:', error);
-        return false;
-    }
-};
 
 // Origin Validation Middleware
 const validateOrigin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -254,9 +233,6 @@ async function startServer() {
     const app = express();
     const PORT = Number(process.env.PORT) || 3000;
 
-    // Trust proxy is required for express-rate-limit to work correctly behind Cloud Run/Nginx
-    app.set('trust proxy', 1);
-
     // Use JSON parser for all non-webhook routes
     app.use((req, res, next) => {
         if (req.originalUrl === '/api/webhook') {
@@ -267,12 +243,6 @@ async function startServer() {
     });
     
     app.use(cors());
-    
-    // Request logging for debugging
-    app.use('/api', (req, res, next) => {
-        console.log(`[API REQUEST] ${req.method} ${req.url}`);
-        next();
-    });
     
     // Apply global security middlewares
     app.use('/api', validateOrigin);
@@ -286,15 +256,7 @@ async function startServer() {
     // API Routes
     app.post('/api/send-login-token', async (req, res) => {
         try {
-            const { email, name, type, uid, deviceId, recaptchaToken } = req.body;
-
-            if (recaptchaToken) {
-                const isValid = await verifyRecaptcha(recaptchaToken);
-                if (!isValid) {
-                    return res.status(403).json({ error: 'Atividade suspeita detectada pelo reCaptcha.' });
-                }
-            }
-
+            const { email, name, type, uid, deviceId } = req.body;
             if (!email) return res.status(400).json({ error: 'Email is required' });
 
             const emailKey = email.toLowerCase();
@@ -618,15 +580,7 @@ async function startServer() {
 
     app.post('/api/create-booking', formLimiter, async (req, res) => {
         try {
-            const { passengerData, recaptchaToken } = req.body;
-            
-            if (recaptchaToken) {
-                const isValid = await verifyRecaptcha(recaptchaToken);
-                if (!isValid) {
-                    return res.status(403).json({ error: 'Atividade suspeita detectada pelo reCaptcha.' });
-                }
-            }
-
+            const passengerData = req.body;
             if (!passengerData || !passengerData.name || !passengerData.phone) {
                 console.warn(`[VALIDATION] Falha na validação de agendamento: Dados incompletos (IP: ${req.ip})`);
                 return res.status(400).json({ error: 'Name and phone are required' });
@@ -962,21 +916,6 @@ async function startServer() {
         } catch (error) {
             res.status(500).send('Webhook processing error');
         }
-    });
-    
-    // API 404 Handler
-    app.use('/api', (req, res) => {
-        console.warn(`[API 404] ${req.method} ${req.originalUrl}`);
-        res.status(404).json({ error: `Rota ${req.originalUrl} não encontrada` });
-    });
-
-    // API Error Handler
-    app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-        console.error(`[API ERROR] ${req.method} ${req.url}:`, err);
-        res.status(err.status || 500).json({ 
-            error: err.message || 'Erro interno no servidor',
-            details: process.env.NODE_ENV === 'development' ? err.stack : undefined
-        });
     });
 
     // Vite Middleware (Development)

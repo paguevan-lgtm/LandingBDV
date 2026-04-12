@@ -25,7 +25,6 @@ import {
   ArrowLeftRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { CustomSelect } from './components/CustomSelect';
 import { CustomDatePicker } from './components/CustomDatePicker';
 import { db } from './firebase';
@@ -174,7 +173,6 @@ function LandingPage() {
   const [confirmedPhone, setConfirmedPhone] = useState('');
   const [pendingBookingData, setPendingBookingData] = useState<any>(null);
   const [visitorId, setVisitorId] = useState<string>('');
-  const { executeRecaptcha } = useGoogleReCaptcha();
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [lastBookingInfo, setLastBookingInfo] = useState<{name: string, date: string, time: string} | null>(null);
   const [formData, setFormData] = useState({
@@ -962,11 +960,6 @@ function LandingPage() {
                     }
 
                     try {
-                      let recaptchaToken = '';
-                      if (executeRecaptcha) {
-                        recaptchaToken = await executeRecaptcha('booking');
-                      }
-
                       let formattedDate = '';
                       if (date) {
                         const d = new Date(date);
@@ -1002,31 +995,6 @@ function LandingPage() {
                       };
 
                       setPendingBookingData(passengerData);
-                      
-                      const response = await fetch('/api/create-booking', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ passengerData, recaptchaToken })
-                      });
-
-                      if (!response.ok) {
-                        let errorMessage = 'Erro ao processar agendamento';
-                        try {
-                          const contentType = response.headers.get('content-type');
-                          if (contentType && contentType.includes('application/json')) {
-                            const errData = await response.json();
-                            errorMessage = errData.error || errorMessage;
-                          } else {
-                            const errorText = await response.text();
-                            console.error('Server returned non-JSON error:', errorText.substring(0, 200));
-                            errorMessage = `Erro no servidor (${response.status})`;
-                          }
-                        } catch (e) {
-                          console.error('Error parsing error response:', e);
-                        }
-                        throw new Error(errorMessage);
-                      }
-
                       setLastBookingInfo({
                         name: formData.name,
                         date: date ? new Date(date).toLocaleDateString('pt-BR') : '',
@@ -1044,9 +1012,6 @@ function LandingPage() {
                 >
                   Finalizar Reserva
                 </button>
-                <p className="text-[10px] text-slate-500 text-center mt-4 leading-tight">
-                  Este site é protegido pelo reCAPTCHA e a <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noreferrer">Política de Privacidade</a> e os <a href="https://policies.google.com/terms" className="underline" target="_blank" rel="noreferrer">Termos de Serviço</a> do Google se aplicam.
-                </p>
               </div>
             </motion.div>
           </motion.div>
@@ -1132,24 +1097,11 @@ function LandingPage() {
                         });
 
                         if (!response.ok) {
-                          let errorMessage = 'Failed to create booking';
-                          try {
-                            const contentType = response.headers.get('content-type');
-                            if (contentType && contentType.includes('application/json')) {
-                              const errorData = await response.json();
-                              if (errorData.isBlocked) {
-                                setPoisonPill(visitorId);
-                              }
-                              errorMessage = errorData.error || errorMessage;
-                            } else {
-                              const errorText = await response.text();
-                              console.error('Server returned non-JSON error:', errorText.substring(0, 200));
-                              errorMessage = `Erro no servidor (${response.status})`;
-                            }
-                          } catch (e) {
-                            console.error('Error parsing error response:', e);
+                          const errorData = await response.json();
+                          if (errorData.isBlocked) {
+                            setPoisonPill(visitorId);
                           }
-                          throw new Error(errorMessage);
+                          throw new Error(errorData.error || 'Failed to create booking');
                         }
 
                         setIsPhoneConfirmationModalOpen(false);
