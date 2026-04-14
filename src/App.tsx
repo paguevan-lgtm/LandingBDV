@@ -987,8 +987,8 @@ function LandingPage() {
                         luggageDetails: `${formData.luggageS}P, ${formData.luggageM}M, ${formData.luggageL}G`,
                         status: 'Ativo',
                         source: 'Site',
-                        payment: 'Pendente',
-                        paymentMethod: formData.paymentMethod || '',
+                        payment: formData.paymentMethod || 'Pendente',
+                        paymentMethod: '',
                         createdAt: new Date().toISOString(),
                         observation: formData.observation || '',
                         fingerprint: visitorId

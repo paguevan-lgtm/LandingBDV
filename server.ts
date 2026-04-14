@@ -513,63 +513,65 @@ async function startServer() {
         res.json({ success: true, sessionToken });
     });
 
-    async function findExistingPassenger(system: string, name: string, phone: string, address: string, authParam: string, fingerprint?: string) {
-        let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
-        if (system === 'Pg') {
-            url += `passengers.json${authParam}`;
-        } else {
-            url += `${system}/passengers.json${authParam}`;
-        }
+    async function findExistingPassenger(name: string, phone: string, address: string, authParam: string, fingerprint?: string) {
+        const systems = ['Pg', 'Mip', 'Sv'];
+        const normalizedName = name.toLowerCase().trim();
+        const normalizedPhone = phone.replace(/\D/g, '');
 
         try {
-            const res = await fetchWithRetry(url);
-            const passengers = await res.json();
-            if (!passengers) return null;
+            const promises = systems.map(sys => {
+                let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+                if (sys === 'Pg') url += `passengers.json${authParam}`;
+                else url += `${sys}/passengers.json${authParam}`;
+                return fetchWithRetry(url).then(r => r.json().then(data => ({ system: sys, data })));
+            });
 
-            const normalizedName = name.toLowerCase().trim();
-            const normalizedPhone = phone.replace(/\D/g, '');
+            const results = await Promise.all(promises);
 
-            for (const key in passengers) {
-                const p = passengers[key];
-                if (!p) continue;
+            for (const result of results) {
+                const passengers = result.data;
+                if (!passengers || typeof passengers !== 'object') continue;
 
-                // Match by Fingerprint FIRST if available
-                if (fingerprint && p.fingerprint) {
-                    // Exact match
-                    if (p.fingerprint === fingerprint) {
-                        return { key, id: p.id, data: p };
-                    }
+                for (const key in passengers) {
+                    const p = passengers[key];
+                    if (!p) continue;
 
-                    // Fuzzy match for composite fingerprints (v2_FPID_HWID or v3_FPID_HWID)
-                    const isV2orV3 = (f: string) => f.startsWith('v2_') || f.startsWith('v3_');
-                    if (isV2orV3(fingerprint) && isV2orV3(p.fingerprint)) {
-                        const parts1 = fingerprint.split('_');
-                        const parts2 = p.fingerprint.split('_');
-                        
-                        if (parts1.length === 3 && parts2.length === 3) {
-                            const [, fp1, hw1] = parts1;
-                            const [, fp2, hw2] = parts2;
+                    // Match by Fingerprint FIRST if available
+                    if (fingerprint && p.fingerprint) {
+                        // Exact match
+                        if (p.fingerprint === fingerprint) {
+                            return { key, id: p.id, data: p, system: result.system };
+                        }
+
+                        // Fuzzy match for composite fingerprints (v2_FPID_HWID or v3_FPID_HWID)
+                        const isV2orV3 = (f: string) => f.startsWith('v2_') || f.startsWith('v3_');
+                        if (isV2orV3(fingerprint) && isV2orV3(p.fingerprint)) {
+                            const parts1 = fingerprint.split('_');
+                            const parts2 = p.fingerprint.split('_');
                             
-                            // If Hardware ID matches OR FingerprintJS ID matches, it's likely the same device
-                            const hwMatch = hw1 === hw2 && hw1 !== 'canvas_err' && hw1 !== 'no_canvas' && !hw1.startsWith('hw_fallback');
-                            const fpMatch = fp1 === fp2;
+                            if (parts1.length === 3 && parts2.length === 3) {
+                                const [, fp1, hw1] = parts1;
+                                const [, fp2, hw2] = parts2;
+                                
+                                const hwMatch = hw1 === hw2 && hw1 !== 'canvas_err' && hw1 !== 'no_canvas' && !hw1.startsWith('hw_fallback');
+                                const fpMatch = fp1 === fp2;
 
-                            if (hwMatch || fpMatch) {
-                                console.log(`[SECURITY] Fuzzy fingerprint match (${hwMatch ? 'HWID' : 'FPID'}) for passenger ${p.id}`);
-                                return { key, id: p.id, data: p };
+                                if (hwMatch || fpMatch) {
+                                    return { key, id: p.id, data: p, system: result.system };
+                                }
                             }
                         }
                     }
-                }
 
-                if (!p.name || !p.phone) continue;
+                    if (!p.name || !p.phone) continue;
 
-                const pName = p.name.toLowerCase().trim();
-                const pPhone = p.phone.replace(/\D/g, '');
+                    const pName = p.name.toLowerCase().trim();
+                    const pPhone = p.phone.replace(/\D/g, '');
 
-                // Match by Name and Phone
-                if (pName === normalizedName && pPhone === normalizedPhone) {
-                    return { key, id: p.id, data: p };
+                    // Match by Name and Phone
+                    if (pName === normalizedName && pPhone === normalizedPhone) {
+                        return { key, id: p.id, data: p, system: result.system };
+                    }
                 }
             }
         } catch (e) {
@@ -608,8 +610,8 @@ async function startServer() {
             passengerData.ip = req.ip;
             passengerData.userAgent = req.headers['user-agent'] || '';
 
-            // 2. Check for existing passenger (Name and Phone match OR Fingerprint)
-            const existing = await findExistingPassenger(systemToSave, passengerData.name, passengerData.phone, passengerData.address || '', authParam, passengerData.fingerprint);
+            // 2. Check for existing passenger (Name and Phone match OR Fingerprint) - Search across ALL systems
+            const existing = await findExistingPassenger(passengerData.name, passengerData.phone, passengerData.address || '', authParam, passengerData.fingerprint);
             
             let displayId, firebaseKey;
 
@@ -629,28 +631,49 @@ async function startServer() {
                 if (existing.data.tags) passengerData.tags = existing.data.tags;
                 if (existing.data.notes) passengerData.notes = existing.data.notes;
                 
-                console.log(`Reusing existing passenger: ${displayId} (key: ${firebaseKey})`);
+                console.log(`Reusing existing passenger: ${displayId} (key: ${firebaseKey}) from system: ${existing.system}`);
             } else {
                 // 3. Get the last passenger ID to continue sequence
                 try {
-                    const lastPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}&orderBy="id"&limitToLast=1`;
-                    const lastPassRes = await fetchWithRetry(lastPassUrl);
-                    const lastPassData = await lastPassRes.json();
+                    const allPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
+                    const allPassRes = await fetchWithRetry(allPassUrl);
+                    const allPassData = await allPassRes.json();
                     
-                    let lastId = 0;
-                    if (lastPassData && typeof lastPassData === 'object') {
-                        const keys = Object.keys(lastPassData);
-                        if (keys.length > 0) {
-                            const lastItem = lastPassData[keys[0]];
-                            lastId = parseInt(lastItem.id) || 0;
+                    let maxSiteId = 0;
+                    if (allPassData && typeof allPassData === 'object') {
+                        for (const key in allPassData) {
+                            const item = allPassData[key];
+                            if (!item) continue;
+                            
+                            const keyStr = String(key);
+                            const idStr = item.id ? String(item.id) : '';
+                            
+                            // Considera apenas passageiros que têm 'S' no ID/Chave ou source === 'Site'
+                            if (keyStr.startsWith('S') || idStr.startsWith('S') || item.source === 'Site') {
+                                let keyNum = 0;
+                                const keyMatch = keyStr.match(/\d+/);
+                                if (keyMatch) keyNum = parseInt(keyMatch[0], 10);
+                                
+                                let idNum = 0;
+                                const idMatch = idStr.match(/\d+/);
+                                if (idMatch) idNum = parseInt(idMatch[0], 10);
+                                
+                                const numericId = Math.max(isNaN(keyNum) ? 0 : keyNum, isNaN(idNum) ? 0 : idNum);
+                                
+                                if (numericId > maxSiteId) {
+                                    maxSiteId = numericId;
+                                }
+                            }
                         }
                     }
                     
-                    displayId = `${lastId + 1}`;
-                    firebaseKey = displayId;
+                    const nextId = maxSiteId + 1;
+                    displayId = `S${nextId}`;
+                    firebaseKey = displayId; // Usa S1, S2, etc.
+                    console.log(`Generated new Site ID: ${displayId} (Max Site ID found was: ${maxSiteId})`);
                 } catch (e) {
                     console.warn("Could not fetch last ID, using timestamp fallback", e);
-                    displayId = Date.now().toString().slice(-6);
+                    displayId = `S${Date.now().toString().slice(-6)}`;
                     firebaseKey = displayId;
                 }
             }
