@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Icons, Button, IconButton, EmptyState, ConfirmModal } from '../components/Shared';
 import { DonutChart, HorizontalBarChart } from '../components/Charts';
-import { getTodayDate } from '../utils';
+import { getTodayDate, formatDisplayDate } from '../utils';
 import { db } from '../firebase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
@@ -61,17 +61,28 @@ export default function Site({ data, theme, user, systemContext, notify, request
         const bookingsByDate: any = {};
         
         bookings.forEach((p: any) => {
-            const dest = p.destination || 'Desconhecido';
+            // Usa targetCity como destino para as métricas do site
+            const dest = p.targetCity || p.destination || 'Desconhecido';
             destinations[dest] = (destinations[dest] || 0) + 1;
             
-            const date = p.date || 'Desconhecido';
-            bookingsByDate[date] = (bookingsByDate[date] || 0) + 1;
+            // Formata a data para DD/MM/YYYY
+            const rawDate = p.date || 'Desconhecido';
+            const displayDate = rawDate !== 'Desconhecido' ? formatDisplayDate(rawDate) : rawDate;
+            bookingsByDate[displayDate] = (bookingsByDate[displayDate] || 0) + 1;
         });
 
         return {
             total: bookings.length,
             destinations: Object.entries(destinations).map(([label, value]) => ({ label, value })),
-            byDate: Object.entries(bookingsByDate).map(([label, value]) => ({ label, value })).sort((a: any, b: any) => a.label.localeCompare(b.label)).slice(-7)
+            byDate: Object.entries(bookingsByDate)
+                .map(([label, value]) => ({ label, value }))
+                .sort((a: any, b: any) => {
+                    // Ordenação correta para datas formatadas DD/MM/YYYY
+                    const [dA, mA, yA] = a.label.split('/').map(Number);
+                    const [dB, mB, yB] = b.label.split('/').map(Number);
+                    return new Date(yA, mA - 1, dA).getTime() - new Date(yB, mB - 1, dB).getTime();
+                })
+                .slice(-7)
         };
     }, [data.passengers]);
 

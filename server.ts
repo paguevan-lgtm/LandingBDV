@@ -650,13 +650,12 @@ async function startServer() {
                             
                             // Considera apenas passageiros que têm 'S' no ID/Chave ou source === 'Site'
                             if (keyStr.startsWith('S') || idStr.startsWith('S') || item.source === 'Site') {
-                                let keyNum = 0;
-                                const keyMatch = keyStr.match(/\d+/);
-                                if (keyMatch) keyNum = parseInt(keyMatch[0], 10);
+                                // Extrai apenas os números do ID (ex: de "S2" extrai "2")
+                                const keyMatch = keyStr.match(/S(\d+)/);
+                                const idMatch = idStr.match(/S(\d+)/);
                                 
-                                let idNum = 0;
-                                const idMatch = idStr.match(/\d+/);
-                                if (idMatch) idNum = parseInt(idMatch[0], 10);
+                                let keyNum = keyMatch ? parseInt(keyMatch[1], 10) : 0;
+                                let idNum = idMatch ? parseInt(idMatch[1], 10) : 0;
                                 
                                 const numericId = Math.max(isNaN(keyNum) ? 0 : keyNum, isNaN(idNum) ? 0 : idNum);
                                 

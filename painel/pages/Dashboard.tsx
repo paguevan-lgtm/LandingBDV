@@ -58,7 +58,8 @@ const THEME_CONFIGS: any = {
         id: 'trabalho', name: 'Dia do Trabalho',
         gradient: 'from-blue-600/30 to-slate-600/30',
         icon: <span className="text-3xl md:text-4xl animate-bounce">👷</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '🛠️',
         phrase: "Homenagem a quem move o Brasil! 🛠️",
         range: "01/05"
     },
@@ -66,7 +67,8 @@ const THEME_CONFIGS: any = {
         id: 'independencia', name: 'Independência do Brasil',
         gradient: 'from-green-600/30 to-yellow-600/30',
         icon: <span className="text-3xl md:text-4xl animate-pulse">🇧🇷</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '🇧🇷',
         phrase: "Independência ou Gerenciamento! 🦅",
         range: "07/09"
     },
@@ -74,7 +76,8 @@ const THEME_CONFIGS: any = {
         id: 'republica', name: 'Proclamação da República',
         gradient: 'from-green-800/30 to-yellow-700/30',
         icon: <span className="text-3xl md:text-4xl animate-pulse">🏛️</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '📜',
         phrase: "Pela ordem e pelo progresso da nossa frota! 📜",
         range: "15/11"
     },
@@ -82,7 +85,8 @@ const THEME_CONFIGS: any = {
         id: 'namorados', name: 'Dia dos Namorados',
         gradient: 'from-red-500/30 to-pink-500/30',
         icon: <span className="text-3xl md:text-4xl animate-bounce">💘</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '❤️',
         phrase: "O amor está no ar... e na van também! ❤️",
         range: "12/06"
     },
@@ -90,7 +94,8 @@ const THEME_CONFIGS: any = {
         id: 'maes', name: 'Dia das Mães',
         gradient: 'from-pink-400/30 to-purple-400/30',
         icon: <span className="text-3xl md:text-4xl animate-pulse">👩‍👧</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '🌸',
         phrase: "Para quem nos guia com todo amor! 🌸",
         range: "Maio"
     },
@@ -98,7 +103,8 @@ const THEME_CONFIGS: any = {
         id: 'pais', name: 'Dia dos Pais',
         gradient: 'from-blue-500/30 to-cyan-500/30',
         icon: <span className="text-3xl md:text-4xl animate-pulse">👨‍👦</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '👔',
         phrase: "Nosso herói e nosso melhor passageiro! 👔",
         range: "Agosto"
     },
@@ -106,7 +112,8 @@ const THEME_CONFIGS: any = {
         id: 'motorista', name: 'Dia do Motorista',
         gradient: 'from-amber-600/30 to-orange-600/30',
         icon: <span className="text-3xl md:text-4xl animate-bounce">🚚</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '🚚',
         phrase: "Parabéns aos gigantes das estradas! 🛣️",
         range: "25/07"
     },
@@ -114,7 +121,8 @@ const THEME_CONFIGS: any = {
         id: 'escritorio', name: 'Dia do Profissional de Escritório',
         gradient: 'from-slate-500/30 to-blue-400/30',
         icon: <span className="text-3xl md:text-4xl animate-pulse">🏢</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '📋',
         phrase: "A base de toda a nossa operação! 💻",
         range: "18/10"
     },
@@ -122,7 +130,8 @@ const THEME_CONFIGS: any = {
         id: 'transito', name: 'Dia Nacional do Trânsito',
         gradient: 'from-yellow-500/30 to-red-500/30',
         icon: <span className="text-3xl md:text-4xl animate-pulse">🚦</span>,
-        particles: 'confetti',
+        particles: 'emoji',
+        particleEmoji: '🚦',
         phrase: "Paz no trânsito começa por você! 🛑",
         range: "25/09"
     }
@@ -319,6 +328,7 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
             else if (activeFestive.particles === 'ghosts') { style.fontSize = '20px'; items.push(<div key={`particle-${i}`} style={style} className="festive-emoji absolute top-0 opacity-0 animate-float-up">👻</div>); continue; }
             else if (activeFestive.particles === 'eggs') { style.fontSize = '15px'; items.push(<div key={`particle-${i}`} style={style} className="festive-emoji absolute top-0 opacity-0 animate-fall-rotate">🥚</div>); continue; }
             else if (activeFestive.particles === 'corn') { style.fontSize = '18px'; items.push(<div key={`particle-${i}`} style={style} className="festive-emoji absolute top-0 opacity-0 animate-fall-rotate">🌽</div>); continue; }
+            else if (activeFestive.particles === 'emoji') { style.fontSize = '18px'; items.push(<div key={`particle-${i}`} style={style} className="festive-emoji absolute top-0 opacity-0 animate-fall-rotate">{activeFestive.particleEmoji || '✨'}</div>); continue; }
             else if (activeFestive.particles === 'flags') { className += "w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[10px] border-t-red-500 fall-sway"; }
             else if (activeFestive.particles === 'sparkle') { className += "bg-yellow-200 w-1 h-1 rounded-full shadow-[0_0_5px_yellow] fall-sparkle"; }
             
