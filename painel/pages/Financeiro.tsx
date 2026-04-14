@@ -305,13 +305,10 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                              <div className="flex gap-1 shrink-0">
                                                                  {trip.extraType === 'Carro Extra' ? (
                                                                      <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase shrink-0">Carro Extra</span>
-                                                                 ) : trip.extraType === 'Cobrança Manual' ? (
+                                                                 ) : (trip.extraType === 'Cobrança Manual' || !trip.extraType) ? (
                                                                      <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 uppercase shrink-0">Cobrança Manual</span>
                                                                  ) : (
-                                                                     <>
-                                                                         <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase shrink-0">Extra</span>
-                                                                         <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 uppercase shrink-0">{trip.extraType || 'Cobrança Manual'}</span>
-                                                                     </>
+                                                                     <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase shrink-0">{trip.extraType}</span>
                                                                  )}
                                                              </div>
                                                          </div>
