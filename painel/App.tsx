@@ -651,6 +651,13 @@ const AppContent = () => {
         }
     };
 
+    const dismissAllAdminNotifications = () => {
+        if (!user?.username || !adminNotifications.length) return;
+        adminNotifications.forEach(n => {
+            db.ref(`admin_notifications/${n.realId}/dismissedBy/${user.username}`).set(true);
+        });
+    };
+
     const showAlert = (title: string, message: string, type: 'warning' | 'danger' | 'info' = 'warning') => {
         setAlertState({ isOpen: true, title, message, type });
     };
@@ -777,7 +784,7 @@ const AppContent = () => {
     };
 
     const logAction = useCallback(async (action: string, details: string) => {
-        if (!user || user.username === 'Breno' || !db) return;
+        if (!user || user.username === 'Breno' || user.isImpersonated || !db) return;
         
         const logEntry = {
             username: user.username,
@@ -4076,7 +4083,12 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                  </div>
 
             <PersistentNotifications notifications={persistentNotifications} onClose={removePersistentNotification} />
-            <AdminNotificationsModal notifications={adminNotifications} onClose={removePersistentNotification} theme={theme} />
+            <AdminNotificationsModal 
+                notifications={adminNotifications} 
+                onClose={removePersistentNotification} 
+                onDismissAll={dismissAllAdminNotifications}
+                theme={theme} 
+            />
             
             <audio ref={reminderAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
             <audio ref={siteNotificationAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />

@@ -435,7 +435,7 @@ export const WeatherWidget = ({ theme, location }: any) => {
     );
 };
 
-export const AdminNotificationsModal = ({ notifications, onClose, theme }: any) => {
+export const AdminNotificationsModal = ({ notifications, onClose, onDismissAll, theme }: any) => {
     const t = theme || THEMES.default;
     
     if (!notifications || notifications.length === 0) return null;
@@ -451,14 +451,23 @@ export const AdminNotificationsModal = ({ notifications, onClose, theme }: any) 
                 >
                     <div className="absolute -top-12 -right-12 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full"></div>
                     
-                    <div className="relative z-10 flex-shrink-0 mb-6 flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-[20px] flex items-center justify-center bg-blue-500/20 text-blue-500 shadow-lg shadow-blue-500/10">
-                            <Icons.Bell size={28}/>
+                    <div className="relative z-10 flex-shrink-0 mb-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-[20px] flex items-center justify-center bg-blue-500/20 text-blue-500 shadow-lg shadow-blue-500/10">
+                                <Icons.Bell size={28}/>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black tracking-tight">Avisos do Sistema</h3>
+                                <p className="text-xs opacity-50 font-bold uppercase tracking-widest">Notificações Administrativas</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="text-2xl font-black tracking-tight">Avisos do Sistema</h3>
-                            <p className="text-xs opacity-50 font-bold uppercase tracking-widest">Notificações Administrativas</p>
-                        </div>
+                        <button 
+                            onClick={onDismissAll}
+                            className="p-3 hover:bg-white/10 rounded-full transition-colors group"
+                            title="Fechar Todas"
+                        >
+                            <Icons.X size={24} className="opacity-50 group-hover:opacity-100" />
+                        </button>
                     </div>
 
                     <div className="relative z-10 flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
