@@ -277,9 +277,11 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
 
     const onPrint = async (targetId: string, filename: string, title: string, options: any = {}) => {
         try {
+            notify("Gerando imagem...", "loading");
             // Use user.username if available, otherwise fallback to 'Usuário'
             const currentUserName = user?.displayName || user?.username || 'Usuário';
             await handlePrint(targetId, filename, title, { ...options, userName: currentUserName });
+            notify("Imagem gerada com sucesso!", "success");
         } catch (error: any) {
             notify(error.message, 'error');
         }

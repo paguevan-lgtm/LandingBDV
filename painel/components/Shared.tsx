@@ -532,10 +532,12 @@ export const Toast = ({ message, type, visible, image }: any) => {
                             background: type === 'success' ? 'rgba(16, 185, 129, 0.85)' : 
                                         type === 'error' ? 'rgba(239, 68, 68, 0.85)' : 
                                         type === 'warning' ? 'rgba(245, 158, 11, 0.85)' :
+                                        type === 'loading' ? 'rgba(100, 116, 139, 0.85)' :
                                         'rgba(59, 130, 246, 0.85)',
                             boxShadow: type === 'success' ? '0 20px 40px -10px rgba(16, 185, 129, 0.3)' :
                                        type === 'error' ? '0 20px 40px -10px rgba(239, 68, 68, 0.3)' :
                                        type === 'warning' ? '0 20px 40px -10px rgba(245, 158, 11, 0.3)' :
+                                       type === 'loading' ? '0 20px 40px -10px rgba(100, 116, 139, 0.3)' :
                                        '0 20px 40px -10px rgba(59, 130, 246, 0.3)'
                         }}
                     >
@@ -548,6 +550,7 @@ export const Toast = ({ message, type, visible, image }: any) => {
                                     {type === 'error' && <Icons.X size={22}/>}
                                     {type === 'warning' && <Icons.Bell size={22}/>}
                                     {type === 'info' && <Icons.Bell size={22}/>}
+                                    {type === 'loading' && <LoadingSpinner size={22} className="text-white" />}
                                 </>
                             )}
                         </div>

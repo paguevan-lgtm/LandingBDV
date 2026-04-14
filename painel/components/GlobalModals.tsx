@@ -145,7 +145,7 @@ export const GlobalModals = ({
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-0 md:p-4">
             <div className={`${theme.card} w-full max-h-[85dvh] md:max-h-[90vh] md:max-w-xl rounded-t-3xl md:rounded-2xl border ${theme.border} shadow-2xl flex flex-col page-transition`}>
                 <div className="h-16 border-b border-white/10 flex items-center justify-between px-6 shrink-0">
-                    <h2 className="text-xl font-bold">{modal==='trip'?'Criar Viagem':modal==='passenger'?'Passageiro':modal==='driver'?'Motorista':modal==='lostFound'?'Perdido & Achado':modal==='reschedule'?'Reagendar':modal==='extraCharge'?'Carro Extra':modal==='madrugadaVaga'?'Vaga Madrugada':modal==='madrugadaBlock'?'Bloquear Vaga':modal==='appointment'?'Novo Agendamento':''}</h2>
+                    <h2 className="text-xl font-bold">{modal==='trip'?'Criar Viagem':modal==='passenger'?'Passageiro':modal==='driver'?'Motorista':modal==='lostFound'?'Perdido & Achado':modal==='reschedule'?'Reagendar':modal==='extraCharge'?'Cobrança Manual':modal==='madrugadaVaga'?'Vaga Madrugada':modal==='madrugadaBlock'?'Bloquear Vaga':modal==='appointment'?'Novo Agendamento':''}</h2>
                     <button onClick={()=>setModal(null)} className="opacity-50"><Icons.X size={24}/></button>
                 </div>
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-5 pb-10">
@@ -168,12 +168,12 @@ export const GlobalModals = ({
                     
                     {modal === 'extraCharge' && (
                         <div className="space-y-6">
-                            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-sm text-purple-200">Aqui você cria cobranças adicionais como Fretes ou Carros Extras para ter controle financeiro.</div>
+                            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl text-sm text-purple-200">Aqui você cria cobranças manuais para motoristas cadastrados ou registra carros extras.</div>
                             
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold opacity-60 ml-1">Tipo de Cobrança</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {['Frete', 'Carro Extra'].map(t => (
+                                    {['Cobrança Manual', 'Carro Extra'].map(t => (
                                         <button 
                                             key={t}
                                             onClick={() => setFormData({...formData, type: t})}
@@ -185,7 +185,33 @@ export const GlobalModals = ({
                                 </div>
                             </div>
 
-                            <Input theme={theme} label="Nome do Motorista" placeholder="Ex: João da Silva" value={formData.driverName || ''} onChange={(e:any)=>setFormData({...formData, driverName:e.target.value})} />
+                            {formData.type === 'Cobrança Manual' ? (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-bold opacity-60 ml-1">Selecionar Motorista</label>
+                                    <select 
+                                        className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14"
+                                        value={formData.driverId || ''}
+                                        onChange={(e:any) => {
+                                            const dr = data.drivers.find((d:any) => d.id === e.target.value);
+                                            if (dr) {
+                                                setFormData({
+                                                    ...formData, 
+                                                    driverId: dr.id, 
+                                                    driverName: dr.name,
+                                                    phone: dr.phone || (dr.phones && dr.phones[0]?.phone) || ''
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <option value="" className="bg-slate-900">Selecione o motorista...</option>
+                                        {data.drivers.filter((d:any) => d.status === 'Ativo').sort((a:any, b:any) => a.name.localeCompare(b.name)).map((d:any) => (
+                                            <option key={d.id} value={d.id} className="bg-slate-900">{d.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : (
+                                <Input theme={theme} label="Nome do Motorista" placeholder="Ex: João da Silva" value={formData.driverName || ''} onChange={(e:any)=>setFormData({...formData, driverName:e.target.value})} />
+                            )}
                             
                             <div className="grid grid-cols-2 gap-4">
                                 <Input theme={theme} label="Valor (R$)" type="number" placeholder="0,00" value={formData.value || ''} onChange={(e:any)=>setFormData({...formData, value:e.target.value})} />
