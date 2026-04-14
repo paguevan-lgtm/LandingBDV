@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from './firebase';
 import { THEMES, INITIAL_SP_LIST, BAIRROS, BAIRROS_MIP, DEFAULT_FOLGAS } from './constants';
-import { Icons, Toast, PersistentNotifications, ConfirmModal, AlertModal, AdminAuthModal, CommandPalette, QuickCalculator } from './components/Shared';
+import { Icons, Toast, PersistentNotifications, AdminNotificationsModal, ConfirmModal, AlertModal, AdminAuthModal, CommandPalette, QuickCalculator } from './components/Shared';
 import { TourGuide } from './components/Tour';
 import { LoginScreen } from './pages/Login';
 import { getTodayDate, getOperationalDate, getLousaDate, generateUniqueId, callGemini, getAvatarUrl, getBairroIdx, formatDisplayDate, parseDisplayDate, dateAddDays, addMinutes, getWeekNumber, calculateSimilarity } from './utils';
@@ -16,6 +16,7 @@ import { GlobalModals } from './components/GlobalModals';
 
 // Pages
 import Dashboard from './pages/Dashboard';
+import Site from './pages/Site';
 import Passageiros from './pages/Passageiros';
 import Motoristas from './pages/Motoristas';
 import Viagens from './pages/Viagens';
@@ -446,6 +447,7 @@ const AppContent = () => {
     // Notificações e Confirmações
     const [notification, setNotification] = useState({ message: '', type: 'info', visible: false, image: null as string | null });
     const [persistentNotifications, setPersistentNotifications] = useState<{id: string, message: string}[]>([]);
+    const [adminNotifications, setAdminNotifications] = useState<{id: string, message: string, realId: string}[]>([]);
     const [confirmState, setConfirmState] = useState<any>({ isOpen: false, title: '', message: '', onConfirm: () => {}, type: 'danger' });
     const [alertState, setAlertState] = useState<any>({ isOpen: false, title: '', message: '', type: 'warning' });
 
@@ -456,6 +458,7 @@ const AppContent = () => {
     const DEFAULT_MENU_ITEMS = useMemo(() => {
         const items = [
             {id:'dashboard',l:'Dashboard',i:Icons.Home}, 
+            {id:'site', l:'Site', i:Icons.Globe},
             {id:'appointments', l:'Agendamentos', i:Icons.Calendar}, 
             {id:'passengers',l:'Passageiros',i:Icons.Users}, 
             {id:'table', l: 'Tabela', i: Icons.List}, 
@@ -634,7 +637,14 @@ const AppContent = () => {
     };
 
     const removePersistentNotification = (id: string) => {
-        setPersistentNotifications(prev => prev.filter(n => n.id !== id));
+        if (id.startsWith('admin_notif_')) {
+            const realId = id.replace('admin_notif_', '');
+            if (user?.username) {
+                db.ref(`admin_notifications/${realId}/dismissedBy/${user.username}`).set(true);
+            }
+        } else {
+            setPersistentNotifications(prev => prev.filter(n => n.id !== id));
+        }
     };
 
     const showAlert = (title: string, message: string, type: 'warning' | 'danger' | 'info' = 'warning') => {
@@ -1222,6 +1232,36 @@ const AppContent = () => {
             query.off('child_added', handleNewNotif);
         };
     }, [db, user, systemContext]);
+
+    // Admin Notifications Listener (Auto-scheduling toggles)
+    useEffect(() => {
+        if (!db || !user || user.role !== 'admin') return;
+
+        const adminNotifRef = db.ref('admin_notifications');
+
+        const handleAdminNotifs = (snap: any) => {
+            const notifs = snap.val();
+            if (!notifs) {
+                setAdminNotifications([]);
+                return;
+            }
+
+            const activeNotifs = Object.entries(notifs).map(([id, data]: any) => ({
+                id: `admin_notif_${id}`,
+                realId: id,
+                message: data.message,
+                dismissedBy: data.dismissedBy || {}
+            })).filter(n => !n.dismissedBy[user.username]);
+
+            setAdminNotifications(activeNotifs);
+        };
+
+        adminNotifRef.on('value', handleAdminNotifs);
+
+        return () => {
+            adminNotifRef.off('value', handleAdminNotifs);
+        };
+    }, [db, user]);
 
     // Repetitive sound for site notifications (every 3 seconds)
     useEffect(() => {
@@ -3719,6 +3759,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                     isOnline={isOnline}
                     isDbConnected={isDbConnected}
                     pendingOpsCount={pendingOps.length}
+                    db={db}
                  />
     
                  <div className={`flex-1 flex flex-col h-full min-w-0 ${theme.contentBg || 'bg-black/20'}`}>
@@ -3876,6 +3917,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                     setModal('passenger'); 
                                 } else { setModal('trip'); setFormData({}); } 
                             }} dbOp={dbOp} setAiModal={setAiModal} user={user} systemContext={systemContext} notify={notify} />}
+                            {view === 'site' && <Site data={data} theme={theme} user={user} systemContext={systemContext} notify={notify} requestConfirm={requestConfirm} />}
                             {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
                             {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
                             {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
@@ -4029,6 +4071,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                  </div>
 
             <PersistentNotifications notifications={persistentNotifications} onClose={removePersistentNotification} />
+            <AdminNotificationsModal notifications={adminNotifications} onClose={removePersistentNotification} theme={theme} />
             
             <audio ref={reminderAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
             <audio ref={siteNotificationAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />

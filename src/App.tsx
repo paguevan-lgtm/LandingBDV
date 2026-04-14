@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import MotoristaApp from './motorista/MotoristaApp';
 import Contato from './pages/Contato';
@@ -22,7 +22,8 @@ import {
   Bus,
   ArrowRight,
   CheckCircle2,
-  ArrowLeftRight
+  ArrowLeftRight,
+  MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CustomSelect } from './components/CustomSelect';
@@ -156,6 +157,7 @@ function LandingPage() {
   const [isAllDestinationsModalOpen, setIsAllDestinationsModalOpen] = useState(false);
   const [beachInfoModal, setBeachInfoModal] = useState<{isOpen: boolean, destValue: string}>({isOpen: false, destValue: ''});
   const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [autoSchedulingEnabled, setAutoSchedulingEnabled] = useState<any>({ Pg: true, Mip: true, Sv: true });
 
   // Form State
   const [tripType, setTripType] = useState('so_ida');
@@ -193,6 +195,17 @@ function LandingPage() {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     
+    // Track visit
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      db.ref(`site_analytics/visits/${today}`).push({
+        timestamp: Date.now(),
+        path: window.location.pathname
+      });
+    } catch (e) {
+      console.error("Error tracking visit:", e);
+    }
+
     // Initialize Fingerprint
     const initFingerprint = async () => {
       try {
@@ -204,8 +217,28 @@ function LandingPage() {
     };
     initFingerprint();
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    // Listen to auto-scheduling settings
+    const refs = ['Pg', 'Mip', 'Sv'].map(sys => db.ref(`system_settings/${sys}/autoSchedulingEnabled`));
+    const listeners = refs.map((ref, idx) => {
+      const sys = ['Pg', 'Mip', 'Sv'][idx];
+      return ref.on('value', (snap) => {
+        setAutoSchedulingEnabled((prev: any) => ({ ...prev, [sys]: snap.val() !== false }));
+      });
+    });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      refs.forEach((ref, idx) => ref.off('value', listeners[idx]));
+    };
   }, []);
+
+  const currentSystem = useMemo(() => {
+    if (origin === 'mongagua' || origin === 'itanhaem') return 'Mip';
+    if (origin === 'santos' || origin === 'sao_vicente' || origin === 'cubatao' || origin === 'guaruja') return 'Sv';
+    return 'Pg';
+  }, [origin]);
+
+  const isAutoSchedulingDisabled = !autoSchedulingEnabled[currentSystem];
 
   const handleAction = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -505,30 +538,41 @@ function LandingPage() {
             </div>
 
             <div className="flex items-end">
-              <button 
-                onClick={() => {
-                  const errors: string[] = [];
-                  if (!origin) errors.push('origin');
-                  if (!destination) errors.push('destination');
-                  if (!date) errors.push('date');
-                  if (!passengers) errors.push('passengers');
+              {isAutoSchedulingDisabled ? (
+                <a 
+                  href={`https://wa.me/5513997744720?text=${encodeURIComponent(`Olá, gostaria de consultar uma viagem saindo de ${origin || '...'} para ${destination === 'jabaquara' ? 'São Paulo' : destination}.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-green-600 text-white py-4 rounded-2xl font-extrabold text-lg shadow-lg shadow-green-900/20 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={20} /> Chamar no WhatsApp
+                </a>
+              ) : (
+                <button 
+                  onClick={() => {
+                    const errors: string[] = [];
+                    if (!origin) errors.push('origin');
+                    if (!destination) errors.push('destination');
+                    if (!date) errors.push('date');
+                    if (!passengers) errors.push('passengers');
 
-                  if (errors.length > 0) {
-                    setWidgetErrors(errors);
-                    handleAction('Por favor, preencha todos os campos destacados!', 'error');
-                    return;
-                  }
-                  setWidgetErrors([]);
-                  setIsInitialLoading(true);
-                  setTimeout(() => {
-                    setIsInitialLoading(false);
-                    setIsBookingModalOpen(true);
-                  }, 3500);
-                }} 
-                className="w-full bg-gradient-brand text-white py-4 rounded-2xl font-extrabold text-lg shadow-lg shadow-brand-purple/20 hover:shadow-brand-pink/40 hover:scale-[1.02] active:scale-95 transition-all"
-              >
-                Confirmar
-              </button>
+                    if (errors.length > 0) {
+                      setWidgetErrors(errors);
+                      handleAction('Por favor, preencha todos os campos destacados!', 'error');
+                      return;
+                    }
+                    setWidgetErrors([]);
+                    setIsInitialLoading(true);
+                    setTimeout(() => {
+                      setIsInitialLoading(false);
+                      setIsBookingModalOpen(true);
+                    }, 3500);
+                  }} 
+                  className="w-full bg-gradient-brand text-white py-4 rounded-2xl font-extrabold text-lg shadow-lg shadow-brand-purple/20 hover:shadow-brand-pink/40 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  Confirmar
+                </button>
+              )}
             </div>
           </div>
         </motion.div>

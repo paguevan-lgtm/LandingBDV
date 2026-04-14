@@ -680,6 +680,7 @@ async function startServer() {
 
             passengerData.id = displayId;
             passengerData.source = 'Site'; // Ensure source is always Site
+            passengerData.isSiteBooking = true;
 
             // 5. Save to Firebase
             let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;

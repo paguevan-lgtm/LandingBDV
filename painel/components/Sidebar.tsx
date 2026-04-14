@@ -90,7 +90,8 @@ export const Sidebar = ({
     systemContext,
     isOnline,
     isDbConnected,
-    pendingOpsCount
+    pendingOpsCount,
+    db
 }: any) => {
 
     const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -126,6 +127,9 @@ export const Sidebar = ({
             setOrderedMenuItems(newList);
             // Persist order
             localStorage.setItem(`menu_order_${user?.username}`, JSON.stringify(newList.map((i: any) => i.id)));
+            if (db && user?.username) {
+                db.ref(`user_data/${user.username}/preferences/menuOrder`).set(newList.map((i: any) => i.id));
+            }
         }
     };
 

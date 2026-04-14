@@ -53,6 +53,78 @@ const THEME_CONFIGS: any = {
         particles: 'ghosts',
         phrase: "Sem sustos na estrada, só gostosuras! 🎃",
         range: "25/10 a 31/10"
+    },
+    trabalho: {
+        id: 'trabalho', name: 'Dia do Trabalho',
+        gradient: 'from-blue-600/30 to-slate-600/30',
+        icon: <span className="text-3xl md:text-4xl animate-bounce">👷</span>,
+        particles: 'confetti',
+        phrase: "Homenagem a quem move o Brasil! 🛠️",
+        range: "01/05"
+    },
+    independencia: {
+        id: 'independencia', name: 'Independência do Brasil',
+        gradient: 'from-green-600/30 to-yellow-600/30',
+        icon: <span className="text-3xl md:text-4xl animate-pulse">🇧🇷</span>,
+        particles: 'confetti',
+        phrase: "Independência ou Gerenciamento! 🦅",
+        range: "07/09"
+    },
+    republica: {
+        id: 'republica', name: 'Proclamação da República',
+        gradient: 'from-green-800/30 to-yellow-700/30',
+        icon: <span className="text-3xl md:text-4xl animate-pulse">🏛️</span>,
+        particles: 'confetti',
+        phrase: "Pela ordem e pelo progresso da nossa frota! 📜",
+        range: "15/11"
+    },
+    namorados: {
+        id: 'namorados', name: 'Dia dos Namorados',
+        gradient: 'from-red-500/30 to-pink-500/30',
+        icon: <span className="text-3xl md:text-4xl animate-bounce">💘</span>,
+        particles: 'confetti',
+        phrase: "O amor está no ar... e na van também! ❤️",
+        range: "12/06"
+    },
+    maes: {
+        id: 'maes', name: 'Dia das Mães',
+        gradient: 'from-pink-400/30 to-purple-400/30',
+        icon: <span className="text-3xl md:text-4xl animate-pulse">👩‍👧</span>,
+        particles: 'confetti',
+        phrase: "Para quem nos guia com todo amor! 🌸",
+        range: "Maio"
+    },
+    pais: {
+        id: 'pais', name: 'Dia dos Pais',
+        gradient: 'from-blue-500/30 to-cyan-500/30',
+        icon: <span className="text-3xl md:text-4xl animate-pulse">👨‍👦</span>,
+        particles: 'confetti',
+        phrase: "Nosso herói e nosso melhor passageiro! 👔",
+        range: "Agosto"
+    },
+    motorista: {
+        id: 'motorista', name: 'Dia do Motorista',
+        gradient: 'from-amber-600/30 to-orange-600/30',
+        icon: <span className="text-3xl md:text-4xl animate-bounce">🚚</span>,
+        particles: 'confetti',
+        phrase: "Parabéns aos gigantes das estradas! 🛣️",
+        range: "25/07"
+    },
+    escritorio: {
+        id: 'escritorio', name: 'Dia do Profissional de Escritório',
+        gradient: 'from-slate-500/30 to-blue-400/30',
+        icon: <span className="text-3xl md:text-4xl animate-pulse">🏢</span>,
+        particles: 'confetti',
+        phrase: "A base de toda a nossa operação! 💻",
+        range: "18/10"
+    },
+    transito: {
+        id: 'transito', name: 'Dia Nacional do Trânsito',
+        gradient: 'from-yellow-500/30 to-red-500/30',
+        icon: <span className="text-3xl md:text-4xl animate-pulse">🚦</span>,
+        particles: 'confetti',
+        phrase: "Paz no trânsito começa por você! 🛑",
+        range: "25/09"
     }
 };
 
@@ -89,6 +161,31 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
         if (month === 12 && day >= 20 && day <= 26) detected = 'natal';
         // Ano Novo
         if ((month === 12 && day >= 30) || (month === 1 && day <= 2)) detected = 'anonovo';
+
+        // NOVOS TEMAS
+        if (month === 5 && day === 1) detected = 'trabalho';
+        if (month === 9 && day === 7) detected = 'independencia';
+        if (month === 11 && day === 15) detected = 'republica';
+        if (month === 6 && day === 12) detected = 'namorados';
+        if (month === 7 && day === 25) detected = 'motorista';
+        if (month === 10 && day === 18) detected = 'escritorio';
+        if (month === 9 && day === 25) detected = 'transito';
+
+        // Dia das Mães (2º domingo de maio)
+        if (month === 5) {
+            const firstDayOfMonth = new Date(today.getFullYear(), 4, 1);
+            const firstSunday = 1 + (7 - firstDayOfMonth.getDay()) % 7;
+            const secondSunday = firstSunday + 7;
+            if (day === secondSunday) detected = 'maes';
+        }
+
+        // Dia dos Pais (2º domingo de agosto)
+        if (month === 8) {
+            const firstDayOfMonth = new Date(today.getFullYear(), 7, 1);
+            const firstSunday = 1 + (7 - firstDayOfMonth.getDay()) % 7;
+            const secondSunday = firstSunday + 7;
+            if (day === secondSunday) detected = 'pais';
+        }
 
         if (detected) setFestiveTheme(detected);
     }, []);
@@ -305,9 +402,15 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
                         {/* Phrase / Pill Area */}
                         <div className="min-h-[30px]">
                             {activeFestive ? (
-                                <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 bg-white/20 border border-white/30 px-3 py-1.5 rounded-xl shadow-sm max-w-full">
-                                    <span className="text-xs md:text-sm font-bold leading-tight">{activeFestive.phrase}</span>
-                                    <span className="text-[10px] uppercase font-bold opacity-70 border-l border-white/40 pl-2 tracking-wider whitespace-nowrap">{activeFestive.range}</span>
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 bg-white/20 border border-white/30 px-3 py-1.5 rounded-xl shadow-sm max-w-full w-fit">
+                                        <span className="text-xs md:text-sm font-bold leading-tight">{activeFestive.phrase}</span>
+                                        <span className="text-[10px] uppercase font-bold opacity-70 border-l border-white/40 pl-2 tracking-wider whitespace-nowrap">{activeFestive.range}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 pl-1 opacity-90">
+                                        <div className="w-1 h-1 rounded-full bg-white/60"></div>
+                                        <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em]">{activeFestive.name}</span>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2 font-medium text-sm text-white/90">

@@ -37,6 +37,7 @@ export const PageHeader = ({ title, onBack, children }: any) => (
 );
 
 export const Icons = {
+    Activity: (p:any) => <Icon {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>,
     History: (p:any) => <Icon {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/><polyline points="12 7 12 12 16 14"/></Icon>,
     Menu: (p:any) => <Icon {...p}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></Icon>,
     Home: (p:any) => <Icon {...p}><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></Icon>,
@@ -135,7 +136,9 @@ export const Icons = {
     ArrowRight: (p:any) => <Icon {...p}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></Icon>,
     ArrowRightLeft: (p:any) => <Icon {...p}><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></Icon>,
     MoreVertical: (p:any) => <Icon {...p}><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></Icon>,
-    Screenshot: (p:any) => <Icon {...p}><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><polyline points="16 3 21 3 21 8"/><line x1="14" y1="10" x2="21" y2="3"/></Icon>
+    Screenshot: (p:any) => <Icon {...p}><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><polyline points="16 3 21 3 21 8"/><line x1="14" y1="10" x2="21" y2="3"/></Icon>,
+    Globe: (p:any) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Icon>,
+    MessageCircle: (p:any) => <Icon {...p}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></Icon>
 };
 
 export const Button = ({ onClick, children, theme, variant='primary', icon:IconComp, disabled, loading, className='', size='md', id='' }: any) => {
@@ -429,6 +432,61 @@ export const WeatherWidget = ({ theme, location }: any) => {
                 {weather.temperature_2m}°C • {info.label}
             </div>
         </div>
+    );
+};
+
+export const AdminNotificationsModal = ({ notifications, onClose, theme }: any) => {
+    const t = theme || THEMES.default;
+    
+    if (!notifications || notifications.length === 0) return null;
+
+    return (
+        <AnimatePresence>
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className={`${t.card} w-full max-w-md p-8 rounded-[40px] border ${t.border} shadow-2xl relative overflow-hidden max-h-[80vh] flex flex-col`}
+                >
+                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full"></div>
+                    
+                    <div className="relative z-10 flex-shrink-0 mb-6 flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-[20px] flex items-center justify-center bg-blue-500/20 text-blue-500 shadow-lg shadow-blue-500/10">
+                            <Icons.Bell size={28}/>
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-black tracking-tight">Avisos do Sistema</h3>
+                            <p className="text-xs opacity-50 font-bold uppercase tracking-widest">Notificações Administrativas</p>
+                        </div>
+                    </div>
+
+                    <div className="relative z-10 flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+                        {notifications.map((n: any) => {
+                            const isOff = n.message.includes('DESLIGADO');
+                            return (
+                                <div key={n.id} className={`p-5 rounded-2xl border ${isOff ? 'bg-red-500/10 border-red-500/20' : 'bg-green-500/10 border-green-500/20'} relative`}>
+                                    <div className="flex items-start gap-3">
+                                        <div className={`mt-1 ${isOff ? 'text-red-400' : 'text-green-400'}`}>
+                                            {isOff ? <Icons.AlertTriangle size={18} /> : <Icons.CheckCircle size={18} />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold leading-relaxed">{n.message}</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => onClose(n.id)} 
+                                        className="mt-4 w-full py-2 rounded-xl font-black text-xs uppercase tracking-widest bg-white/10 hover:bg-white/20 transition-colors"
+                                    >
+                                        Ciente, Fechar
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </motion.div>
+            </div>
+        </AnimatePresence>
     );
 };
 
