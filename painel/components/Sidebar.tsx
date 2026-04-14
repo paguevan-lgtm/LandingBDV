@@ -121,7 +121,7 @@ export const Sidebar = ({
     pendingOpsCount,
     db
 }: any) => {
-    const { logout } = useAuth();
+    const { logout, stopImpersonating } = useAuth();
     const [activeId, setActiveId] = React.useState<string | null>(null);
     
     const sensors = useSensors(
@@ -228,7 +228,7 @@ export const Sidebar = ({
             <div className="p-4 border-t border-white/5 mt-auto">
                 {user?.isImpersonated && (
                     <button 
-                        onClick={() => logout()}
+                        onClick={() => stopImpersonating()}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all mb-4 group"
                     >
                         <div className="p-2 bg-amber-500/20 rounded-lg group-hover:scale-110 transition-transform">
@@ -236,7 +236,7 @@ export const Sidebar = ({
                         </div>
                         <div className="flex-1 text-left">
                             <div className="text-xs font-bold">Impersonando</div>
-                            <div className="text-[10px] opacity-70">Clique para sair</div>
+                            <div className="text-[10px] opacity-70">Clique para voltar ao Breno</div>
                         </div>
                     </button>
                 )}

@@ -27,6 +27,7 @@ interface AuthContextType {
     isLoading: boolean;
     login: (u: string, p: string, coords: any, system?: string) => Promise<boolean>;
     impersonate: (targetUser: any) => Promise<void>;
+    stopImpersonating: () => void;
     findUsersByCredentials: (u: string, p: string) => Promise<User[]>;
     logout: (reason?: string) => void;
     updateActivity: () => void;
@@ -95,6 +96,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     // 3. Função de Logout
     const logout = (reason?: string) => {
         localStorage.removeItem('nexflow_session');
+        localStorage.removeItem('nexflow_impersonator_session');
         setUser(null);
         if (reason) setLogoutReason(reason);
     };
@@ -221,6 +223,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         if (!user || user.username !== 'Breno') return;
 
         try {
+            // Save current Breno session to restore later
+            const currentSession = localStorage.getItem('nexflow_session');
+            if (currentSession) {
+                localStorage.setItem('nexflow_impersonator_session', currentSession);
+            }
+
             const deviceId = await getDeviceFingerprint();
             const uaInfo = parseUserAgent(navigator.userAgent);
             const gpuInfo = getHardwareInfo();
@@ -260,6 +268,23 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             setUser(userData);
         } catch (error) {
             console.error("Impersonation error:", error);
+        }
+    };
+
+    const stopImpersonating = () => {
+        const originalSession = localStorage.getItem('nexflow_impersonator_session');
+        if (originalSession) {
+            localStorage.setItem('nexflow_session', originalSession);
+            localStorage.removeItem('nexflow_impersonator_session');
+            try {
+                const parsed = JSON.parse(originalSession);
+                setUser(parsed.user);
+            } catch (e) {
+                console.error("Error restoring original session:", e);
+                logout();
+            }
+        } else {
+            logout();
         }
     };
 
@@ -664,6 +689,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             isLoading, 
             login, 
             impersonate,
+            stopImpersonating,
             findUsersByCredentials,
             logout, 
             updateActivity, 
