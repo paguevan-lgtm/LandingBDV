@@ -948,7 +948,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         </span> 
                                                         {isCancelled && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded uppercase font-bold opacity-100">Cancelada</span>}
                                                         {isFinished && <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded uppercase font-bold opacity-100">Finalizada</span>}
-                                                        {mData.riscado && mData.comment && ( <div className="text-[12px] text-red-300 bg-red-900/30 px-2 py-1 rounded w-fit flex items-center justify-center leading-tight whitespace-nowrap overflow-visible max-w-full font-bold opacity-100">{mData.comment}</div> )} 
+                                                        {mData.riscado && mData.comment && ( <div className="text-[12px] text-red-300 bg-red-900/30 px-2 py-1 rounded w-fit flex items-center justify-center leading-tight whitespace-nowrap overflow-visible max-w-full font-bold opacity-100"><span data-print-transform="translateY(-5px)">{mData.comment}</span></div> )} 
                                                     </div>
                                                 </div> 
                                             </div> 
@@ -1040,7 +1040,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex items-start gap-3">
                                                 <Icons.Message size={18} className="text-indigo-400 mt-0.5 flex-shrink-0" />
-                                                <p className="leading-relaxed whitespace-pre-wrap">{madrugadaFooter}</p>
+                                                <p className="leading-relaxed whitespace-pre-wrap" data-print-transform="translateY(-5px)">{madrugadaFooter}</p>
                                             </div>
                                             <div className="flex gap-1 hide-on-print opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button 
