@@ -76,11 +76,16 @@ const createNumberedIcon = (number: number, color: string = '#2563eb') => {
   });
 };
 
-// Helper to center map
-const ChangeView = ({ center, zoom }: { center: [number, number], zoom: number }) => {
+// Smooth Map Controller
+const SmoothMapController = ({ center, zoom }: { center: [number, number], zoom: number }) => {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, zoom);
+    if (center) {
+      map.flyTo(center, zoom, {
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
+    }
   }, [center, zoom, map]);
   return null;
 };
@@ -268,6 +273,27 @@ export default function MotoristaDashboard() {
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
   const [routeOptimized, setRouteOptimized] = useState(false);
   const navigate = useNavigate();
+
+  const arrivalEstimates = useMemo(() => {
+    if (!selectedTrip || !selectedTrip.passengers || !userLocation || Object.keys(passengerCoords).length === 0) return {};
+    
+    const estimates: Record<string, string> = {};
+    let currentTime = new Date();
+    let currentLoc = userLocation;
+    
+    selectedTrip.passengers.forEach((p: any) => {
+      const pCoords = passengerCoords[p.id || p.name];
+      if (pCoords) {
+        const dist = calculateDistance(currentLoc, pCoords) * 111; // approx km
+        const travelTimeMinutes = (dist / 25) * 60; // 25km/h average in city
+        currentTime = new Date(currentTime.getTime() + travelTimeMinutes * 60000 + 1 * 60000); // +1 min per stop
+        estimates[p.id || p.name] = currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        currentLoc = pCoords;
+      }
+    });
+    
+    return estimates;
+  }, [selectedTrip, userLocation, passengerCoords]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -607,6 +633,28 @@ export default function MotoristaDashboard() {
   const handleStatusChange = (id: string, status: 'delivered' | 'canceled') => {
     setPassengerStatuses(prev => ({ ...prev, [id]: status }));
     setLastAction({ passengerId: id, status });
+    
+    // Auto-advance to next pending passenger
+    if (selectedTrip && selectedTrip.passengers) {
+      const currentIndex = selectedTrip.passengers.findIndex((p: any) => (p.id || p.name) === id);
+      const nextPending = selectedTrip.passengers.slice(currentIndex + 1).find((p: any) => 
+        (passengerStatuses[p.id || p.name] || 'pending') === 'pending' && (p.id || p.name) !== id
+      );
+      
+      if (nextPending) {
+        setTimeout(() => {
+          setSelectedPassenger(nextPending);
+          const coords = passengerCoords[nextPending.id || nextPending.name];
+          if (coords) {
+            setMapCenter(coords);
+            setMapZoom(18);
+          }
+        }, 1500);
+      } else {
+        setTimeout(() => setSelectedPassenger(null), 1500);
+      }
+    }
+
     setTimeout(() => setLastAction(null), 5000);
   };
 
@@ -919,7 +967,7 @@ export default function MotoristaDashboard() {
                   zoomControl={false}
                   style={{ height: '100%', width: '100%' }}
                 >
-                  <ChangeView center={mapCenter} zoom={mapZoom} />
+                  <SmoothMapController center={mapCenter} zoom={mapZoom} />
                   {shouldFitBounds && <FitBounds coords={[
                     ...(userLocation ? [userLocation] : []),
                     ...Object.values(passengerCoords)
@@ -1054,22 +1102,23 @@ export default function MotoristaDashboard() {
                 }}
                 initial={{ y: '85%' }}
                 animate={{ 
-                  y: sheetState === 'expanded' ? '12%' : sheetState === 'half' ? '60%' : '85%' 
+                  y: sheetState === 'expanded' ? '15%' : sheetState === 'half' ? '60%' : '88%' 
                 }}
                 transition={{ 
                   type: 'spring', 
-                  damping: 30, 
-                  stiffness: 300,
-                  mass: 0.8
+                  damping: 35, 
+                  stiffness: 250,
+                  mass: 1
                 }}
-                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] touch-none"
+                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[82vh] touch-none"
               >
                 {/* Drag Handle */}
-                <div className="w-full py-4 flex flex-col items-center cursor-grab active:cursor-grabbing">
-                  <div className="w-12 h-1.5 bg-slate-800 rounded-full mb-2" />
+                <div className="w-full py-6 flex flex-col items-center cursor-grab active:cursor-grabbing">
+                  <div className="w-16 h-1.5 bg-slate-800 rounded-full mb-3" />
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      {sheetState === 'expanded' ? 'Arraste para recolher' : 'Arraste para ver lista'}
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                      {sheetState === 'expanded' ? 'Recolher Lista' : sheetState === 'half' ? 'Ver Mais Detalhes' : 'Ver Lista de Paradas'}
                     </span>
                   </div>
                 </div>
@@ -1150,8 +1199,10 @@ export default function MotoristaDashboard() {
                             <div className="flex items-center gap-4">
                               <MapPin size={18} className="text-slate-500" />
                               <div>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase">Bairro</p>
-                                <p className="text-sm text-slate-300">{selectedPassenger.neighborhood || 'Não informado'}</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Localização</p>
+                                <p className="text-sm text-slate-300">
+                                  {selectedPassenger.neighborhood || 'Não informado'}, {driverData.system?.toLowerCase().includes('pg') || driverData.system?.toLowerCase().includes('praia') ? 'Praia Grande' : 'Mongaguá'}
+                                </p>
                               </div>
                             </div>
                             <ChevronRight size={16} className="text-slate-600" />
@@ -1202,18 +1253,9 @@ export default function MotoristaDashboard() {
 
                         <div className="mb-6">
                           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
-                            Término: {selectedTrip.time} • {selectedTrip.passengers.length} paradas
+                            {selectedTrip.passengers.length} paradas • {selectedTrip.time}
                           </p>
                           <h2 className="text-3xl font-bold text-white">Rota de hoje</h2>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 mb-8">
-                          <button className="bg-slate-900 border border-slate-800 text-white py-3 rounded-2xl font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2">
-                            <TrendingUp size={14} className="text-blue-500" /> Compartilhar rota
-                          </button>
-                          <button className="bg-slate-900 border border-slate-800 text-white py-3 rounded-2xl font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2">
-                            <Car size={14} className="text-blue-500" /> Carregar veículo
-                          </button>
                         </div>
 
                         <div className="space-y-6">
@@ -1263,11 +1305,11 @@ export default function MotoristaDashboard() {
                                         {passenger.address || passenger.neighborhood}
                                       </p>
                                       <p className="text-[10px] text-slate-500 truncate">
-                                        {passenger.neighborhood}, {driverData.system === 'Pg' ? 'Praia Grande' : 'Mongaguá'}
+                                        {passenger.neighborhood}, {driverData.system?.toLowerCase().includes('pg') || driverData.system?.toLowerCase().includes('praia') ? 'Praia Grande' : 'Mongaguá'}
                                       </p>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
-                                      <p className="text-[10px] text-slate-500 font-bold uppercase">{selectedTrip.time}</p>
+                                      <p className="text-[10px] text-blue-400 font-bold uppercase">{arrivalEstimates[passenger.id || passenger.name] || selectedTrip.time}</p>
                                       <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 ${
                                         status === 'delivered' ? 'bg-green-500/20 text-green-400' : 
                                         status === 'canceled' ? 'bg-red-500/20 text-red-400' : 
