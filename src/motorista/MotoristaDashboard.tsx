@@ -888,8 +888,8 @@ function MotoristaDashboardContent() {
           }
         });
 
-        // 2. Add fixed destination
-        initialCoords['Jabaquara'] = [-23.6447, -46.6406];
+        // 2. Clear fixed destination references
+        // Jabaquara removed per request
 
         // 3. Batch update cached results for speed
         if (Object.keys(initialCoords).length > 0) {
@@ -977,14 +977,24 @@ function MotoristaDashboardContent() {
     }
   };
 
-  // Route Optimization effect
+  // Route Optimization effect - Dynamic re-optimization as the driver moves
   useEffect(() => {
-    if (userLocation && selectedTrip && selectedTrip.passengers.length > 0 && Object.keys(passengerCoords).length > 0 && !routeOptimized) {
-      const optimized = optimizeRoute(selectedTrip.passengers, passengerCoords, userLocation);
-      setSelectedTrip(prev => ({ ...prev, passengers: optimized }));
+    if (userLocation && selectedTrip && selectedTrip.passengers.length > 0 && Object.keys(passengerCoords).length > 0) {
+      // Re-optimize if moved more than 100 meters or if not yet optimized
+      if (lastRoutedLocation) {
+        const dist = calculateDistance(userLocation, lastRoutedLocation) * 111000;
+        if (dist < 100 && routeOptimized) return;
+      }
+
+      // Filter only pending passengers for optimization
+      const pending = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
+      const completed = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') !== 'pending');
+      
+      const optimizedPending = optimizeRoute(pending, passengerCoords, userLocation);
+      setSelectedTrip(prev => ({ ...prev, passengers: [...completed, ...optimizedPending] }));
       setRouteOptimized(true);
     }
-  }, [userLocation, passengerCoords, selectedTrip?.firebaseId, routeOptimized]);
+  }, [userLocation, passengerCoords, selectedTrip?.firebaseId, passengerStatuses]);
 
   // Routing effect - Runs when location or status changes
   useEffect(() => {
@@ -1002,8 +1012,7 @@ function MotoristaDashboardContent() {
           ...(userLocation ? [userLocation] : []),
           ...pendingPassengers
             .map((p: any) => passengerCoords[p.id || p.name])
-            .filter(Boolean),
-          passengerCoords['Jabaquara']
+            .filter(Boolean)
         ].filter(Boolean) as [number, number][];
 
         if (orderedCoords.length >= 2) {
@@ -1252,9 +1261,9 @@ function MotoristaDashboardContent() {
                       positions={[
                         ...(userLocation ? [userLocation] : []),
                         ...selectedTrip.passengers
+                          .filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending')
                           .map((p: any) => passengerCoords[p.id || p.name])
-                          .filter(Boolean) as [number, number][],
-                        ...(passengerCoords['Jabaquara'] ? [passengerCoords['Jabaquara']] : []) as [number, number][]
+                          .filter(Boolean) as [number, number][]
                       ]}
                       pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.6, dashArray: '10, 10' }}
                     />
@@ -1283,23 +1292,6 @@ function MotoristaDashboardContent() {
                       />
                     );
                   })}
-
-                  {/* Final Destination Marker */}
-                  {passengerCoords['Jabaquara'] && (
-                    <Marker 
-                      position={passengerCoords['Jabaquara']} 
-                      icon={L.divIcon({
-                        className: 'custom-div-icon',
-                        html: `<div style="background-color: #f59e0b; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"><i class="lucide-map-pin"></i></div>`,
-                        iconSize: [32, 32],
-                        iconAnchor: [16, 16],
-                      })}
-                    >
-                      <Popup>
-                        <p className="font-bold text-slate-900">Pão de Açúcar Jabaquara</p>
-                      </Popup>
-                    </Marker>
-                  )}
 
                   {/* Manual Search Marker */}
                   {manualMarker && (
