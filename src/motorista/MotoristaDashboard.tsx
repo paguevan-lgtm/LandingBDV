@@ -199,15 +199,12 @@ const calculateDistance = (p1: [number, number], p2: [number, number]) => {
 
 const optimizeRoute = (passengers: any[], coords: Record<string, [number, number]>, startLoc: [number, number]) => {
   if (!startLoc || passengers.length === 0) return passengers;
-
   const unvisited = [...passengers];
   const optimized: any[] = [];
   let currentLoc = startLoc;
-
   while (unvisited.length > 0) {
     let closestIdx = 0;
     let minDistance = Infinity;
-
     for (let i = 0; i < unvisited.length; i++) {
       const pCoords = coords[unvisited[i].id || unvisited[i].name];
       if (pCoords) {
@@ -218,14 +215,34 @@ const optimizeRoute = (passengers: any[], coords: Record<string, [number, number
         }
       }
     }
-
     const nextPassenger = unvisited.splice(closestIdx, 1)[0];
     optimized.push(nextPassenger);
     const nextCoords = coords[nextPassenger.id || nextPassenger.name];
     if (nextCoords) currentLoc = nextCoords;
   }
-
   return optimized;
+};
+
+const fetchSmartSequence = async (passengers: any[], coords: Record<string, [number, number]>, startLoc: [number, number]) => {
+  if (!startLoc || passengers.length < 2) return passengers;
+  try {
+    const waypoints = [startLoc, ...passengers.map(p => coords[p.id || p.name]).filter(Boolean)];
+    if (waypoints.length < 2) return passengers;
+    const query = waypoints.map(c => `${c[1]},${c[0]}`).join(';');
+    // OSRM Trip service for road-aware TSP optimization
+    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${query}?source=first&overview=false`);
+    const data = await res.json();
+    if (data.code === 'Ok' && data.waypoints) {
+      const sortedIndices = data.waypoints
+        .filter((wp: any) => wp.waypoint_index !== 0) // Remove start point
+        .sort((a: any, b: any) => a.trips_index - b.trips_index)
+        .map((wp: any) => wp.waypoint_index - 1);
+      return sortedIndices.map((idx: number) => passengers[idx]);
+    }
+  } catch (e) {
+    console.error("Smart optimization failed, using proximity fallback:", e);
+  }
+  return optimizeRoute(passengers, coords, startLoc);
 };
 
 const getStableFallback = (seed: string | undefined, base: [number, number]): [number, number] => {
@@ -980,19 +997,21 @@ function MotoristaDashboardContent() {
   // Route Optimization effect - Dynamic re-optimization as the driver moves
   useEffect(() => {
     if (userLocation && selectedTrip && selectedTrip.passengers.length > 0 && Object.keys(passengerCoords).length > 0) {
-      // Re-optimize if moved more than 100 meters or if not yet optimized
       if (lastRoutedLocation) {
         const dist = calculateDistance(userLocation, lastRoutedLocation) * 111000;
-        if (dist < 100 && routeOptimized) return;
+        if (dist < 200 && routeOptimized) return; // Increased threshold for smart updates
       }
 
-      // Filter only pending passengers for optimization
       const pending = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
       const completed = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') !== 'pending');
       
-      const optimizedPending = optimizeRoute(pending, passengerCoords, userLocation);
-      setSelectedTrip(prev => ({ ...prev, passengers: [...completed, ...optimizedPending] }));
-      setRouteOptimized(true);
+      const updateSequence = async () => {
+        const optimizedPending = await fetchSmartSequence(pending, passengerCoords, userLocation);
+        setSelectedTrip(prev => ({ ...prev, passengers: [...completed, ...optimizedPending] }));
+        setRouteOptimized(true);
+      };
+
+      updateSequence();
     }
   }, [userLocation, passengerCoords, selectedTrip?.firebaseId, passengerStatuses]);
 
@@ -1232,41 +1251,53 @@ function MotoristaDashboardContent() {
                     <>
                       <Circle 
                         center={userLocation} 
-                        radius={50} 
-                        pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2 }} 
+                        radius={150} 
+                        pathOptions={{ color: '#60a5fa', fillColor: '#60a5fa', fillOpacity: 0.1, weight: 1 }} 
                       />
                       <Marker 
                         position={userLocation} 
+                        zIndexOffset={1000}
                         icon={L.divIcon({
                           className: 'user-location-icon',
-                          html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);"></div>`,
-                          iconSize: [16, 16],
-                          iconAnchor: [8, 8],
+                          html: `<div style="position: relative;">
+                                  <div style="background-color: #3b82f6; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.8); z-index: 2;"></div>
+                                  <div style="position: absolute; top: -10px; left: -10px; background-color: #3b82f6; width: 34px; height: 34px; border-radius: 50%; opacity: 0.2; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+                                </div>`,
+                          iconSize: [20, 20],
+                          iconAnchor: [10, 10],
                         })}
                       />
                     </>
                   )}
 
-                  {/* Routing Polyline */}
+                  {/* Routing Polyline with Glow */}
                   {routeGeometry.length > 0 && (
-                    <Polyline 
-                      positions={routeGeometry}
-                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.8 }}
-                    />
+                    <>
+                      <Polyline 
+                        positions={routeGeometry}
+                        pathOptions={{ color: '#3b82f6', weight: 8, opacity: 0.2 }}
+                      />
+                      <Polyline 
+                        positions={routeGeometry}
+                        pathOptions={{ color: '#60a5fa', weight: 4, opacity: 1, lineJoin: 'round' }}
+                      />
+                    </>
                   )}
                   
-                  {/* Fallback straight lines if routeGeometry is empty */}
+                  {/* Fallback straight lines with Glow */}
                   {routeGeometry.length === 0 && selectedTrip.passengers && (
-                    <Polyline 
-                      positions={[
-                        ...(userLocation ? [userLocation] : []),
-                        ...selectedTrip.passengers
-                          .filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending')
-                          .map((p: any) => passengerCoords[p.id || p.name])
-                          .filter(Boolean) as [number, number][]
-                      ]}
-                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.6, dashArray: '10, 10' }}
-                    />
+                    <>
+                      <Polyline 
+                        positions={[
+                          ...(userLocation ? [userLocation] : []),
+                          ...selectedTrip.passengers
+                            .filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending')
+                            .map((p: any) => passengerCoords[p.id || p.name])
+                            .filter(Boolean) as [number, number][]
+                        ]}
+                        pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.3, dashArray: '8, 12' }}
+                      />
+                    </>
                   )}
                   
                   {selectedTrip.passengers?.map((p: any, idx: number) => {
@@ -1346,30 +1377,31 @@ function MotoristaDashboardContent() {
               <motion.div 
                 drag="y"
                 dragConstraints={{ top: 0, bottom: 0 }}
-                dragElastic={0.1}
+                dragElastic={1} // Makes it follow the finger 1:1 during drag
                 onDragEnd={(_, info) => {
                   const velocity = info.velocity.y;
                   const offset = info.offset.y;
 
-                  if (velocity < -500 || offset < -150) {
+                  // Better snapping logic
+                  if (velocity < -500 || offset < -100) {
                     if (sheetState === 'minimized') setSheetState('half');
                     else if (sheetState === 'half') setSheetState('expanded');
-                  } else if (velocity > 500 || offset > 150) {
+                  } else if (velocity > 500 || offset > 100) {
                     if (sheetState === 'expanded') setSheetState('half');
                     else if (sheetState === 'half') setSheetState('minimized');
                   }
                 }}
                 initial={{ y: '85%' }}
                 animate={{ 
-                  y: sheetState === 'expanded' ? '15%' : sheetState === 'half' ? '60%' : '88%' 
+                  y: sheetState === 'expanded' ? '15%' : sheetState === 'half' ? '55%' : '88%' 
                 }}
                 transition={{ 
                   type: 'spring', 
-                  damping: 35, 
-                  stiffness: 250,
-                  mass: 1
+                  damping: 30, 
+                  stiffness: 200,
+                  mass: 0.8
                 }}
-                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[82vh] touch-none"
+                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh]"
               >
                 {/* Drag Handle */}
                 <div className="w-full py-6 flex flex-col items-center cursor-grab active:cursor-grabbing">
