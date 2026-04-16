@@ -7,6 +7,10 @@ import TermosUso from './pages/TermosUso';
 import Privacidade from './pages/Privacidade';
 import SeoLandingPage from './pages/SeoLandingPage';
 import NotFound from './pages/NotFound';
+import Error401 from './pages/Error401';
+import Error403 from './pages/Error403';
+import Error500 from './pages/Error500';
+import Error503 from './pages/Error503';
 import { getDeviceFingerprint, setPoisonPill } from './lib/security';
 import { 
   MapPin, 
@@ -1526,6 +1530,12 @@ export default function App() {
         <Route path="/termos-uso" element={<TermosUso />} />
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/motorista/*" element={<MotoristaApp />} />
+        
+        {/* Error Pages */}
+        <Route path="/401" element={<Error401 />} />
+        <Route path="/403" element={<Error403 />} />
+        <Route path="/500" element={<Error500 />} />
+        <Route path="/503" element={<Error503 />} />
         
         {/* SEO Landing Pages */}
         {seoRoutesData.map(route => (
