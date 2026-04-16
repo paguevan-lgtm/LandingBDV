@@ -120,11 +120,27 @@ export default function MotoristaDashboard() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [configModalType, setConfigModalType] = useState<'about' | 'help' | 'privacy' | null>(null);
-  const [newTransaction, setNewTransaction] = useState({ name: '', amount: '', type: 'income' });
+  const [newTransaction, setNewTransaction] = useState({ 
+    name: '', 
+    amount: '', 
+    type: 'income',
+    subiu: '',
+    desceu: '',
+    almoco: '',
+    prancheta: '',
+    adicional: ''
+  });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [financeFilter, setFinanceFilter] = useState<'today' | '7days' | '30days' | 'months'>('today');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
+  const [lotadaSubida, setLotadaSubida] = useState(0);
+  const [lotadaDescida, setLotadaDescida] = useState(0);
+  const [passengerValue, setPassengerValue] = useState(0);
+  const [isFinanceSettingsOpen, setIsFinanceSettingsOpen] = useState(false);
+  const [deletedItem, setDeletedItem] = useState<any>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const [tableTab, setTableTab] = useState<'lousa' | 'confirmados'>('lousa');
   const navigate = useNavigate();
 
   const sensors = useSensors(
@@ -143,7 +159,7 @@ export default function MotoristaDashboard() {
     const driver = JSON.parse(session);
     setDriverData(driver);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
     const system = driver.system || 'Pg';
 
     // Listen to trips
@@ -154,7 +170,7 @@ export default function MotoristaDashboard() {
       if (data) {
         const allTrips = Object.entries(data).map(([id, val]: [string, any]) => ({ ...val, firebaseId: id }));
         const driverTrips = allTrips.filter(t => 
-          t.driverId === driver.id && 
+          String(t.driverId) === String(driver.id) && 
           t.date === today &&
           t.status !== 'Cancelada'
         ).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
@@ -166,7 +182,7 @@ export default function MotoristaDashboard() {
     };
 
     // Listen to Table (Lousa)
-    let tablePath = system === 'Pg' ? 'drivers_table_list' : `${system}/drivers_table_list`;
+    let tablePath = system === 'Pg' ? `daily_tables/${today}/table` : `${system}/drivers_table_list`;
     if (system === 'Mip') {
       const mipDayType = new Date().getDate() % 2 !== 0 ? 'odd' : 'even';
       // Defaulting to 6:00 table for Mip if not specified
@@ -175,7 +191,17 @@ export default function MotoristaDashboard() {
     const tableRef = db.ref(tablePath);
     const handleTable = (snapshot: any) => {
       const data = snapshot.val();
-      setTableData(Array.isArray(data) ? data : []);
+      if (data) {
+        setTableData(Array.isArray(data) ? data : Object.values(data));
+      } else if (system === 'Pg') {
+        // Fallback to master list if daily table not yet created
+        db.ref('drivers_table_list').once('value', (snap) => {
+          const masterData = snap.val();
+          setTableData(Array.isArray(masterData) ? masterData : []);
+        });
+      } else {
+        setTableData([]);
+      }
     };
 
     // Listen to Table Status
@@ -197,6 +223,21 @@ export default function MotoristaDashboard() {
         setTransactions([]);
       }
     };
+
+    // Listen to Driver Settings
+    const driverRef = db.ref('drivers');
+    driverRef.once('value', (snapshot) => {
+      const drivers = snapshot.val();
+      for (const key in drivers) {
+        if (drivers[key].id === driver.id) {
+          const settings = drivers[key].settings || {};
+          setLotadaSubida(settings.lotadaSubida || 0);
+          setLotadaDescida(settings.lotadaDescida || 0);
+          setPassengerValue(settings.passengerValue || 0);
+          break;
+        }
+      }
+    });
 
     tripsRef.on('value', handleTrips);
     tableRef.on('value', handleTable);
@@ -310,9 +351,47 @@ export default function MotoristaDashboard() {
   }, [transactions]);
 
   const handleAddToDraft = () => {
-    if (!newTransaction.name || !newTransaction.amount) return alert('Preencha todos os campos');
-    setDailyDraft([...dailyDraft, { ...newTransaction, id: Date.now() }]);
-    setNewTransaction({ name: '', amount: '', type: 'income' });
+    // Calculate amount based on inputs
+    const subiu = Number(newTransaction.subiu) || 0;
+    const desceu = Number(newTransaction.desceu) || 0;
+    const almoco = Number(newTransaction.almoco) || 0;
+    const prancheta = Number(newTransaction.prancheta) || 0;
+    const adicional = Number(newTransaction.adicional) || 0;
+
+    // Income from passengers
+    const passengerIncome = (subiu * lotadaSubida) + (desceu * lotadaDescida);
+    
+    // Total calculation
+    let finalAmount = 0;
+    let finalName = newTransaction.name;
+
+    if (subiu > 0 || desceu > 0) {
+      finalAmount = passengerIncome + adicional - almoco - prancheta;
+      finalName = `Movimentação: ${subiu}S / ${desceu}D`;
+    } else {
+      finalAmount = Number(newTransaction.amount) || 0;
+    }
+
+    if (!finalName || finalAmount === 0) return alert('Preencha os dados corretamente');
+
+    setDailyDraft([...dailyDraft, { 
+      ...newTransaction, 
+      name: finalName,
+      amount: Math.abs(finalAmount),
+      type: finalAmount >= 0 ? 'income' : 'expense',
+      id: Date.now() 
+    }]);
+
+    setNewTransaction({ 
+      name: '', 
+      amount: '', 
+      type: 'income',
+      subiu: '',
+      desceu: '',
+      almoco: '',
+      prancheta: '',
+      adicional: ''
+    });
   };
 
   const handleRemoveFromDraft = (id: number) => {
@@ -339,9 +418,26 @@ export default function MotoristaDashboard() {
     });
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este lançamento?')) return;
+    
+    const itemToDelete = transactions.find(t => t.firebaseId === id);
+    setDeletedItem(itemToDelete);
+    
     const path = `motoristas_finance/${driverData.id}/${id}`;
-    db.ref(path).remove();
+    await db.ref(path).remove();
+    
+    setShowUndo(true);
+    setTimeout(() => setShowUndo(false), 5000);
+  };
+
+  const handleUndoDelete = async () => {
+    if (deletedItem) {
+      const { firebaseId, ...data } = deletedItem;
+      await db.ref(`motoristas_finance/${driverData.id}/${firebaseId}`).set(data);
+      setShowUndo(false);
+      setDeletedItem(null);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -623,6 +719,21 @@ export default function MotoristaDashboard() {
                 </div>
               </div>
 
+              <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800 mb-4">
+                <button 
+                  onClick={() => setTableTab('lousa')}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${tableTab === 'lousa' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+                >
+                  Lousa
+                </button>
+                <button 
+                  onClick={() => setTableTab('confirmados')}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${tableTab === 'confirmados' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-500'}`}
+                >
+                  Confirmados
+                </button>
+              </div>
+
               <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -633,33 +744,61 @@ export default function MotoristaDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTable.map((item, idx) => {
-                      const status = tableStatus[item.vaga] || 'Aguardando';
-                      return (
-                        <tr key={idx} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
-                          <td className="p-4">
-                            <span className="w-8 h-8 bg-slate-950 rounded-lg flex items-center justify-center font-mono font-bold text-blue-400 border border-slate-800">
-                              {item.vaga}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <p className={`font-bold text-sm ${item.name === driverData.name ? 'text-blue-400' : 'text-slate-200'}`}>
-                              {item.name}
-                            </p>
-                            <p className="text-[10px] text-slate-500 uppercase font-bold">{item.plate || '---'}</p>
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              status === 'Confirmado' ? 'bg-green-500/20 text-green-400' : 
-                              status === 'Baixou' ? 'bg-blue-500/20 text-blue-400' : 
-                              'bg-slate-800 text-slate-500'
-                            }`}>
-                              {status}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {filteredTable
+                      .filter(item => {
+                        const status = tableStatus[item.vaga]?.status || tableStatus[item.vaga] || 'Aguardando';
+                        if (tableTab === 'confirmados') return status === 'Confirmado';
+                        return true;
+                      })
+                      .map((item, idx) => {
+                        const statusData = tableStatus[item.vaga];
+                        const status = typeof statusData === 'object' ? statusData.status : statusData || 'Aguardando';
+                        const time = typeof statusData === 'object' ? statusData.time : '';
+                        
+                        return (
+                          <tr key={idx} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
+                            <td className="p-4">
+                              <span className="w-8 h-8 bg-slate-950 rounded-lg flex items-center justify-center font-mono font-bold text-blue-400 border border-slate-800">
+                                {item.vaga}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <p className={`font-bold text-sm ${item.name === driverData.name ? 'text-blue-400' : 'text-slate-200'} ${status === 'Riscou' ? 'line-through opacity-50' : ''}`}>
+                                {item.name}
+                              </p>
+                              <p className="text-[10px] text-slate-500 uppercase font-bold">{item.plate || '---'}</p>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                {item.name === driverData.name && status === 'Aguardando' && (
+                                  <button 
+                                    onClick={async () => {
+                                      const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                      const system = driverData.system || 'Pg';
+                                      const today = new Date().toLocaleDateString('en-CA');
+                                      const statusPath = system === 'Pg' ? `daily_tables/${today}/status/${item.vaga}` : `${system}/daily_tables/${today}/status/${item.vaga}`;
+                                      await db.ref(statusPath).set({ status: 'Confirmado', time: now });
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg text-[10px] font-bold mb-1 transition-all active:scale-95"
+                                  >
+                                    Confirmar
+                                  </button>
+                                )}
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  status === 'Confirmado' ? 'bg-green-500/20 text-green-400' : 
+                                  status === 'Baixou' ? 'bg-blue-500/20 text-blue-400' : 
+                                  status === 'Riscou' ? 'bg-red-500/20 text-red-400' :
+                                  status === 'Lousa' ? 'bg-purple-500/20 text-purple-400' :
+                                  'bg-slate-800 text-slate-500'
+                                }`}>
+                                  {status}
+                                </span>
+                                {time && <span className="text-[9px] text-slate-500 font-mono">{time}</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -946,6 +1085,19 @@ export default function MotoristaDashboard() {
               >
                 <LogOut size={20} /> Sair da Conta
               </button>
+
+              <button 
+                onClick={() => setIsFinanceSettingsOpen(true)}
+                className="w-full bg-slate-900 border border-slate-800 p-6 rounded-3xl flex items-center justify-between hover:bg-slate-800/30 transition-colors shadow-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
+                    <DollarSign size={20} />
+                  </div>
+                  <span className="font-bold text-slate-200">Financeiro</span>
+                </div>
+                <ChevronRight size={20} className="text-slate-600" />
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -986,49 +1138,66 @@ export default function MotoristaDashboard() {
               </div>
 
               <div className="space-y-4">
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 max-h-[200px] overflow-y-auto space-y-2">
-                  {dailyDraft.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
-                      <div>
-                        <p className="text-xs font-bold text-white">{item.name}</p>
-                        <p className={`text-[9px] font-bold uppercase ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
-                          {item.type === 'income' ? 'Lucro' : 'Gasto'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-bold ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                          R$ {Number(item.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                        <button onClick={() => handleRemoveFromDraft(item.id)} className="text-slate-600 hover:text-red-500">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {dailyDraft.length === 0 && (
-                    <p className="text-center text-slate-600 text-[10px] py-4">Nenhum item adicionado ao rascunho.</p>
-                  )}
-                </div>
-
-                <div className="h-px bg-slate-800 my-4" />
-
-                <div>
-                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Tipo</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => setNewTransaction({ ...newTransaction, type: 'income' })}
-                      className={`py-3 rounded-2xl font-bold text-xs transition-all ${newTransaction.type === 'income' ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                    >
-                      Lucro
-                    </button>
-                    <button 
-                      onClick={() => setNewTransaction({ ...newTransaction, type: 'expense' })}
-                      className={`py-3 rounded-2xl font-bold text-xs transition-all ${newTransaction.type === 'expense' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                    >
-                      Gasto
-                    </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Subiu</label>
+                    <input 
+                      type="number"
+                      placeholder="0"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                      value={newTransaction.subiu}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, subiu: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Desceu</label>
+                    <input 
+                      type="number"
+                      placeholder="0"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                      value={newTransaction.desceu}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, desceu: e.target.value })}
+                    />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Almoço/Lanche</label>
+                    <input 
+                      type="number"
+                      placeholder="0,00"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                      value={newTransaction.almoco}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, almoco: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Prancheta</label>
+                    <input 
+                      type="number"
+                      placeholder="0,00"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                      value={newTransaction.prancheta}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, prancheta: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Adicional (+ ou -)</label>
+                  <input 
+                    type="number"
+                    placeholder="0,00"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    value={newTransaction.adicional}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, adicional: e.target.value })}
+                  />
+                </div>
+
+                <div className="h-px bg-slate-800 my-2" />
+                
+                <p className="text-[10px] text-slate-500 font-bold uppercase text-center">Ou lançamento simples</p>
 
                 <div>
                   <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Descrição</label>
@@ -1057,7 +1226,7 @@ export default function MotoristaDashboard() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Valor (R$)</label>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Valor Simples (R$)</label>
                   <input 
                     type="number"
                     placeholder="0,00"
@@ -1082,6 +1251,215 @@ export default function MotoristaDashboard() {
                     Lançar na Planilha
                   </button>
                 </div>
+
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 max-h-[150px] overflow-y-auto space-y-2">
+                  {dailyDraft.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                      <div>
+                        <p className="text-xs font-bold text-white">{item.name}</p>
+                        <p className={`text-[9px] font-bold uppercase ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                          {item.type === 'income' ? 'Lucro' : 'Gasto'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-bold ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                          R$ {Number(item.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <button onClick={() => handleRemoveFromDraft(item.id)} className="text-slate-600 hover:text-red-500">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {dailyDraft.length === 0 && (
+                    <p className="text-center text-slate-600 text-[10px] py-4">Nenhum item adicionado ao rascunho.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {showUndo && (
+            <motion.div 
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-24 left-4 right-4 z-[60] bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl flex items-center justify-between"
+            >
+              <span className="text-xs font-bold text-white">Lançamento excluído</span>
+              <button 
+                onClick={handleUndoDelete}
+                className="text-blue-400 text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors"
+              >
+                Desfazer
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isFinanceSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFinanceSettingsOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">Configurações Financeiras</h3>
+                <button onClick={() => setIsFinanceSettingsOpen(false)} className="p-2 text-slate-500 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3 tracking-widest">Valores da Lotada</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Subida</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                        value={lotadaSubida}
+                        onChange={async (e) => {
+                          const val = Number(e.target.value);
+                          setLotadaSubida(val);
+                          const snapshot = await db.ref('drivers').once('value');
+                          const drivers = snapshot.val();
+                          for (const key in drivers) {
+                            if (drivers[key].id === driverData.id) {
+                              await db.ref(`drivers/${key}/settings/lotadaSubida`).set(val);
+                              break;
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Descida</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                        value={lotadaDescida}
+                        onChange={async (e) => {
+                          const val = Number(e.target.value);
+                          setLotadaDescida(val);
+                          const snapshot = await db.ref('drivers').once('value');
+                          const drivers = snapshot.val();
+                          for (const key in drivers) {
+                            if (drivers[key].id === driverData.id) {
+                              await db.ref(`drivers/${key}/settings/lotadaDescida`).set(val);
+                              break;
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3 tracking-widest">Outros Valores</h4>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Valor Passageiro</label>
+                    <input 
+                      type="number"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                      value={passengerValue}
+                      onChange={async (e) => {
+                        const val = Number(e.target.value);
+                        setPassengerValue(val);
+                        const snapshot = await db.ref('drivers').once('value');
+                        const drivers = snapshot.val();
+                        for (const key in drivers) {
+                          if (drivers[key].id === driverData.id) {
+                            await db.ref(`drivers/${key}/settings/passengerValue`).set(val);
+                            break;
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setIsFinanceSettingsOpen(false)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold text-sm mt-4 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                >
+                  Salvar e Fechar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isPasswordModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPasswordModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">Alterar Senha</h3>
+                <button onClick={() => setIsPasswordModalOpen(false)} className="p-2 text-slate-500 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Senha Atual</label>
+                  <input 
+                    type="password"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    value={passwordForm.current}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Nova Senha</label>
+                  <input 
+                    type="password"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    value={passwordForm.new}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Confirmar Nova Senha</label>
+                  <input 
+                    type="password"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    value={passwordForm.confirm}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                  />
+                </div>
+
+                <button 
+                  onClick={handleChangePassword}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold text-sm mt-4 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                >
+                  Salvar Nova Senha
+                </button>
               </div>
             </motion.div>
           </div>
