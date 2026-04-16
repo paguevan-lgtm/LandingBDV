@@ -36,7 +36,8 @@ import {
   LocateFixed,
   Maximize,
   Bug,
-  Terminal
+  Terminal,
+  ListOrdered
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -245,6 +246,32 @@ const fetchSmartSequence = async (passengers: any[], coords: Record<string, [num
   return optimizeRoute(passengers, coords, startLoc);
 };
 
+const smartOptimizeTask = async (
+  passengers: any[], 
+  coords: Record<string, [number, number]>, 
+  startLoc: [number, number],
+  preferences: Record<string, 'first' | 'auto' | 'last'>
+) => {
+  const firsts = passengers.filter(p => preferences[p.id || p.name] === 'first');
+  const lasts = passengers.filter(p => preferences[p.id || p.name] === 'last');
+  const autos = passengers.filter(p => !preferences[p.id || p.name] || preferences[p.id || p.name] === 'auto');
+
+  const optimizeSubset = async (subset: any[], currentStart: [number, number]): Promise<{ optimized: any[], endLoc: [number, number] }> => {
+     if (subset.length === 0) return { optimized: [], endLoc: currentStart };
+     if (subset.length === 1) {
+        return { optimized: subset, endLoc: coords[subset[0].id || subset[0].name] || currentStart };
+     }
+     const seq = await fetchSmartSequence(subset, coords, currentStart);
+     const lastItem = seq[seq.length - 1];
+     return { optimized: seq, endLoc: coords[lastItem.id || lastItem.name] || currentStart };
+  }
+
+  const { optimized: optFirsts, endLoc: endFirsts } = await optimizeSubset(firsts, startLoc);
+  const { optimized: optAutos, endLoc: endAutos } = await optimizeSubset(autos, endFirsts);
+  const { optimized: optLasts } = await optimizeSubset(lasts, endAutos);
+
+  return [...optFirsts, ...optAutos, ...optLasts];
+};
 const getStableFallback = (seed: string | undefined, base: [number, number]): [number, number] => {
   if (!seed) return base;
   let hash = 0;
@@ -440,6 +467,8 @@ function MotoristaDashboardContent() {
   const [manualMarker, setManualMarker] = useState<[number, number] | null>(null);
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
   const [routeOptimized, setRouteOptimized] = useState(false);
+  const [stopPreferences, setStopPreferences] = useState<Record<string, 'first' | 'auto' | 'last'>>({});
+  const [needsReoptimization, setNeedsReoptimization] = useState(false);
   const navigate = useNavigate();
 
   // --- Debug Display State ---
@@ -999,21 +1028,25 @@ function MotoristaDashboardContent() {
     if (userLocation && selectedTrip && selectedTrip.passengers.length > 0 && Object.keys(passengerCoords).length > 0) {
       if (lastRoutedLocation) {
         const dist = calculateDistance(userLocation, lastRoutedLocation) * 111000;
-        if (dist < 200 && routeOptimized) return; // Increased threshold for smart updates
+        if (dist < 200 && routeOptimized && !needsReoptimization) return; 
       }
+      
+      // Skip automatic routing if a manual re-optimization is pending
+      if (needsReoptimization && routeOptimized) return;
 
       const pending = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
       const completed = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') !== 'pending');
       
       const updateSequence = async () => {
-        const optimizedPending = await fetchSmartSequence(pending, passengerCoords, userLocation);
+        const optimizedPending = await smartOptimizeTask(pending, passengerCoords, userLocation, stopPreferences);
         setSelectedTrip(prev => ({ ...prev, passengers: [...completed, ...optimizedPending] }));
         setRouteOptimized(true);
+        setNeedsReoptimization(false);
       };
 
       updateSequence();
     }
-  }, [userLocation, passengerCoords, selectedTrip?.firebaseId, passengerStatuses]);
+  }, [userLocation, passengerCoords, selectedTrip?.firebaseId, passengerStatuses, needsReoptimization]);
 
   // Routing effect - Runs when location or status changes
   useEffect(() => {
@@ -1371,6 +1404,28 @@ function MotoristaDashboardContent() {
                     <Maximize size={20} />
                   </button>
                 </div>
+
+                {/* Needs Re-optimization Floating Button */}
+                <AnimatePresence>
+                  {needsReoptimization && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                      className="absolute top-24 left-1/2 -translate-x-1/2 z-[100]"
+                    >
+                      <button 
+                        onClick={() => {
+                           setRouteOptimized(false); // Force re-eval in the useEffect
+                           setNeedsReoptimization(false);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_25px_rgba(37,99,235,0.5)] flex items-center gap-2 border border-blue-400/30"
+                      >
+                        <RotateCcw size={16} /> Reorganizar Rota
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Bottom Sheet */}
@@ -1472,6 +1527,39 @@ function MotoristaDashboardContent() {
                             <Check size={20} />
                             <span className="text-[10px] font-bold uppercase">Entregue</span>
                           </button>
+                        </div>
+
+                        {/* Order Preference Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl">
+                          <div className="flex items-center gap-3">
+                            <ListOrdered size={20} className="text-slate-400" />
+                            <span className="font-bold text-white text-sm">Ordem</span>
+                          </div>
+                          <div className="flex bg-slate-800 rounded-lg p-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+                            {(['first', 'auto', 'last'] as const).map(prefType => {
+                              const currentPref = stopPreferences[selectedPassenger.id || selectedPassenger.name] || 'auto';
+                              const label = prefType === 'first' ? 'Primeira' : prefType === 'last' ? 'Última' : 'Automática';
+                              const isActive = currentPref === prefType;
+                              
+                              return (
+                                <button
+                                  key={prefType}
+                                  onClick={() => {
+                                    setStopPreferences(prev => ({
+                                      ...prev,
+                                      [selectedPassenger.id || selectedPassenger.name]: prefType
+                                    }));
+                                    setNeedsReoptimization(true);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                    isActive ? 'bg-slate-700 text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
                         <div className="space-y-1">
