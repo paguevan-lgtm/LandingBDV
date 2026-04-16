@@ -174,6 +174,55 @@ const FitBounds = ({ coords }: { coords: [number, number][] }) => {
   return null;
 };
 
+// --- Utilities ---
+const calculateDistance = (p1: [number, number], p2: [number, number]) => {
+  if (!p1 || !p2) return 0;
+  return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
+};
+
+const optimizeRoute = (passengers: any[], coords: Record<string, [number, number]>, startLoc: [number, number]) => {
+  if (!startLoc || passengers.length === 0) return passengers;
+
+  const unvisited = [...passengers];
+  const optimized: any[] = [];
+  let currentLoc = startLoc;
+
+  while (unvisited.length > 0) {
+    let closestIdx = 0;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < unvisited.length; i++) {
+      const pCoords = coords[unvisited[i].id || unvisited[i].name];
+      if (pCoords) {
+        const dist = calculateDistance(currentLoc, pCoords);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestIdx = i;
+        }
+      }
+    }
+
+    const nextPassenger = unvisited.splice(closestIdx, 1)[0];
+    optimized.push(nextPassenger);
+    const nextCoords = coords[nextPassenger.id || nextPassenger.name];
+    if (nextCoords) currentLoc = nextCoords;
+  }
+
+  return optimized;
+};
+
+const getStableFallback = (seed: string | undefined, base: [number, number]): [number, number] => {
+  if (!seed) return base;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const latOffset = (hash % 100) / 2000;
+  const lngOffset = ((hash >> 8) % 100) / 2000;
+  return [base[0] + latOffset, base[1] + lngOffset];
+};
+
 // --- Components ---
 
 const SortablePassengerItem = ({ 
@@ -765,41 +814,6 @@ function MotoristaDashboardContent() {
     });
   };
 
-  const calculateDistance = (p1: [number, number], p2: [number, number]) => {
-    return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
-  };
-
-  const optimizeRoute = (passengers: any[], coords: Record<string, [number, number]>, startLoc: [number, number]) => {
-    if (!startLoc || passengers.length === 0) return passengers;
-
-    const unvisited = [...passengers];
-    const optimized: any[] = [];
-    let currentLoc = startLoc;
-
-    while (unvisited.length > 0) {
-      let closestIdx = 0;
-      let minDistance = Infinity;
-
-      for (let i = 0; i < unvisited.length; i++) {
-        const pCoords = coords[unvisited[i].id || unvisited[i].name];
-        if (pCoords) {
-          const dist = calculateDistance(currentLoc, pCoords);
-          if (dist < minDistance) {
-            minDistance = dist;
-            closestIdx = i;
-          }
-        }
-      }
-
-      const nextPassenger = unvisited.splice(closestIdx, 1)[0];
-      optimized.push(nextPassenger);
-      const nextCoords = coords[nextPassenger.id || nextPassenger.name];
-      if (nextCoords) currentLoc = nextCoords;
-    }
-
-    return optimized;
-  };
-
   // Geolocation effect
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -814,19 +828,6 @@ function MotoristaDashboardContent() {
     
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
-
-  // Stable fallback generator
-  const getStableFallback = (seed: string | undefined, base: [number, number]): [number, number] => {
-    if (!seed) return base;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-      hash |= 0;
-    }
-    const latOffset = (hash % 100) / 2000;
-    const lngOffset = ((hash >> 8) % 100) / 2000;
-    return [base[0] + latOffset, base[1] + lngOffset];
-  };
 
   // Geocoding effect - Only runs when trip changes
   useEffect(() => {
