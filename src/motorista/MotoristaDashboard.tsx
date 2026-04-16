@@ -66,11 +66,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom Marker Icon for Numbered Stops
+// Custom Marker Icon for Numbered Stops (Square)
 const createNumberedIcon = (number: number, color: string = '#2563eb') => {
   return L.divIcon({
     className: 'custom-div-icon',
-    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; items-center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">${number}</div>`,
+    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">${number}</div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
@@ -264,7 +264,7 @@ export default function MotoristaDashboard() {
   const [sheetState, setSheetState] = useState<'minimized' | 'half' | 'expanded'>('half');
   const [lastAction, setLastAction] = useState<{ passengerId: string, status: 'pending' | 'delivered' | 'canceled' } | null>(null);
   const [passengerCoords, setPassengerCoords] = useState<Record<string, [number, number]>>({});
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-23.5505, -46.6333]); // São Paulo default
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-24.0089, -46.4128]); // Praia Grande default
   const [mapZoom, setMapZoom] = useState(13);
   const [shouldFitBounds, setShouldFitBounds] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -734,68 +734,87 @@ export default function MotoristaDashboard() {
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
         const coords: Record<string, [number, number]> = {};
-        const system = driverData?.system || 'Pg';
-        const cityContext = system === 'Pg' ? 'Praia Grande, SP' : system === 'Mip' ? 'Mongaguá, SP' : 'Baixada Santista, SP';
+        
+        // Robust city detection
+        const systemStr = (driverData?.system || '').toLowerCase();
+        const isPG = systemStr.includes('pg') || systemStr.includes('praia') || systemStr === '';
+        const cityContext = isPG ? 'Praia Grande, SP' : 'Mongaguá, SP';
         
         // Baixada Santista bounding box (approx)
-        const viewbox = "-47.2,-24.5,-45.8,-23.8"; 
+        const viewbox = "-46.8,-24.2,-46.2,-23.8"; 
 
         const baseCoords: Record<string, [number, number]> = {
           'Pg': [-24.0089, -46.4128],
           'Mip': [-24.0928, -46.6206]
         };
-        const base = baseCoords[system] || [-23.9618, -46.3322];
+        const base = isPG ? baseCoords['Pg'] : baseCoords['Mip'];
 
-        coords['Jabaquara'] = [-23.6447, -46.6406];
+        // Initial center based on system
+        setMapCenter(base);
+        setMapZoom(13);
 
-        for (const p of selectedTrip.passengers) {
+        // Parallel geocoding with staggered delay to avoid 429
+        selectedTrip.passengers.forEach(async (p: any, index: number) => {
           const rawAddress = p.address || p.neighborhood;
           const pId = p.id || p.name;
           
-          if (rawAddress) {
-            // Clean address: remove common confusing terms
-            const cleanAddress = rawAddress
-              .replace(/prox\.|próximo|casa|fundos|apto|bloco|nº/gi, '')
-              .replace(/\s+/g, ' ')
-              .trim();
+          if (!rawAddress) return;
 
-            const tryGeocode = async (q: string) => {
-              try {
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}&bounded=1&limit=1`;
-                const response = await fetch(url, {
-                  headers: { 'Accept-Language': 'pt-BR' }
-                });
-                const data = await response.json();
-                return data && data.length > 0 ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null;
-              } catch (e) { return null; }
-            };
+          // Add staggered delay (400ms between requests)
+          await new Promise(resolve => setTimeout(resolve, index * 400));
 
-            // Strategy 1: Full cleaned address + city
-            let result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`);
-            
-            // Strategy 2: Just address + city (if cleaned failed)
-            if (!result) {
-              result = await tryGeocode(`${rawAddress}, ${cityContext}, Brazil`);
-            }
+          const cleanAddress = rawAddress
+            .replace(/prox\.|próximo|casa|fundos|apto|bloco|nº/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-            // Strategy 3: Neighborhood + city (fallback)
-            if (!result && p.neighborhood) {
-              result = await tryGeocode(`${p.neighborhood}, ${cityContext}, Brazil`);
-            }
+          const tryGeocode = async (q: string, bounded: boolean = true) => {
+            try {
+              const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}${bounded ? '&bounded=1' : ''}&limit=1`;
+              const response = await fetch(url, {
+                headers: { 'User-Agent': 'BoraDeVanApp/1.1' }
+              });
+              const data = await response.json();
+              return data && data.length > 0 ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null;
+            } catch (e) { return null; }
+          };
 
-            if (result) {
-              coords[pId] = result as [number, number];
-            } else {
-              coords[pId] = getStableFallback(pId, base);
-            }
+          // Strategy 1: Full cleaned address + city
+          let result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`);
+          
+          // Strategy 2: Just address + city
+          if (!result) result = await tryGeocode(`${rawAddress}, ${cityContext}, Brazil`);
+
+          // Strategy 3: Neighborhood + city
+          if (!result && p.neighborhood) result = await tryGeocode(`${p.neighborhood}, ${cityContext}, Brazil`);
+
+          // Strategy 4: Try without bounding box
+          if (!result) result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`, false);
+
+          // Strategy 5: Just the street name + city
+          if (!result) {
+            const streetOnly = cleanAddress.split(',')[0].split('-')[0].trim();
+            result = await tryGeocode(`${streetOnly}, ${cityContext}, Brazil`, false);
           }
-        }
-        setPassengerCoords(coords);
-        
-        // Initial center
-        if (selectedTrip.passengers.length > 0 && coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]) {
-          setMapCenter(coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]);
-        }
+
+          const finalCoords = result ? (result as [number, number]) : getStableFallback(pId, base);
+          
+          setPassengerCoords(prev => ({
+            ...prev,
+            [pId]: finalCoords
+          }));
+
+          // If it's the first passenger, center the map
+          if (index === 0) {
+            setMapCenter(finalCoords);
+            setMapZoom(15);
+          }
+        });
+
+        setPassengerCoords(prev => ({
+          ...prev,
+          'Jabaquara': [-23.6447, -46.6406]
+        }));
       };
       geocodeAll();
     }
@@ -902,38 +921,43 @@ export default function MotoristaDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-24">
       {/* Header */}
-      <header className="bg-slate-900/50 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-30">
-        <div className="max-w-md mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            {selectedTrip && (
-              <button 
-                onClick={() => {
-                  setSelectedTrip(null);
-                  setTripStarted(false);
-                  setSheetState('half');
-                }}
-                className="p-2 bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors"
-              >
-                <ArrowLeft size={20} />
+      {!selectedTrip && (
+        <header className="bg-slate-900/50 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-30">
+          <div className="max-w-md mx-auto flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="font-bold text-lg text-white leading-tight">
+                  {activeTab === 'trips' ? 'Minhas Viagens' : activeTab === 'tabela' ? 'Tabela Digital' : activeTab === 'finance' ? 'Financeiro' : activeTab === 'profile' ? 'Meu Perfil' : 'Configurações'}
+                </h1>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                  {driverData?.system || 'Sistema PG'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="p-2 bg-slate-800/50 rounded-xl text-slate-400 relative">
+                <Bell size={20} />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full border-2 border-slate-900"></span>
               </button>
-            )}
-            <div>
-              <h1 className="font-bold text-lg text-white leading-tight">
-                {selectedTrip ? 'Roteiro' : activeTab === 'trips' ? 'Minhas Viagens' : activeTab === 'tabela' ? 'Tabela Digital' : activeTab === 'finance' ? 'Financeiro' : activeTab === 'profile' ? 'Meu Perfil' : 'Configurações'}
-              </h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                {selectedTrip ? `Viagem #${selectedTrip.id}` : driverData?.system || 'Sistema PG'}
-              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2 bg-slate-800/50 rounded-xl text-slate-400 relative">
-              <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full border-2 border-slate-900"></span>
-            </button>
-          </div>
+        </header>
+      )}
+
+      {selectedTrip && (
+        <div className="fixed top-4 left-4 z-40">
+          <button 
+            onClick={() => {
+              setSelectedTrip(null);
+              setTripStarted(false);
+              setSheetState('half');
+            }}
+            className="p-3 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl text-white shadow-2xl active:scale-95 transition-all"
+          >
+            <ArrowLeft size={24} />
+          </button>
         </div>
-      </header>
+      )}
 
       <main className="max-w-md mx-auto p-4">
         {/* Search Bar */}
@@ -960,12 +984,13 @@ export default function MotoristaDashboard() {
               className="relative min-h-[calc(100vh-100px)]"
             >
               {/* Map View (Background) */}
-              <div className="fixed inset-0 top-0 z-0 bg-slate-950">
+              <div className="fixed inset-0 z-0 bg-slate-950">
                 <MapContainer 
                   center={mapCenter} 
                   zoom={mapZoom} 
                   zoomControl={false}
                   style={{ height: '100%', width: '100%' }}
+                  key={selectedTrip.id} // Force re-render on trip change to avoid stale map
                 >
                   <SmoothMapController center={mapCenter} zoom={mapZoom} />
                   {shouldFitBounds && <FitBounds coords={[
@@ -1049,7 +1074,7 @@ export default function MotoristaDashboard() {
                       position={passengerCoords['Jabaquara']} 
                       icon={L.divIcon({
                         className: 'custom-div-icon',
-                        html: `<div style="background-color: #f59e0b; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; items-center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"><i class="lucide-map-pin"></i></div>`,
+                        html: `<div style="background-color: #f59e0b; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"><i class="lucide-map-pin"></i></div>`,
                         iconSize: [32, 32],
                         iconAnchor: [16, 16],
                       })}
@@ -1201,7 +1226,7 @@ export default function MotoristaDashboard() {
                               <div>
                                 <p className="text-[10px] text-slate-500 font-bold uppercase">Localização</p>
                                 <p className="text-sm text-slate-300">
-                                  {selectedPassenger.neighborhood || 'Não informado'}, {driverData.system?.toLowerCase().includes('pg') || driverData.system?.toLowerCase().includes('praia') ? 'Praia Grande' : 'Mongaguá'}
+                                  {selectedPassenger.neighborhood || 'Não informado'}, {(!driverData?.system || driverData.system.toLowerCase().includes('pg') || driverData.system.toLowerCase().includes('praia')) ? 'Praia Grande' : 'Mongaguá'}
                                 </p>
                               </div>
                             </div>
@@ -1305,7 +1330,7 @@ export default function MotoristaDashboard() {
                                         {passenger.address || passenger.neighborhood}
                                       </p>
                                       <p className="text-[10px] text-slate-500 truncate">
-                                        {passenger.neighborhood}, {driverData.system?.toLowerCase().includes('pg') || driverData.system?.toLowerCase().includes('praia') ? 'Praia Grande' : 'Mongaguá'}
+                                        {passenger.neighborhood}, {(!driverData?.system || driverData.system.toLowerCase().includes('pg') || driverData.system.toLowerCase().includes('praia')) ? 'Praia Grande' : 'Mongaguá'}
                                       </p>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
