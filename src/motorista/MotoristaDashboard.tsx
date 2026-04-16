@@ -32,7 +32,9 @@ import {
   Check,
   Play,
   RotateCcw,
-  X
+  X,
+  LocateFixed,
+  Maximize
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -51,8 +53,8 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { motion, AnimatePresence } from 'motion/react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix Leaflet default icon issue
@@ -77,7 +79,21 @@ const createNumberedIcon = (number: number, color: string = '#2563eb') => {
 // Helper to center map
 const ChangeView = ({ center, zoom }: { center: [number, number], zoom: number }) => {
   const map = useMap();
-  map.setView(center, zoom);
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+};
+
+// Helper to fit bounds
+const FitBounds = ({ coords }: { coords: [number, number][] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (coords.length > 0) {
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [coords, map]);
   return null;
 };
 
@@ -240,11 +256,15 @@ export default function MotoristaDashboard() {
   const [tableTab, setTableTab] = useState<'geral' | 'lousa' | 'confirmados'>('geral');
   const [tripStarted, setTripStarted] = useState(false);
   const [passengerStatuses, setPassengerStatuses] = useState<Record<string, 'pending' | 'delivered' | 'canceled'>>({});
-  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [sheetState, setSheetState] = useState<'minimized' | 'half' | 'expanded'>('half');
   const [lastAction, setLastAction] = useState<{ passengerId: string, status: 'pending' | 'delivered' | 'canceled' } | null>(null);
   const [passengerCoords, setPassengerCoords] = useState<Record<string, [number, number]>>({});
   const [mapCenter, setMapCenter] = useState<[number, number]>([-23.5505, -46.6333]); // São Paulo default
   const [mapZoom, setMapZoom] = useState(13);
+  const [shouldFitBounds, setShouldFitBounds] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
+  const [tripFilter, setTripFilter] = useState<'today' | 'history'>('today');
   const navigate = useNavigate();
 
   const sensors = useSensors(
@@ -273,12 +293,7 @@ export default function MotoristaDashboard() {
       const data = snapshot.val();
       if (data) {
         const allTrips = Object.entries(data).map(([id, val]: [string, any]) => ({ ...val, firebaseId: id }));
-        const driverTrips = allTrips.filter(t => 
-          String(t.driverId) === String(driver.id) && 
-          t.date === today &&
-          t.status !== 'Cancelada'
-        ).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-        setTrips(driverTrips);
+        setTrips(allTrips);
       } else {
         setTrips([]);
       }
@@ -409,13 +424,31 @@ export default function MotoristaDashboard() {
   };
 
   const filteredTrips = useMemo(() => {
-    if (!searchTerm) return trips;
+    if (!driverData) return [];
+    
+    const today = new Date().toLocaleDateString('en-CA');
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toLocaleDateString('en-CA');
+
+    let list = trips.filter(t => String(t.driverId) === String(driverData.id) && t.status !== 'Cancelada');
+
+    if (tripFilter === 'today') {
+      list = list.filter(t => t.date === today);
+    } else {
+      list = list.filter(t => t.date >= thirtyDaysAgoStr && t.date < today);
+    }
+
+    const sorted = list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (a.time || '').localeCompare(b.time || ''));
+
+    if (!searchTerm) return sorted;
+    
     const lower = searchTerm.toLowerCase();
-    return trips.filter(t => 
+    return sorted.filter(t => 
       t.destination?.toLowerCase().includes(lower) || 
       t.id?.toString().includes(lower)
     );
-  }, [trips, searchTerm]);
+  }, [trips, searchTerm, tripFilter, driverData]);
 
   const filteredTable = useMemo(() => {
     if (!searchTerm) return tableData;
@@ -583,30 +616,51 @@ export default function MotoristaDashboard() {
     });
   };
 
+  // Geolocation effect
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+      },
+      (err) => console.error("Geolocation error:", err),
+      { enableHighAccuracy: true }
+    );
+    
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
   // Geocoding effect
   useEffect(() => {
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
         const coords: Record<string, [number, number]> = {};
+        const system = driverData?.system || 'Pg';
+        const cityContext = system === 'Pg' ? 'Praia Grande, SP' : system === 'Mip' ? 'Mongaguá, SP' : 'Baixada Santista, SP';
         
         // Add final destination (Pão de Açúcar Jabaquara)
-        // Approx coords for Jabaquara
         coords['Jabaquara'] = [-23.6447, -46.6406];
 
         for (const p of selectedTrip.passengers) {
           const address = p.address || p.neighborhood;
           if (address && !coords[p.id || p.name]) {
             try {
-              const query = `${address}, São Paulo, Brazil`;
+              const query = `${address}, ${cityContext}, Brazil`;
               const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
               const data = await response.json();
               if (data && data.length > 0) {
                 coords[p.id || p.name] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
               } else {
-                // Fallback to random near center for demo if not found
+                // Fallback near city center if not found
+                const baseCoords: Record<string, [number, number]> = {
+                  'Pg': [-24.0089, -46.4128],
+                  'Mip': [-24.0928, -46.6206]
+                };
+                const base = baseCoords[system] || [-23.9618, -46.3322]; // Santos fallback
                 coords[p.id || p.name] = [
-                  -23.5505 + (Math.random() - 0.5) * 0.1,
-                  -46.6333 + (Math.random() - 0.5) * 0.1
+                  base[0] + (Math.random() - 0.5) * 0.05,
+                  base[1] + (Math.random() - 0.5) * 0.05
                 ];
               }
             } catch (err) {
@@ -616,14 +670,44 @@ export default function MotoristaDashboard() {
         }
         setPassengerCoords(coords);
         
-        // Center map on first passenger or Jabaquara
-        if (selectedTrip.passengers.length > 0 && coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]) {
-          setMapCenter(coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]);
+        // Fetch Route from OSRM
+        const pendingPassengers = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
+        
+        const orderedCoords = [
+          ...(userLocation ? [userLocation] : []),
+          ...pendingPassengers
+            .map((p: any) => coords[p.id || p.name])
+            .filter(Boolean),
+          coords['Jabaquara']
+        ].filter(Boolean) as [number, number][];
+
+        if (orderedCoords.length >= 2) {
+          try {
+            const osrmQuery = orderedCoords.map(c => `${c[1]},${c[0]}`).join(';');
+            const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${osrmQuery}?overview=full&geometries=geojson`);
+            const osrmData = await osrmRes.json();
+            if (osrmData.routes && osrmData.routes.length > 0) {
+              const polyline = osrmData.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+              setRouteGeometry(polyline);
+            }
+          } catch (err) {
+            console.error("OSRM routing error:", err);
+            setRouteGeometry(orderedCoords);
+          }
+        } else {
+          setRouteGeometry([]);
+        }
+        
+        // Center map on first passenger or user location
+        if (pendingPassengers.length > 0 && coords[pendingPassengers[0].id || pendingPassengers[0].name]) {
+          setMapCenter(coords[pendingPassengers[0].id || pendingPassengers[0].name]);
+        } else if (userLocation) {
+          setMapCenter(userLocation);
         }
       };
       geocodeAll();
     }
-  }, [selectedTrip]);
+  }, [selectedTrip, driverData, userLocation, passengerStatuses]);
 
   const handleChangePassword = async () => {
     if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
@@ -690,7 +774,7 @@ export default function MotoristaDashboard() {
                 onClick={() => {
                   setSelectedTrip(null);
                   setTripStarted(false);
-                  setIsSheetExpanded(false);
+                  setSheetState('half');
                 }}
                 className="p-2 bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors"
               >
@@ -748,10 +832,56 @@ export default function MotoristaDashboard() {
                   style={{ height: '100%', width: '100%' }}
                 >
                   <ChangeView center={mapCenter} zoom={mapZoom} />
+                  {shouldFitBounds && <FitBounds coords={[
+                    ...(userLocation ? [userLocation] : []),
+                    ...Object.values(passengerCoords)
+                  ]} />}
                   <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                   />
+                  
+                  {/* User Location */}
+                  {userLocation && (
+                    <>
+                      <Circle 
+                        center={userLocation} 
+                        radius={50} 
+                        pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2 }} 
+                      />
+                      <Marker 
+                        position={userLocation} 
+                        icon={L.divIcon({
+                          className: 'user-location-icon',
+                          html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);"></div>`,
+                          iconSize: [16, 16],
+                          iconAnchor: [8, 8],
+                        })}
+                      />
+                    </>
+                  )}
+
+                  {/* Routing Polyline */}
+                  {routeGeometry.length > 0 && (
+                    <Polyline 
+                      positions={routeGeometry}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.8 }}
+                    />
+                  )}
+                  
+                  {/* Fallback straight lines if routeGeometry is empty */}
+                  {routeGeometry.length === 0 && selectedTrip.passengers && (
+                    <Polyline 
+                      positions={[
+                        ...(userLocation ? [userLocation] : []),
+                        ...selectedTrip.passengers
+                          .map((p: any) => passengerCoords[p.id || p.name])
+                          .filter(Boolean) as [number, number][],
+                        ...(passengerCoords['Jabaquara'] ? [passengerCoords['Jabaquara']] : []) as [number, number][]
+                      ]}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.6, dashArray: '10, 10' }}
+                    />
+                  )}
                   
                   {selectedTrip.passengers?.map((p: any, idx: number) => {
                     const coords = passengerCoords[p.id || p.name];
@@ -770,6 +900,22 @@ export default function MotoristaDashboard() {
                           <div className="p-1">
                             <p className="font-bold text-slate-900">{p.name}</p>
                             <p className="text-[10px] text-slate-600">{p.address || p.neighborhood}</p>
+                            <div className="flex gap-2 mt-2">
+                              <button 
+                                onClick={() => openNavigation(navApp, p.address || p.neighborhood)}
+                                className="bg-blue-600 text-white text-[10px] px-2 py-1 rounded"
+                              >
+                                Navegar
+                              </button>
+                              {status === 'pending' && (
+                                <button 
+                                  onClick={() => handleStatusChange(p.id || p.name, 'delivered')}
+                                  className="bg-green-600 text-white text-[10px] px-2 py-1 rounded"
+                                >
+                                  Entregue
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </Popup>
                       </Marker>
@@ -793,6 +939,27 @@ export default function MotoristaDashboard() {
                     </Marker>
                   )}
                 </MapContainer>
+
+                {/* Map Controls */}
+                <div className="absolute right-4 top-24 z-10 flex flex-col gap-2">
+                  <button 
+                    onClick={() => {
+                      if (userLocation) setMapCenter(userLocation);
+                    }}
+                    className="w-12 h-12 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-xl active:scale-95 transition-all"
+                  >
+                    <LocateFixed size={20} />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShouldFitBounds(true);
+                      setTimeout(() => setShouldFitBounds(false), 500);
+                    }}
+                    className="w-12 h-12 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-xl active:scale-95 transition-all"
+                  >
+                    <Maximize size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* Bottom Sheet */}
@@ -800,20 +967,28 @@ export default function MotoristaDashboard() {
                 drag="y"
                 dragConstraints={{ top: 0, bottom: 0 }}
                 onDragEnd={(_, info) => {
-                  if (info.offset.y < -50) setIsSheetExpanded(true);
-                  if (info.offset.y > 50) setIsSheetExpanded(false);
+                  if (info.offset.y < -50) {
+                    if (sheetState === 'minimized') setSheetState('half');
+                    else if (sheetState === 'half') setSheetState('expanded');
+                  }
+                  if (info.offset.y > 50) {
+                    if (sheetState === 'expanded') setSheetState('half');
+                    else if (sheetState === 'half') setSheetState('minimized');
+                  }
                 }}
-                initial={{ y: '60%' }}
-                animate={{ y: isSheetExpanded ? '10%' : '60%' }}
+                initial={{ y: '85%' }}
+                animate={{ 
+                  y: sheetState === 'expanded' ? '12%' : sheetState === 'half' ? '60%' : '85%' 
+                }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] touch-none"
+                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] touch-none"
               >
                 {/* Drag Handle */}
                 <div className="w-full py-4 flex flex-col items-center cursor-grab active:cursor-grabbing">
                   <div className="w-12 h-1.5 bg-slate-800 rounded-full mb-2" />
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      {isSheetExpanded ? 'Arraste para recolher' : 'Arraste para ver lista'}
+                      {sheetState === 'expanded' ? 'Arraste para recolher' : 'Arraste para ver lista'}
                     </span>
                   </div>
                 </div>
@@ -956,8 +1131,26 @@ export default function MotoristaDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-4"
             >
+              {/* Trip Filter Toggle */}
+              <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800 mb-6">
+                <button 
+                  onClick={() => setTripFilter('today')}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${tripFilter === 'today' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Hoje
+                </button>
+                <button 
+                  onClick={() => setTripFilter('history')}
+                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${tripFilter === 'history' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Histórico (30 dias)
+                </button>
+              </div>
+
               <div className="flex items-center justify-between mb-2 px-1">
-                <h2 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Suas Viagens de Hoje</h2>
+                <h2 className="font-bold text-slate-400 uppercase text-xs tracking-widest">
+                  {tripFilter === 'today' ? 'Suas Viagens de Hoje' : 'Histórico de Viagens'}
+                </h2>
                 <div className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold">
                   {filteredTrips.length} {filteredTrips.length === 1 ? 'Viagem' : 'Viagens'}
                 </div>
@@ -984,6 +1177,9 @@ export default function MotoristaDashboard() {
                       <div>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1">Horário</p>
                         <p className="text-xl font-bold text-white leading-none">{trip.time}</p>
+                        {tripFilter === 'history' && (
+                          <p className="text-[10px] text-blue-400 font-bold mt-1">{new Date(trip.date).toLocaleDateString('pt-BR')}</p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

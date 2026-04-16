@@ -66,7 +66,6 @@ export default function MotoristaLogin() {
         reason: 'IP-based location'
       };
       
-      console.log("Localização por IP obtida:", loc);
       setLocationData(loc);
       setLocationStatus('success');
       localStorage.setItem('motorista_location', JSON.stringify(loc));
@@ -92,14 +91,11 @@ export default function MotoristaLogin() {
       const snapshot = await db.ref('drivers').once('value');
       const driversData = snapshot.val();
       const drivers = driversData ? Object.values(driversData) : [];
-      console.log('Fetched drivers:', drivers);
       
       const driver = drivers.find((d: any) => {
-        console.log('Checking driver object:', d);
         const sanitizedStoredCpf = (d.cpf || '').replace(/\D/g, '');
         const storedPassword = d.password || sanitizedStoredCpf.substring(0, 6);
         
-        console.log('Comparing:', d.name, 'with', name, '| Password:', storedPassword, 'with', cpf);
         return d.name === name && storedPassword === cpf;
       }) as any;
       
