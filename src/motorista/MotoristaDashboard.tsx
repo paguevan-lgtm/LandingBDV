@@ -138,21 +138,26 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-// Custom Marker Icon for Numbered Stops (Square)
-const createNumberedIcon = (number: number, color: string = '#2563eb') => {
-  return L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">${number}</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-  });
+// --- Components ---
+
+const FitBounds = ({ coords }: { coords: [number, number][] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (coords && coords.length > 0) {
+      const validCoords = coords.filter(c => c && c.length === 2);
+      if (validCoords.length > 0) {
+        const bounds = L.latLngBounds(validCoords);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+  }, [coords, map]);
+  return null;
 };
 
-// Smooth Map Controller
 const SmoothMapController = ({ center, zoom }: { center: [number, number], zoom: number }) => {
   const map = useMap();
   useEffect(() => {
-    if (center) {
+    if (center && center.length === 2) {
       map.flyTo(center, zoom, {
         duration: 1.5,
         easeLinearity: 0.25
@@ -162,16 +167,13 @@ const SmoothMapController = ({ center, zoom }: { center: [number, number], zoom:
   return null;
 };
 
-// Helper to fit bounds
-const FitBounds = ({ coords }: { coords: [number, number][] }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (coords.length > 0) {
-      const bounds = L.latLngBounds(coords);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [coords, map]);
-  return null;
+const createNumberedIcon = (number: number, color: string = '#2563eb') => {
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">${number}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
 };
 
 // --- Cache Utils ---
@@ -417,6 +419,8 @@ function MotoristaDashboardContent() {
   const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const [tripFilter, setTripFilter] = useState<'today' | 'history'>('today');
   const [tripSearchTerm, setTripSearchTerm] = useState('');
+  const [manualGeocoding, setManualGeocoding] = useState(false);
+  const [manualMarker, setManualMarker] = useState<[number, number] | null>(null);
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
   const [routeOptimized, setRouteOptimized] = useState(false);
   const navigate = useNavigate();
@@ -852,103 +856,126 @@ function MotoristaDashboardContent() {
     setRouteOptimized(false);
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
-        const coords: Record<string, [number, number]> = {};
         const cache = getGeoCache();
-        
-        // Robust city detection
         const systemStr = (driverData?.system || '').toLowerCase();
-        
-        // Better detection logic
         const isMongagua = systemStr.includes('mip') || systemStr.includes('mong') || systemStr.includes('mon');
         const cityContext = isMongagua ? 'Mongaguá, SP' : 'Praia Grande, SP';
         const isPG = !isMongagua;
-        
-        // Baixada Santista bounding box
         const viewbox = isPG ? "-46.52,-24.10,-46.33,-23.90" : "-46.68,-24.16,-46.51,-24.03"; 
-
+        
         const baseCoords: Record<string, [number, number]> = {
           'Pg': [-24.0089, -46.4128],
           'Mip': [-24.0928, -46.6206]
         };
         const base = isMongagua ? baseCoords['Mip'] : baseCoords['Pg'];
 
-        // Initial center based on system
         setMapCenter(base);
         setMapZoom(13);
 
         const passengersToGeocode = selectedTrip.passengers || [];
+        const initialCoords: Record<string, [number, number]> = {};
+        const pendingFetch: any[] = [];
 
-        for (let i = 0; i < passengersToGeocode.length; i++) {
-          const p = passengersToGeocode[i];
+        // 1. Check cache for all first
+        passengersToGeocode.forEach((p: any) => {
+          const rawAddress = p.address || p.neighborhood;
+          const pId = p.id || p.name;
+          const cacheKey = `${rawAddress}_${cityContext}`;
+          if (cache[cacheKey]) {
+            initialCoords[pId] = cache[cacheKey];
+          } else if (rawAddress) {
+            pendingFetch.push(p);
+          }
+        });
+
+        // 2. Add fixed destination
+        initialCoords['Jabaquara'] = [-23.6447, -46.6406];
+
+        // 3. Batch update cached results for speed
+        if (Object.keys(initialCoords).length > 0) {
+          setPassengerCoords(prev => ({ ...prev, ...initialCoords }));
+          const firstPassengerId = passengersToGeocode[0]?.id || passengersToGeocode[0]?.name;
+          if (initialCoords[firstPassengerId]) {
+            setMapCenter(initialCoords[firstPassengerId]);
+            setMapZoom(15);
+          }
+        }
+
+        const tryGeocode = async (q: string, bounded: boolean = true) => {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}${bounded ? '&bounded=1' : ''}&limit=1`;
+            const response = await fetch(url, { headers: { 'User-Agent': 'BoraDeVanApp/1.2' } });
+            const data = await response.json();
+            if (data && data.length > 0) {
+              const lat = parseFloat(data[0].lat);
+              const lon = parseFloat(data[0].lon);
+              if (!isNaN(lat) && !isNaN(lon)) return [lat, lon];
+            }
+            return null;
+          } catch (e) { return null; }
+        };
+
+        // 4. Fetch the rest sequentially to respect rate limits
+        for (let i = 0; i < pendingFetch.length; i++) {
+          const p = pendingFetch[i];
           const rawAddress = p.address || p.neighborhood;
           const pId = p.id || p.name;
           const cacheKey = `${rawAddress}_${cityContext}`;
 
-          if (cache[cacheKey]) {
-            setPassengerCoords(prev => ({ ...prev, [pId]: cache[cacheKey] }));
-            if (i === 0) {
-              setMapCenter(cache[cacheKey]);
-              setMapZoom(15);
-            }
-            continue;
-          }
+          await new Promise(resolve => setTimeout(resolve, 500)); // Rate limit safety
 
-          if (!rawAddress) continue;
-
-          // Add staggered delay to avoid 429 if not in cache
-          await new Promise(resolve => setTimeout(resolve, 400));
-
-          const cleanAddress = rawAddress
+          const cleanAddress = (rawAddress || '')
             .replace(/prox\.|próximo|casa|fundos|apto|bloco|nº/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
-
-          const tryGeocode = async (q: string, bounded: boolean = true) => {
-            try {
-              const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}${bounded ? '&bounded=1' : ''}&limit=1`;
-              const response = await fetch(url, {
-                headers: { 'User-Agent': 'BoraDeVanApp/1.2' }
-              });
-              const data = await response.json();
-              
-              if (data && data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                if (!isNaN(lat) && !isNaN(lon)) {
-                  return [lat, lon];
-                }
-              }
-              return null;
-            } catch (e) { return null; }
-          };
 
           let result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`);
           if (!result && p.neighborhood) result = await tryGeocode(`${p.neighborhood}, ${cityContext}, Brazil`);
           if (!result) result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`, false);
 
           const finalCoords = result ? (result as [number, number]) : getStableFallback(pId, base);
-          
           if (result) setGeoCache(cacheKey, finalCoords);
 
-          setPassengerCoords(prev => ({
-            ...prev,
-            [pId]: finalCoords
-          }));
-
-          if (i === 0) {
+          setPassengerCoords(prev => ({ ...prev, [pId]: finalCoords }));
+          
+          if (passengersToGeocode.indexOf(p) === 0) {
             setMapCenter(finalCoords);
             setMapZoom(15);
           }
         }
-
-        setPassengerCoords(prev => ({
-          ...prev,
-          'Jabaquara': [-23.6447, -46.6406]
-        }));
       };
       geocodeAll();
     }
   }, [selectedTrip?.firebaseId, driverData?.system]);
+
+  const handleManualSearch = async () => {
+    if (!tripSearchTerm.trim()) return;
+    setManualGeocoding(true);
+    setManualMarker(null);
+    
+    try {
+      const sys = (driverData?.system || '').toLowerCase();
+      const isMongagua = sys.includes('mip') || sys.includes('mong');
+      const city = isMongagua ? 'Mongaguá, SP' : 'Praia Grande, SP';
+      
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(tripSearchTerm + ', ' + city + ', Brazil')}&limit=1`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'BoraDeVanApp/1.2' } });
+      const data = await res.json();
+      
+      if (data && data.length > 0) {
+        const coords: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        setManualMarker(coords);
+        setMapCenter(coords);
+        setMapZoom(18);
+      } else {
+        alert('Endereço não encontrado. Tente pesquisar com nome de rua e número.');
+      }
+    } catch (e) {
+      alert('Erro na pesquisa. Tente novamente mais tarde.');
+    } finally {
+      setManualGeocoding(false);
+    }
+  };
 
   // Route Optimization effect
   useEffect(() => {
@@ -1273,6 +1300,32 @@ function MotoristaDashboardContent() {
                       </Popup>
                     </Marker>
                   )}
+
+                  {/* Manual Search Marker */}
+                  {manualMarker && (
+                    <Marker 
+                      position={manualMarker}
+                      icon={L.divIcon({
+                        className: 'manual-search-icon',
+                        html: `<div style="background-color: #ef4444; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white; animation: bounce 1s infinite alternate;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg></div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16],
+                      })}
+                    >
+                      <Popup>
+                        <div className="p-2">
+                          <p className="font-bold text-slate-900 mb-1">Resultado da Busca</p>
+                          <p className="text-xs text-slate-600">{tripSearchTerm}</p>
+                          <button 
+                            onClick={() => setManualMarker(null)}
+                            className="text-xs text-red-500 font-bold mt-2"
+                          >
+                            Remover PIN
+                          </button>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
                 </MapContainer>
 
                 {/* Map Controls */}
@@ -1434,11 +1487,27 @@ function MotoristaDashboardContent() {
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                           <input 
                             type="text"
-                            placeholder="Buscar passageiros na rota..."
+                            placeholder="Buscar passageiro ou Digitar rua e nº..."
                             value={tripSearchTerm}
                             onChange={(e) => setTripSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                               if (e.key === 'Enter') handleManualSearch();
+                            }}
                             className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
                           />
+                          <button 
+                             onClick={handleManualSearch}
+                             disabled={manualGeocoding}
+                             className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                               manualGeocoding ? 'bg-slate-800 text-slate-600' : 'bg-blue-600/20 text-blue-400 active:scale-90 hover:bg-blue-600/30'
+                             }`}
+                          >
+                            {manualGeocoding ? (
+                               <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent animate-spin rounded-full" />
+                            ) : (
+                               <LocateFixed size={18} />
+                            )}
+                          </button>
                         </div>
 
                         <div className="mb-6">
