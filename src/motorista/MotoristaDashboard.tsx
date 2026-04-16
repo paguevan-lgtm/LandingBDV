@@ -959,13 +959,23 @@ function MotoristaDashboardContent() {
           try {
             const osrmQuery = orderedCoords.map(c => `${c[1]},${c[0]}`).join(';');
             const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${osrmQuery}?overview=full&geometries=geojson`);
+            
+            // Check if response is actually JSON before parsing
+            const contentType = osrmRes.headers.get("content-type");
+            if (!osrmRes.ok || !contentType || !contentType.includes("application/json")) {
+               throw new Error(`OSRM unavailable (HTTP ${osrmRes.status})`);
+            }
+
             const osrmData = await osrmRes.json();
             if (osrmData.routes && osrmData.routes.length > 0) {
               const polyline = osrmData.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
               setRouteGeometry(polyline);
+            } else {
+              setRouteGeometry(orderedCoords);
             }
           } catch (err) {
-            console.error("OSRM routing error:", err);
+            console.error("Routing error (falling back to direct lines):", err);
+            // Fallback: draw direct lines between stops if the API fails
             setRouteGeometry(orderedCoords);
           }
         } else {
