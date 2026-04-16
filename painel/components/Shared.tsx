@@ -574,8 +574,10 @@ export const Toast = ({ message, type, visible, image }: any) => {
     );
 };
 
-export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type='danger', theme }: any) => {
+export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, onClose, confirmText, type='danger', theme }: any) => {
     const t = theme || THEMES.default;
+    const handleCancel = onCancel || onClose;
+    
     return (
         <AnimatePresence>
             {isOpen && (
@@ -596,7 +598,7 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type
                             <p className="text-sm opacity-60 mb-8 leading-relaxed font-medium">{message}</p>
                             <div className="flex gap-3">
                                 <button 
-                                    onClick={onCancel} 
+                                    onClick={handleCancel} 
                                     className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 font-black text-sm transition-all active:scale-95 border border-white/5"
                                 >
                                     Cancelar
@@ -605,7 +607,7 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type
                                     onClick={onConfirm} 
                                     className={`flex-1 py-4 rounded-2xl font-black text-sm text-white shadow-xl transition-all active:scale-95 ${type === 'danger' ? 'bg-red-600 hover:bg-red-500 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20'}`}
                                 >
-                                    Confirmar
+                                    {confirmText || 'Confirmar'}
                                 </button>
                             </div>
                         </div>

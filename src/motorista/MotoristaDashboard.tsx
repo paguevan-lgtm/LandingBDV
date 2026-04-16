@@ -1,119 +1,1228 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Icons } from './components/MotoristaShared';
-import DashboardView from './DashboardView';
-import CadastroView from './CadastroView';
-import HistoricoView from './HistoricoView';
-import ConfiguracoesView from './ConfiguracoesView';
 import { db } from '../firebase';
-import fpPromise from '@fingerprintjs/fingerprintjs';
+import { 
+  User, 
+  LogOut, 
+  MapPin, 
+  MessageCircle, 
+  Navigation, 
+  GripVertical, 
+  Phone, 
+  Car, 
+  Calendar,
+  ChevronRight,
+  ArrowLeft,
+  Settings,
+  Clock,
+  Users,
+  Search,
+  LayoutList,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Info,
+  Bell,
+  Shield,
+  HelpCircle,
+  ChevronDown,
+  Plus,
+  Trash2,
+  X
+} from 'lucide-react';
+import { 
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { motion, AnimatePresence } from 'motion/react';
+
+// --- Components ---
+
+const SortablePassengerItem = ({ passenger, onWhatsApp }: { passenger: any, onWhatsApp: (p: any) => void }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: passenger.id || passenger.name });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 0,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-3 flex items-center gap-4 group shadow-sm"
+    >
+      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-slate-600 hover:text-slate-400">
+        <GripVertical size={20} />
+      </div>
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <h4 className="font-bold text-white truncate">{passenger.name}</h4>
+          <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-bold">
+            {passenger.passengerCount || 1} { (passenger.passengerCount || 1) > 1 ? 'Pessoas' : 'Pessoa' }
+          </span>
+        </div>
+        <p className="text-xs text-slate-400 flex items-center gap-1 truncate">
+          <MapPin size={12} className="text-slate-500" /> {passenger.neighborhood || 'Bairro não informado'}
+        </p>
+        {passenger.address && (
+          <p className="text-[10px] text-slate-500 mt-1 truncate">{passenger.address}</p>
+        )}
+      </div>
+
+      <button 
+        onClick={() => onWhatsApp(passenger)}
+        className="w-10 h-10 bg-green-600/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-600/30 transition-colors"
+      >
+        <MessageCircle size={18} />
+      </button>
+    </div>
+  );
+};
+
+// --- Main Dashboard ---
 
 export default function MotoristaDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState<'trips' | 'table' | 'finance' | 'profile' | 'config'>('trips');
+  const [selectedTrip, setSelectedTrip] = useState<any>(null);
+  const [trips, setTrips] = useState<any[]>([]);
+  const [tableData, setTableData] = useState<any[]>([]);
+  const [tableStatus, setTableStatus] = useState<any>({});
+  const [loading, setLoading] = useState(true);
+  const [driverData, setDriverData] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [dailyDraft, setDailyDraft] = useState<any[]>([]);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [configModalType, setConfigModalType] = useState<'about' | 'help' | 'privacy' | null>(null);
+  const [newTransaction, setNewTransaction] = useState({ name: '', amount: '', type: 'income' });
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [financeFilter, setFinanceFilter] = useState<'today' | '7days' | '30days' | 'months'>('today');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
   const navigate = useNavigate();
-  const driver = JSON.parse(localStorage.getItem('motorista_session') || '{}');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    const session = localStorage.getItem('motorista_session');
+    if (!session) {
+      navigate('/motorista');
+      return;
+    }
+    const driver = JSON.parse(session);
+    setDriverData(driver);
+
+    const today = new Date().toISOString().split('T')[0];
+    const system = driver.system || 'Pg';
+
+    // Listen to trips
+    const tripsPath = system === 'Pg' ? 'trips' : `${system}/trips`;
+    const tripsRef = db.ref(tripsPath);
+    const handleTrips = (snapshot: any) => {
+      const data = snapshot.val();
+      if (data) {
+        const allTrips = Object.entries(data).map(([id, val]: [string, any]) => ({ ...val, firebaseId: id }));
+        const driverTrips = allTrips.filter(t => 
+          t.driverId === driver.id && 
+          t.date === today &&
+          t.status !== 'Cancelada'
+        ).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        setTrips(driverTrips);
+      } else {
+        setTrips([]);
+      }
+      setLoading(false);
+    };
+
+    // Listen to Table (Lousa)
+    let tablePath = system === 'Pg' ? 'drivers_table_list' : `${system}/drivers_table_list`;
+    if (system === 'Mip') {
+      const mipDayType = new Date().getDate() % 2 !== 0 ? 'odd' : 'even';
+      // Defaulting to 6:00 table for Mip if not specified
+      tablePath = `Mip/drivers_6_${mipDayType}`;
+    }
+    const tableRef = db.ref(tablePath);
+    const handleTable = (snapshot: any) => {
+      const data = snapshot.val();
+      setTableData(Array.isArray(data) ? data : []);
+    };
+
+    // Listen to Table Status
+    const statusPath = system === 'Pg' ? `daily_tables/${today}/status` : `${system}/daily_tables/${today}/status`;
+    const statusRef = db.ref(statusPath);
+    const handleStatus = (snapshot: any) => {
+      setTableStatus(snapshot.val() || {});
+    };
+
+    // Listen to Transactions
+    const transactionsPath = `motoristas_finance/${driver.id}`;
+    const transactionsRef = db.ref(transactionsPath);
+    const handleTransactions = (snapshot: any) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.entries(data).map(([id, val]: [string, any]) => ({ ...val, firebaseId: id }));
+        setTransactions(list.sort((a, b) => b.timestamp - a.timestamp));
+      } else {
+        setTransactions([]);
+      }
+    };
+
+    tripsRef.on('value', handleTrips);
+    tableRef.on('value', handleTable);
+    statusRef.on('value', handleStatus);
+    transactionsRef.on('value', handleTransactions);
+
+    return () => {
+      tripsRef.off('value', handleTrips);
+      tableRef.off('value', handleTable);
+      statusRef.off('value', handleStatus);
+      transactionsRef.off('value', handleTransactions);
+    };
+  }, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('motorista_session');
     navigate('/motorista');
   };
 
-  useEffect(() => {
-    let unsubscribe: any = null;
-
-    const setupBlockListener = async () => {
-      try {
-        const fp = await fpPromise.load();
-        const result = await fp.get();
-        const deviceId = result.visitorId;
-
-        const blockRef = db.ref(`blocked_devices/${deviceId}`);
-        const callback = blockRef.on('value', (snapshot) => {
-          if (snapshot.exists()) {
-            console.warn("Dispositivo banido em tempo real. Deslogando motorista...");
-            handleLogout();
-          }
-        });
-
-        unsubscribe = () => blockRef.off('value', callback);
-      } catch (e) {
-        console.error("Erro ao configurar listener de bloqueio do motorista:", e);
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = selectedTrip.passengers.findIndex((p: any) => (p.id || p.name) === active.id);
+      const newIndex = selectedTrip.passengers.findIndex((p: any) => (p.id || p.name) === over.id);
+      
+      const newPassengers = arrayMove(selectedTrip.passengers, oldIndex, newIndex);
+      const updatedTrip = { ...selectedTrip, passengers: newPassengers };
+      
+      setSelectedTrip(updatedTrip);
+      
+      const system = driverData.system || 'Pg';
+      const tripsPath = system === 'Pg' ? 'trips' : `${system}/trips`;
+      if (selectedTrip.firebaseId) {
+        db.ref(`${tripsPath}/${selectedTrip.firebaseId}/passengersSnapshot`).set(newPassengers);
       }
-    };
-
-    setupBlockListener();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard': return <DashboardView />;
-      case 'cadastro': return <CadastroView onFinish={() => setActiveTab('dashboard')} />;
-      case 'historico': return <HistoricoView />;
-      case 'config': return <ConfiguracoesView />;
-      default: return <DashboardView />;
     }
   };
 
+  const openWhatsApp = (passenger: any) => {
+    const phone = passenger.phone?.replace(/\D/g, '');
+    if (!phone) return alert('Telefone não disponível');
+    const msg = encodeURIComponent(`Olá ${passenger.name}, aqui é o motorista ${driverData.name} da Bora de Van. Estou a caminho!`);
+    window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+  };
+
+  const openNavigation = (type: 'google' | 'waze', destination: string) => {
+    const encodedDest = encodeURIComponent(destination);
+    if (type === 'google') {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${encodedDest}`, '_blank');
+    } else {
+      window.open(`https://waze.com/ul?q=${encodedDest}&navigate=yes`, '_blank');
+    }
+  };
+
+  const filteredTrips = useMemo(() => {
+    if (!searchTerm) return trips;
+    const lower = searchTerm.toLowerCase();
+    return trips.filter(t => 
+      t.destination?.toLowerCase().includes(lower) || 
+      t.id?.toString().includes(lower)
+    );
+  }, [trips, searchTerm]);
+
+  const filteredTable = useMemo(() => {
+    if (!searchTerm) return tableData;
+    const lower = searchTerm.toLowerCase();
+    return tableData.filter(d => 
+      d.name?.toLowerCase().includes(lower) || 
+      d.vaga?.toString().includes(lower)
+    );
+  }, [tableData, searchTerm]);
+
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    return transactions.filter(t => {
+      const tDate = new Date(t.timestamp);
+      if (financeFilter === 'today') {
+        return tDate.toDateString() === now.toDateString();
+      }
+      if (financeFilter === '7days') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        return tDate >= sevenDaysAgo;
+      }
+      if (financeFilter === '30days') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+        return tDate >= thirtyDaysAgo;
+      }
+      if (financeFilter === 'months') {
+        const tMonth = t.date.substring(0, 7);
+        return tMonth === selectedMonth;
+      }
+      return true;
+    });
+  }, [transactions, financeFilter, selectedMonth]);
+
+  const financeMetrics = useMemo(() => {
+    const income = filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+    return {
+      income,
+      expense,
+      balance: income - expense
+    };
+  }, [filteredTransactions]);
+
+  const suggestions = useMemo(() => {
+    const names = transactions.map(t => t.name);
+    return Array.from(new Set(names)).slice(0, 10);
+  }, [transactions]);
+
+  const handleAddToDraft = () => {
+    if (!newTransaction.name || !newTransaction.amount) return alert('Preencha todos os campos');
+    setDailyDraft([...dailyDraft, { ...newTransaction, id: Date.now() }]);
+    setNewTransaction({ name: '', amount: '', type: 'income' });
+  };
+
+  const handleRemoveFromDraft = (id: number) => {
+    setDailyDraft(dailyDraft.filter(item => item.id !== id));
+  };
+
+  const handleLaunchDraft = () => {
+    if (dailyDraft.length === 0) return;
+    const path = `motoristas_finance/${driverData.id}`;
+    const updates: any = {};
+    dailyDraft.forEach(item => {
+      const newKey = db.ref(path).push().key;
+      updates[`${path}/${newKey}`] = {
+        name: item.name,
+        amount: Number(item.amount),
+        type: item.type,
+        timestamp: Date.now(),
+        date: new Date().toISOString()
+      };
+    });
+    db.ref().update(updates).then(() => {
+      setDailyDraft([]);
+      setIsTransactionModalOpen(false);
+    });
+  };
+
+  const handleDeleteTransaction = (id: string) => {
+    const path = `motoristas_finance/${driverData.id}/${id}`;
+    db.ref(path).remove();
+  };
+
+  const handleChangePassword = async () => {
+    if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
+      return alert('Preencha todos os campos');
+    }
+    if (passwordForm.new !== passwordForm.confirm) {
+      return alert('As senhas novas não coincidem');
+    }
+
+    // Verify current password (which is either the custom password or the first 6 digits of CPF)
+    const currentStoredPassword = driverData.password || (driverData.cpf || '').replace(/\D/g, '').substring(0, 6);
+    
+    if (passwordForm.current !== currentStoredPassword) {
+      return alert('Senha atual incorreta');
+    }
+
+    try {
+      // Find the driver key in Firebase
+      const snapshot = await db.ref('drivers').once('value');
+      const drivers = snapshot.val();
+      let driverKey = null;
+      for (const key in drivers) {
+        if (drivers[key].id === driverData.id) {
+          driverKey = key;
+          break;
+        }
+      }
+
+      if (driverKey) {
+        await db.ref(`drivers/${driverKey}/password`).set(passwordForm.new);
+        alert('Senha alterada com sucesso!');
+        setIsPasswordModalOpen(false);
+        setPasswordForm({ current: '', new: '', confirm: '' });
+        
+        // Update local session
+        const newSession = { ...driverData, password: passwordForm.new };
+        localStorage.setItem('motorista_session', JSON.stringify(newSession));
+        setDriverData(newSession);
+      } else {
+        alert('Erro ao localizar motorista no banco de dados.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao alterar senha.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-24">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-10 flex justify-between items-center">
-        <div>
-          <h1 className="font-bold text-xl">Olá, {driver.nome || 'Motorista'}</h1>
-          <p className="text-xs text-slate-400">Controle Diário</p>
+      <header className="bg-slate-900/50 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-30">
+        <div className="max-w-md mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            {selectedTrip && (
+              <button 
+                onClick={() => setSelectedTrip(null)}
+                className="p-2 bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+            )}
+            <div>
+              <h1 className="font-bold text-lg text-white leading-tight">
+                {selectedTrip ? 'Roteiro' : activeTab === 'trips' ? 'Minhas Viagens' : activeTab === 'table' ? 'Lousa Digital' : activeTab === 'finance' ? 'Financeiro' : activeTab === 'profile' ? 'Meu Perfil' : 'Configurações'}
+              </h1>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                {selectedTrip ? `Viagem #${selectedTrip.id}` : driverData?.system || 'Sistema PG'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="p-2 bg-slate-800/50 rounded-xl text-slate-400 relative">
+              <Bell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full border-2 border-slate-900"></span>
+            </button>
+          </div>
         </div>
-        <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-white transition-colors">
-          <Icons.LogOut size={20} />
-        </button>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-md mx-auto">
-        {renderContent()}
+      <main className="max-w-md mx-auto p-4">
+        {/* Search Bar */}
+        {!selectedTrip && (activeTab === 'trips' || activeTab === 'table') && (
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input 
+              type="text"
+              placeholder={activeTab === 'trips' ? "Buscar viagens..." : "Buscar motoristas na lousa..."}
+              className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600 shadow-inner"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        )}
+
+        <AnimatePresence mode="wait">
+          {selectedTrip ? (
+            <motion.div
+              key="trip-details"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              {/* Trip Info Card */}
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                  <Navigation size={80} />
+                </div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase">
+                      {selectedTrip.time}
+                    </span>
+                    <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase">
+                      {selectedTrip.vaga ? `Vaga ${selectedTrip.vaga}` : 'S/ Vaga'}
+                    </span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-1">{selectedTrip.destination || 'Destino'}</h2>
+                  <p className="text-blue-100 text-sm flex items-center gap-1">
+                    <Calendar size={14} /> {new Date(selectedTrip.date).toLocaleDateString('pt-BR')}
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3 mt-6">
+                    <button 
+                      onClick={() => openNavigation('google', selectedTrip.destination)}
+                      className="bg-white text-blue-600 py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                    >
+                      <MapPin size={16} /> Google Maps
+                    </button>
+                    <button 
+                      onClick={() => openNavigation('waze', selectedTrip.destination)}
+                      className="bg-slate-950 text-white py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                    >
+                      <Navigation size={16} /> Waze
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Passengers List */}
+              <div>
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest flex items-center gap-2">
+                    <Users size={14} /> Passageiros ({selectedTrip.passengers?.length || 0})
+                  </h3>
+                  <span className="text-[10px] text-slate-500 italic">Arraste para reordenar</span>
+                </div>
+
+                <DndContext 
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext 
+                    items={selectedTrip.passengers?.map((p: any) => p.id || p.name) || []}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {selectedTrip.passengers?.map((passenger: any) => (
+                      <SortablePassengerItem 
+                        key={passenger.id || passenger.name} 
+                        passenger={passenger} 
+                        onWhatsApp={openWhatsApp}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+
+                {(!selectedTrip.passengers || selectedTrip.passengers.length === 0) && (
+                  <div className="text-center py-12 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
+                    <Users size={40} className="mx-auto text-slate-700 mb-3" />
+                    <p className="text-slate-500 text-sm">Nenhum passageiro nesta viagem.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ) : activeTab === 'trips' ? (
+            <motion.div
+              key="trips-list"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h2 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Suas Viagens de Hoje</h2>
+                <div className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold">
+                  {filteredTrips.length} {filteredTrips.length === 1 ? 'Viagem' : 'Viagens'}
+                </div>
+              </div>
+
+              {filteredTrips.map((trip) => (
+                <button 
+                  key={trip.firebaseId}
+                  onClick={() => {
+                    const passengers = trip.passengersSnapshot || [];
+                    setSelectedTrip({ ...trip, passengers });
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-5 text-left hover:border-blue-500/50 transition-all group relative overflow-hidden shadow-sm"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Car size={60} />
+                  </div>
+                  
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400">
+                        <Clock size={24} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1">Horário</p>
+                        <p className="text-xl font-bold text-white leading-none">{trip.time}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Status</p>
+                      <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${
+                        trip.status === 'Em andamento' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                      }`}>
+                        {trip.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Destino</p>
+                      <p className="font-bold text-white flex items-center gap-2">
+                        <MapPin size={16} className="text-blue-500" /> {trip.destination}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-800/50">
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-slate-500" />
+                        <span className="text-xs font-bold text-slate-300">
+                          {trip.passengersSnapshot?.length || 0} Passageiros
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-blue-400 font-bold text-xs">
+                        Ver Roteiro <ChevronRight size={14} />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+
+              {filteredTrips.length === 0 && (
+                <div className="text-center py-20 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
+                  <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar size={36} className="text-slate-600" />
+                  </div>
+                  <h3 className="font-bold text-white mb-1">Nenhuma viagem encontrada</h3>
+                  <p className="text-slate-500 text-sm px-12">
+                    {searchTerm ? "Tente buscar por outro termo." : "Aguarde novas atribuições do painel central."}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          ) : activeTab === 'table' ? (
+            <motion.div
+              key="table"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-4"
+            >
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h2 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Fila de Motoristas</h2>
+                <div className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold">
+                  {filteredTable.length} Ativos
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-950/50 border-b border-slate-800">
+                      <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Vaga</th>
+                      <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Motorista</th>
+                      <th className="p-4 text-[10px] font-bold text-slate-500 uppercase text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTable.map((item, idx) => {
+                      const status = tableStatus[item.vaga] || 'Aguardando';
+                      return (
+                        <tr key={idx} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
+                          <td className="p-4">
+                            <span className="w-8 h-8 bg-slate-950 rounded-lg flex items-center justify-center font-mono font-bold text-blue-400 border border-slate-800">
+                              {item.vaga}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <p className={`font-bold text-sm ${item.name === driverData.name ? 'text-blue-400' : 'text-slate-200'}`}>
+                              {item.name}
+                            </p>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold">{item.plate || '---'}</p>
+                          </td>
+                          <td className="p-4 text-right">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              status === 'Confirmado' ? 'bg-green-500/20 text-green-400' : 
+                              status === 'Baixou' ? 'bg-blue-500/20 text-blue-400' : 
+                              'bg-slate-800 text-slate-500'
+                            }`}>
+                              {status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-2xl flex items-start gap-3">
+                <Info className="text-blue-400 shrink-0" size={18} />
+                <p className="text-[10px] text-blue-300 leading-relaxed font-medium">
+                  A lousa digital é atualizada em tempo real. Você pode acompanhar sua posição na fila e o status dos outros motoristas.
+                </p>
+              </div>
+            </motion.div>
+          ) : activeTab === 'finance' ? (
+            <motion.div
+              key="finance"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5"><TrendingUp size={48} /></div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Total Lucros</p>
+                  <p className="text-2xl font-bold text-green-400">R$ {financeMetrics.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5"><TrendingDown size={48} /></div>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Total Gastos</p>
+                  <p className="text-2xl font-bold text-red-400">R$ {financeMetrics.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+
+              {/* Main Balance Card */}
+              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-5"><DollarSign size={120} /></div>
+                <div className="relative z-10 text-center">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Saldo Líquido</p>
+                  <h2 className={`text-5xl font-display font-extrabold mb-2 ${financeMetrics.balance >= 0 ? 'text-white' : 'text-red-400'}`}>
+                    R$ {financeMetrics.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </h2>
+                  <button 
+                    onClick={() => setIsTransactionModalOpen(true)}
+                    className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 mx-auto transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                  >
+                    <Plus size={16} /> Lançar Gastos/Lucros do Dia
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800 overflow-x-auto no-scrollbar">
+                {[
+                  { id: 'today', label: 'Hoje' },
+                  { id: '7days', label: '7 Dias' },
+                  { id: '30days', label: '30 Dias' },
+                  { id: 'months', label: 'Mensal' }
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFinanceFilter(f.id as any)}
+                    className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+                      financeFilter === f.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {financeFilter === 'months' && (
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-3 rounded-2xl">
+                  <Calendar size={16} className="text-slate-500" />
+                  <input 
+                    type="month" 
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-transparent text-white text-sm outline-none w-full"
+                  />
+                </div>
+              )}
+
+              {/* Spreadsheet View */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Planilha de Movimentações</h3>
+                  <span className="text-[10px] text-slate-500 font-bold">{filteredTransactions.length} Registros</span>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-slate-950 z-10">
+                        <tr className="border-b border-slate-800">
+                          <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Data</th>
+                          <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Descrição</th>
+                          <th className="p-4 text-[10px] font-bold text-slate-500 uppercase text-right">Valor</th>
+                          <th className="p-4 text-[10px] font-bold text-slate-500 uppercase text-right"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTransactions.map((t) => (
+                          <tr key={t.firebaseId} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
+                            <td className="p-4 text-[10px] text-slate-500 font-mono">
+                              {new Date(t.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                            </td>
+                            <td className="p-4">
+                              <p className="font-bold text-sm text-slate-200 truncate max-w-[120px]">{t.name}</p>
+                              <p className={`text-[10px] uppercase font-bold ${t.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                                {t.type === 'income' ? 'Lucro' : 'Gasto'}
+                              </p>
+                            </td>
+                            <td className={`p-4 text-right font-bold text-sm ${t.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                              {t.type === 'income' ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-4 text-right">
+                              <button 
+                                onClick={() => handleDeleteTransaction(t.firebaseId)}
+                                className="p-2 text-slate-600 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {filteredTransactions.length > 0 && (
+                          <tr className="bg-slate-950/50 font-bold">
+                            <td colSpan={2} className="p-4 text-xs text-slate-400 uppercase tracking-widest">Total do Período</td>
+                            <td className={`p-4 text-right text-sm ${financeMetrics.balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              R$ {financeMetrics.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td></td>
+                          </tr>
+                        )}
+                        {filteredTransactions.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="p-10 text-center text-slate-500 text-xs italic">
+                              Nenhuma movimentação encontrada para este período.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : activeTab === 'profile' ? (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 text-center relative overflow-hidden shadow-xl">
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500" />
+                <div className="w-28 h-28 bg-slate-800 rounded-full mx-auto mb-6 p-1.5 border-2 border-blue-500/30 shadow-2xl">
+                  <div className="w-full h-full bg-slate-700 rounded-full flex items-center justify-center text-blue-400">
+                    <User size={56} />
+                  </div>
+                </div>
+                <h2 className="text-3xl font-display font-extrabold text-white mb-1">{driverData.name}</h2>
+                <div className="flex items-center justify-center gap-2 mb-8">
+                  <span className="bg-slate-950 px-3 py-1 rounded-lg text-xs font-mono font-bold text-slate-400 border border-slate-800">
+                    {driverData.plate || 'SEM PLACA'}
+                  </span>
+                  <span className="w-1.5 h-1.5 bg-slate-700 rounded-full" />
+                  <span className="text-xs font-bold text-green-400 uppercase tracking-widest">{driverData.status || 'Ativo'}</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-950 p-5 rounded-3xl border border-slate-800 shadow-inner">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Capacidade</p>
+                    <p className="text-lg font-bold text-white">{driverData.capacity || 0} Lugares</p>
+                  </div>
+                  <div className="bg-slate-950 p-5 rounded-3xl border border-slate-800 shadow-inner">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Sistema</p>
+                    <p className="text-lg font-bold text-blue-400">{driverData.system || 'PG'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-lg">
+                <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest px-1">Documentação e Contato</h3>
+                
+                <div className="flex items-center gap-4 p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                  <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400">
+                    <Phone size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Telefone Principal</p>
+                    <p className="font-bold text-white text-lg">{driverData.phone || 'Não informado'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                  <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-400">
+                    <Shield size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Validade CNH</p>
+                    <p className="font-bold text-white text-lg">
+                      {driverData.cnhValidity ? new Date(driverData.cnhValidity).toLocaleDateString('pt-BR') : 'Não informada'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="config"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-lg">
+                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                      <Bell size={20} />
+                    </div>
+                    <span className="font-bold text-slate-200">Notificações</span>
+                  </div>
+                  <button 
+                    onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${notificationsEnabled ? 'bg-blue-600' : 'bg-slate-700'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${notificationsEnabled ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                </div>
+                <button 
+                  onClick={() => { setConfigModalType('privacy'); setIsConfigModalOpen(true); }}
+                  className="w-full p-6 border-b border-slate-800 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                      <Shield size={20} />
+                    </div>
+                    <span className="font-bold text-slate-200">Privacidade</span>
+                  </div>
+                  <ChevronRight size={20} className="text-slate-600" />
+                </button>
+                <button 
+                  onClick={() => { setConfigModalType('help'); setIsConfigModalOpen(true); }}
+                  className="w-full p-6 border-b border-slate-800 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                      <HelpCircle size={20} />
+                    </div>
+                    <span className="font-bold text-slate-200">Ajuda e Suporte</span>
+                  </div>
+                  <ChevronRight size={20} className="text-slate-600" />
+                </button>
+                <button 
+                  onClick={() => setIsPasswordModalOpen(true)}
+                  className="w-full p-6 border-b border-slate-800 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                      <Shield size={20} />
+                    </div>
+                    <span className="font-bold text-slate-200">Alterar Senha</span>
+                  </div>
+                  <ChevronRight size={20} className="text-slate-600" />
+                </button>
+                <button 
+                  onClick={() => { setConfigModalType('about'); setIsConfigModalOpen(true); }}
+                  className="w-full p-6 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                      <Info size={20} />
+                    </div>
+                    <span className="font-bold text-slate-200">Sobre o App</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500">v2.4.0</span>
+                </button>
+              </div>
+
+              <button 
+                onClick={handleLogout}
+                className="w-full bg-red-500/10 text-red-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-500/20 transition-all border border-red-500/20 shadow-lg"
+              >
+                <LogOut size={20} /> Sair da Conta
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 pb-safe z-20">
-        <div className="max-w-md mx-auto flex justify-around p-2">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-col items-center p-2 rounded-xl transition-colors ${activeTab === 'dashboard' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Icons.Home size={24} />
-            <span className="text-[10px] mt-1 font-bold">Início</span>
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('cadastro')}
-            className={`flex flex-col items-center p-2 rounded-xl transition-colors ${activeTab === 'cadastro' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <div className={`p-3 rounded-full -mt-6 shadow-lg ${activeTab === 'cadastro' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-              <Icons.Plus size={24} />
-            </div>
-            <span className="text-[10px] mt-1 font-bold">Novo Dia</span>
-          </button>
+      {/* Modals */}
+      <AnimatePresence>
+        {isTransactionModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsTransactionModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">Lançamentos do Dia</h3>
+                <div className="flex items-center gap-2">
+                  {dailyDraft.length > 0 && (
+                    <button 
+                      onClick={() => setDailyDraft([])}
+                      className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:text-red-400 transition-colors"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                  <button onClick={() => setIsTransactionModalOpen(false)} className="p-2 text-slate-500 hover:text-white">
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
 
-          <button 
-            onClick={() => setActiveTab('historico')}
-            className={`flex flex-col items-center p-2 rounded-xl transition-colors ${activeTab === 'historico' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Icons.List size={24} />
-            <span className="text-[10px] mt-1 font-bold">Histórico</span>
-          </button>
+              <div className="space-y-4">
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 max-h-[200px] overflow-y-auto space-y-2">
+                  {dailyDraft.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                      <div>
+                        <p className="text-xs font-bold text-white">{item.name}</p>
+                        <p className={`text-[9px] font-bold uppercase ${item.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>
+                          {item.type === 'income' ? 'Lucro' : 'Gasto'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-bold ${item.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                          R$ {Number(item.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        <button onClick={() => handleRemoveFromDraft(item.id)} className="text-slate-600 hover:text-red-500">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {dailyDraft.length === 0 && (
+                    <p className="text-center text-slate-600 text-[10px] py-4">Nenhum item adicionado ao rascunho.</p>
+                  )}
+                </div>
 
-          <button 
-            onClick={() => setActiveTab('config')}
-            className={`flex flex-col items-center p-2 rounded-xl transition-colors ${activeTab === 'config' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            <Icons.Settings size={24} />
-            <span className="text-[10px] mt-1 font-bold">Config</span>
-          </button>
-        </div>
-      </nav>
+                <div className="h-px bg-slate-800 my-4" />
+
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Tipo</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => setNewTransaction({ ...newTransaction, type: 'income' })}
+                      className={`py-3 rounded-2xl font-bold text-xs transition-all ${newTransaction.type === 'income' ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                    >
+                      Lucro
+                    </button>
+                    <button 
+                      onClick={() => setNewTransaction({ ...newTransaction, type: 'expense' })}
+                      className={`py-3 rounded-2xl font-bold text-xs transition-all ${newTransaction.type === 'expense' ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-400'}`}
+                    >
+                      Gasto
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Descrição</label>
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      placeholder="Ex: Almoço, Combustível..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                      value={newTransaction.name}
+                      onChange={(e) => setNewTransaction({ ...newTransaction, name: e.target.value })}
+                    />
+                    {newTransaction.name && suggestions.filter(s => s.toLowerCase().includes(newTransaction.name.toLowerCase())).length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden z-20 shadow-xl max-h-[120px] overflow-y-auto">
+                        {suggestions.filter(s => s.toLowerCase().includes(newTransaction.name.toLowerCase())).map((s, i) => (
+                          <button 
+                            key={i}
+                            onClick={() => setNewTransaction({ ...newTransaction, name: s })}
+                            className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white border-b border-slate-700 last:border-0"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Valor (R$)</label>
+                  <input 
+                    type="number"
+                    placeholder="0,00"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    value={newTransaction.amount}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button 
+                    onClick={handleAddToDraft}
+                    className="bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-2xl font-bold text-xs transition-all active:scale-95"
+                  >
+                    Adicionar à Lista
+                  </button>
+                  <button 
+                    onClick={handleLaunchDraft}
+                    disabled={dailyDraft.length === 0}
+                    className={`py-4 rounded-2xl font-bold text-xs transition-all shadow-lg active:scale-95 ${dailyDraft.length > 0 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+                  >
+                    Lançar na Planilha
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isConfigModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsConfigModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">
+                  {configModalType === 'about' ? 'Sobre o App' : configModalType === 'help' ? 'Ajuda e Suporte' : 'Privacidade'}
+                </h3>
+                <button onClick={() => setIsConfigModalOpen(false)} className="p-2 text-slate-500 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="text-slate-400 text-sm leading-relaxed space-y-4">
+                {configModalType === 'about' && (
+                  <>
+                    <div className="bg-blue-500/10 p-4 rounded-2xl border border-blue-500/20 text-center mb-6">
+                      <p className="text-blue-400 font-bold text-lg">Bora de Van</p>
+                      <p className="text-[10px] text-blue-300/60 uppercase tracking-widest">Versão 2.4.0</p>
+                    </div>
+                    <p>O Bora de Van é a plataforma definitiva para gestão de **lotação e executivo**. Focado em eficiência e segurança para motoristas e passageiros.</p>
+                    <p>Desenvolvido com as tecnologias mais modernas para garantir que você tenha sempre a melhor experiência em suas rotas.</p>
+                  </>
+                )}
+
+                {configModalType === 'help' && (
+                  <>
+                    <p className="font-bold text-white mb-2">Canais de Atendimento:</p>
+                    <div className="space-y-3">
+                      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+                        <MessageCircle className="text-green-400" size={20} />
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase">WhatsApp Suporte</p>
+                          <p className="text-white font-bold">13 99774-4720</p>
+                        </div>
+                      </div>
+                      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+                        <Bell className="text-blue-400" size={20} />
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase">Atendimento</p>
+                          <p className="text-white font-bold">Disponível 24h</p>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-4">Nosso suporte está pronto para te ajudar a qualquer momento do dia ou da noite.</p>
+                  </>
+                )}
+
+                {configModalType === 'privacy' && (
+                  <>
+                    <p className="font-bold text-white mb-2">Política de Privacidade</p>
+                    <p>Sua privacidade é importante para nós. Coletamos apenas os dados necessários para o funcionamento das rotas e segurança dos passageiros.</p>
+                    <p>1. Localização: Usada apenas durante as rotas ativas.</p>
+                    <p>2. Dados Pessoais: Protegidos e nunca compartilhados com terceiros.</p>
+                    <p>3. Logs: Mantemos registros de atividades para sua segurança.</p>
+                  </>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setIsConfigModalOpen(false)}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-2xl font-bold text-sm mt-8 transition-all"
+              >
+                Fechar
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {!selectedTrip && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 pb-safe z-40">
+          <div className="max-w-md mx-auto flex justify-around p-2">
+            <button 
+              onClick={() => setActiveTab('trips')}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                activeTab === 'trips' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <Car size={22} />
+              <span className="text-[9px] font-bold uppercase tracking-tighter">Viagens</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('table')}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                activeTab === 'table' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <LayoutList size={22} />
+              <span className="text-[9px] font-bold uppercase tracking-tighter">Lousa</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('finance')}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                activeTab === 'finance' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <DollarSign size={22} />
+              <span className="text-[9px] font-bold uppercase tracking-tighter">Financeiro</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('profile')}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                activeTab === 'profile' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <User size={22} />
+              <span className="text-[9px] font-bold uppercase tracking-tighter">Perfil</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('config')}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                activeTab === 'config' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <Settings size={22} />
+              <span className="text-[9px] font-bold uppercase tracking-tighter">Config</span>
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
+
