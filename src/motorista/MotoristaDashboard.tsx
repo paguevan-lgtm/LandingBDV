@@ -928,257 +928,8 @@ export default function MotoristaDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-24 relative overflow-x-hidden">
-      {/* Route Detail View Overlay */}
-      <AnimatePresence>
-        {selectedTrip && (
-          <motion.div
-            key={`route-${selectedTrip.firebaseId || selectedTrip.id}`}
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-50 bg-slate-950 flex flex-col items-stretch overflow-hidden"
-          >
-            {/* Back Button */}
-            <div className="absolute top-6 left-6 z-[1000]">
-              <button 
-                onClick={() => {
-                  setSelectedTrip(null);
-                  setTripStarted(false);
-                  setSheetState('half');
-                }}
-                className="w-14 h-14 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl text-white shadow-2xl active:scale-95 transition-all flex items-center justify-center"
-              >
-                <ArrowLeft size={28} />
-              </button>
-            </div>
-
-            {/* Map Container */}
-            <div className="flex-1 relative">
-              <MapContainer 
-                center={mapCenter} 
-                zoom={mapZoom} 
-                zoomControl={false}
-                style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
-                key={selectedTrip.firebaseId || selectedTrip.id || 'map'}
-              >
-                <SmoothMapController center={mapCenter} zoom={mapZoom} />
-                {shouldFitBounds && <FitBounds coords={[
-                  ...(userLocation ? [userLocation] : []),
-                  ...Object.values(passengerCoords)
-                ]} />}
-                <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; OpenStreetMap'
-                />
-                
-                {userLocation && (
-                  <Marker position={userLocation} icon={L.divIcon({
-                    className: 'user-location-icon',
-                    html: `<div class="relative flex items-center justify-center">
-                      <div class="absolute w-10 h-10 bg-blue-500/20 rounded-full animate-ping"></div>
-                      <div class="relative w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(59,130,246,0.8)]"></div>
-                    </div>`,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10],
-                  })}>
-                    <Circle center={userLocation} radius={50} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1 }} />
-                  </Marker>
-                )}
-
-                {routeGeometry.length > 0 && <Polyline positions={routeGeometry} pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.8, lineJoin: 'round' }} />}
-                
-                {selectedTrip.passengers?.map((p: any, idx: number) => {
-                  const coords = passengerCoords[p.id || p.name];
-                  if (!coords) return null;
-                  const status = passengerStatuses[p.id || p.name] || 'pending';
-                  return (
-                    <Marker 
-                      key={p.id || p.name} 
-                      position={coords} 
-                      icon={createNumberedIcon(idx + 1, status === 'delivered' ? '#22c55e' : status === 'canceled' ? '#64748b' : '#3b82f6')}
-                      eventHandlers={{ click: () => {
-                        setSelectedPassenger(p);
-                        setSheetState('half');
-                      }}}
-                    />
-                  );
-                })}
-
-                {passengerCoords['Jabaquara'] && (
-                  <Marker 
-                    position={passengerCoords['Jabaquara']} 
-                    icon={L.divIcon({
-                      className: 'dest-icon',
-                      html: `<div style="background-color: #f59e0b; width: 34px; height: 34px; border-radius: 10px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"><i class="lucide-map-pin"></i></div>`,
-                      iconSize: [34, 34],
-                      iconAnchor: [17, 17],
-                    })}
-                  >
-                    <Popup><p className="font-bold">Pão de Açúcar Jabaquara</p></Popup>
-                  </Marker>
-                )}
-              </MapContainer>
-
-              {/* Map Floating Controls */}
-              <div className="absolute right-6 top-6 z-10 flex flex-col gap-3">
-                <button 
-                  onClick={() => { if (userLocation) setMapCenter(userLocation); }}
-                  className="w-14 h-14 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-2xl active:scale-95 transition-all"
-                >
-                  <LocateFixed size={24} />
-                </button>
-                <button 
-                  onClick={() => {
-                    setShouldFitBounds(true);
-                    setTimeout(() => setShouldFitBounds(false), 500);
-                  }}
-                  className="w-14 h-14 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-2xl active:scale-95 transition-all"
-                >
-                  <Maximize size={24} />
-                </button>
-              </div>
-            </div>
-
-            {/* Bottom Sheet */}
-            <motion.div 
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.15}
-              onDragEnd={(_, info) => {
-                const velocity = info.velocity.y;
-                const offset = info.offset.y;
-                if (velocity < -500 || offset < -100) {
-                  if (sheetState === 'minimized') setSheetState('half');
-                  else if (sheetState === 'half') setSheetState('expanded');
-                } else if (velocity > 500 || offset > 100) {
-                  if (sheetState === 'expanded') setSheetState('half');
-                  else if (sheetState === 'half') setSheetState('minimized');
-                }
-              }}
-              initial={{ y: '85%' }}
-              animate={{ 
-                y: sheetState === 'expanded' ? '12%' : sheetState === 'half' ? '55%' : '88%' 
-              }}
-              transition={{ type: 'spring', damping: 30, stiffness: 200 }}
-              className="absolute inset-x-0 bottom-0 z-50 bg-slate-950 border-t border-slate-800 rounded-t-[3rem] shadow-[0_-30px_60px_rgba(0,0,0,0.6)] flex flex-col h-[88vh] touch-none"
-            >
-              <div className="w-full py-6 flex flex-col items-center cursor-grab active:cursor-grabbing shrink-0">
-                <div className="w-16 h-1.5 bg-slate-800 rounded-full mb-3" />
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">
-                  {sheetState === 'expanded' ? 'Recolher Lista' : 'Lista de Paradas'}
-                </span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-6 pb-32 overscroll-contain touch-pan-y">
-                <AnimatePresence mode="wait">
-                  {selectedPassenger ? (
-                    <motion.div
-                      key="stop-detail"
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="space-y-6"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h2 className="text-2xl font-bold text-white leading-tight">{selectedPassenger.address || selectedPassenger.neighborhood}</h2>
-                          <p className="text-xs text-slate-400 mt-1 font-medium italic">{selectedPassenger.name}</p>
-                        </div>
-                        <button onClick={() => setSelectedPassenger(null)} className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400">
-                          <X size={24} />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <button 
-                          onClick={() => openNavigation(navApp, selectedPassenger.address || selectedPassenger.neighborhood)}
-                          className="bg-blue-600 p-5 rounded-3xl flex flex-col items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
-                        >
-                          <Navigation size={24} />
-                          <span className="text-xs font-bold uppercase tracking-wider">Navegar</span>
-                        </button>
-                        <button 
-                          onClick={() => openWhatsApp(selectedPassenger)}
-                          className="bg-green-600/10 text-green-500 p-5 rounded-3xl flex flex-col items-center gap-2 border border-green-500/20 active:scale-95 transition-all"
-                        >
-                          <MessageCircle size={24} />
-                          <span className="text-xs font-bold uppercase tracking-wider">WhatsApp</span>
-                        </button>
-                      </div>
-
-                      <div className="space-y-4 pt-4 border-t border-slate-900">
-                        <button 
-                          onClick={() => { handleStatusChange(selectedPassenger.id || selectedPassenger.name, 'delivered'); setSelectedPassenger(null); }}
-                          className="w-full bg-green-600 py-5 rounded-3xl flex items-center justify-center gap-3 font-bold shadow-lg shadow-green-600/10 active:scale-95 transition-all"
-                        >
-                          <Check size={20} /> Confirmar Entrega
-                        </button>
-                        <button 
-                          onClick={() => { handleStatusChange(selectedPassenger.id || selectedPassenger.name, 'canceled'); setSelectedPassenger(null); }}
-                          className="w-full bg-slate-900 py-5 rounded-3xl flex items-center justify-center gap-3 font-bold border border-slate-800 text-slate-400 active:scale-95 transition-all"
-                        >
-                          <X size={20} /> Falha na Entrega
-                        </button>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="stops-list"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="space-y-4"
-                    >
-                      {!tripStarted ? (
-                        <button 
-                          onClick={() => setTripStarted(true)}
-                          className="w-full bg-blue-600 py-5 rounded-3xl font-bold text-lg shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-3 animate-pulse"
-                        >
-                          <Play size={24} /> Iniciar Roteiro
-                        </button>
-                      ) : (
-                        <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 flex items-center justify-between">
-                          <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Em Trânsito</span>
-                          <span className="text-xs font-mono text-white opacity-60">~ 72km restantes</span>
-                        </div>
-                      )}
-
-                      <div className="space-y-3 pt-2">
-                        <SortableContext items={selectedTrip.passengers.map((p: any) => p.id || p.name)} strategy={verticalListSortingStrategy}>
-                          {selectedTrip.passengers.map((passenger: any, index: number) => (
-                            <SortablePassengerItem 
-                              key={passenger.id || passenger.name}
-                              passenger={passenger}
-                              status={passengerStatuses[passenger.id || passenger.name] || 'pending'}
-                              tripStarted={tripStarted}
-                              onNavigate={(p) => openNavigation(navApp, p.address || p.neighborhood)}
-                              onWhatsApp={openWhatsApp}
-                              onStatusChange={handleStatusChange}
-                              onRevert={handleRevertStatus}
-                              navApp={navApp}
-                            />
-                          ))}
-                        </SortableContext>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
-
-            {/* Undo Toast */}
-            {lastAction && (
-              <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="fixed bottom-32 left-6 right-6 z-[200] bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-2xl flex items-center justify-between">
-                <span className="text-sm font-medium text-white">Status da viagem atualizado</span>
-                <button onClick={handleUndoAction} className="text-blue-400 font-bold uppercase text-xs tracking-widest">Desfazer</button>
-              </motion.div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Dashboard Header */}
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-24">
+      {/* Header */}
       {!selectedTrip && (
         <header className="bg-slate-900/50 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-30">
           <div className="max-w-md mx-auto flex justify-between items-center">
@@ -1202,9 +953,24 @@ export default function MotoristaDashboard() {
         </header>
       )}
 
-      <main className="max-w-md mx-auto p-4">
+      {selectedTrip && (
+        <div className="fixed top-4 left-4 z-40">
+          <button 
+            onClick={() => {
+              setSelectedTrip(null);
+              setTripStarted(false);
+              setSheetState('half');
+            }}
+            className="p-3 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl text-white shadow-2xl active:scale-95 transition-all"
+          >
+            <ArrowLeft size={24} />
+          </button>
+        </div>
+      )}
+
+      <main className={selectedTrip ? "" : "max-w-md mx-auto p-4"}>
         {/* Search Bar */}
-        {(activeTab === 'trips' || activeTab === 'tabela') && (
+        {!selectedTrip && (activeTab === 'trips' || activeTab === 'tabela') && (
           <div className="relative mb-6">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
             <input 
@@ -1218,7 +984,409 @@ export default function MotoristaDashboard() {
         )}
 
         <AnimatePresence mode="popLayout">
-          {activeTab === 'trips' ? (
+          {selectedTrip ? (
+            <motion.div
+              key={`trip-${selectedTrip.firebaseId || selectedTrip.id || 'current'}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="relative w-full h-[100dvh]"
+            >
+              {/* Map View (Background) */}
+              <div className="absolute inset-0 z-0 bg-slate-950">
+                <MapContainer 
+                  center={mapCenter} 
+                  zoom={mapZoom} 
+                  zoomControl={false}
+                  style={{ height: '100%', width: '100%' }}
+                  key={selectedTrip.firebaseId || selectedTrip.id || 'map'}
+                >
+                  <SmoothMapController center={mapCenter} zoom={mapZoom} />
+                  {shouldFitBounds && <FitBounds coords={[
+                    ...(userLocation ? [userLocation] : []),
+                    ...Object.values(passengerCoords)
+                  ]} />}
+                  <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  />
+                  
+                  {/* User Location */}
+                  {userLocation && (
+                    <>
+                      <Circle 
+                        center={userLocation} 
+                        radius={50} 
+                        pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2 }} 
+                      />
+                      <Marker 
+                        position={userLocation} 
+                        icon={L.divIcon({
+                          className: 'user-location-icon',
+                          html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);"></div>`,
+                          iconSize: [16, 16],
+                          iconAnchor: [8, 8],
+                        })}
+                      />
+                    </>
+                  )}
+
+                  {/* Routing Polyline */}
+                  {routeGeometry.length > 0 && (
+                    <Polyline 
+                      positions={routeGeometry}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.8 }}
+                    />
+                  )}
+                  
+                  {/* Fallback straight lines if routeGeometry is empty */}
+                  {routeGeometry.length === 0 && selectedTrip.passengers && (
+                    <Polyline 
+                      positions={[
+                        ...(userLocation ? [userLocation] : []),
+                        ...selectedTrip.passengers
+                          .map((p: any) => passengerCoords[p.id || p.name])
+                          .filter(Boolean) as [number, number][],
+                        ...(passengerCoords['Jabaquara'] ? [passengerCoords['Jabaquara']] : []) as [number, number][]
+                      ]}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.6, dashArray: '10, 10' }}
+                    />
+                  )}
+                  
+                  {selectedTrip.passengers?.map((p: any, idx: number) => {
+                    const coords = passengerCoords[p.id || p.name];
+                    if (!coords) return null;
+                    
+                    const status = passengerStatuses[p.id || p.name] || 'pending';
+                    const color = status === 'delivered' ? '#10b981' : status === 'canceled' ? '#ef4444' : '#2563eb';
+                    
+                    return (
+                      <Marker 
+                        key={idx} 
+                        position={coords} 
+                        icon={createNumberedIcon(idx + 1, color)}
+                        eventHandlers={{
+                          click: () => {
+                            setSelectedPassenger(p);
+                            setMapCenter(coords);
+                            setMapZoom(18);
+                            setSheetState('half');
+                          }
+                        }}
+                      />
+                    );
+                  })}
+
+                  {/* Final Destination Marker */}
+                  {passengerCoords['Jabaquara'] && (
+                    <Marker 
+                      position={passengerCoords['Jabaquara']} 
+                      icon={L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color: #f59e0b; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"><i class="lucide-map-pin"></i></div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16],
+                      })}
+                    >
+                      <Popup>
+                        <p className="font-bold text-slate-900">Pão de Açúcar Jabaquara</p>
+                      </Popup>
+                    </Marker>
+                  )}
+                </MapContainer>
+
+                {/* Map Controls */}
+                <div className="absolute right-4 top-24 z-10 flex flex-col gap-2">
+                  <button 
+                    onClick={() => {
+                      if (userLocation) setMapCenter(userLocation);
+                    }}
+                    className="w-12 h-12 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-xl active:scale-95 transition-all"
+                  >
+                    <LocateFixed size={20} />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShouldFitBounds(true);
+                      setTimeout(() => setShouldFitBounds(false), 500);
+                    }}
+                    className="w-12 h-12 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-xl active:scale-95 transition-all"
+                  >
+                    <Maximize size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom Sheet */}
+              <motion.div 
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0.1}
+                onDragEnd={(_, info) => {
+                  const velocity = info.velocity.y;
+                  const offset = info.offset.y;
+
+                  if (velocity < -500 || offset < -150) {
+                    if (sheetState === 'minimized') setSheetState('half');
+                    else if (sheetState === 'half') setSheetState('expanded');
+                  } else if (velocity > 500 || offset > 150) {
+                    if (sheetState === 'expanded') setSheetState('half');
+                    else if (sheetState === 'half') setSheetState('minimized');
+                  }
+                }}
+                initial={{ y: '85%' }}
+                animate={{ 
+                  y: sheetState === 'expanded' ? '15%' : sheetState === 'half' ? '60%' : '88%' 
+                }}
+                transition={{ 
+                  type: 'spring', 
+                  damping: 35, 
+                  stiffness: 250,
+                  mass: 1
+                }}
+                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[82vh] touch-none"
+              >
+                {/* Drag Handle */}
+                <div className="w-full py-6 flex flex-col items-center cursor-grab active:cursor-grabbing">
+                  <div className="w-16 h-1.5 bg-slate-800 rounded-full mb-3" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                      {sheetState === 'expanded' ? 'Recolher Lista' : sheetState === 'half' ? 'Ver Mais Detalhes' : 'Ver Lista de Paradas'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 pb-24">
+                  <AnimatePresence mode="wait">
+                    {selectedPassenger ? (
+                      <motion.div
+                        key="stop-detail"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h2 className="text-2xl font-bold text-white leading-tight">
+                              {selectedPassenger.address || selectedPassenger.neighborhood}
+                            </h2>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                              <span className="text-xs text-slate-400 font-medium">
+                                {selectedTrip.passengers.indexOf(selectedPassenger) + 1}/{selectedTrip.passengers.length}, {selectedTrip.time}
+                              </span>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => setSelectedPassenger(null)}
+                            className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <button 
+                            onClick={() => openNavigation(navApp, selectedPassenger.address || selectedPassenger.neighborhood)}
+                            className="bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl flex flex-col items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
+                          >
+                            <Navigation size={20} />
+                            <span className="text-[10px] font-bold uppercase">Navegar</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              handleStatusChange(selectedPassenger.id || selectedPassenger.name, 'canceled');
+                              setSelectedPassenger(null);
+                            }}
+                            className="bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
+                          >
+                            <X size={20} />
+                            <span className="text-[10px] font-bold uppercase">Não entregue</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              handleStatusChange(selectedPassenger.id || selectedPassenger.name, 'delivered');
+                              setSelectedPassenger(null);
+                            }}
+                            className="bg-slate-800 hover:bg-green-500/20 hover:text-green-400 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
+                          >
+                            <Check size={20} />
+                            <span className="text-[10px] font-bold uppercase">Entregue</span>
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                            <div className="flex items-center gap-4">
+                              <LayoutList size={18} className="text-slate-500" />
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Adicionar notas</p>
+                                <p className="text-sm text-slate-300">{selectedPassenger.obs || 'Nenhuma nota'}</p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                            <div className="flex items-center gap-4">
+                              <MapPin size={18} className="text-slate-500" />
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Localização</p>
+                                <p className="text-sm text-slate-300">
+                                  {selectedPassenger.neighborhood || 'Não informado'}, {(!driverData?.system || driverData.system.toLowerCase().includes('pg') || driverData.system.toLowerCase().includes('praia')) ? 'Praia Grande' : 'Mongaguá'}
+                                </p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                            <div className="flex items-center gap-4">
+                              <Info size={18} className="text-slate-500" />
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">ID {selectedTrip.passengers.indexOf(selectedPassenger) + 1}</p>
+                                <p className="text-sm text-slate-300">{selectedPassenger.name}</p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </div>
+                        </div>
+
+                        <div className="pt-4 space-y-3">
+                          <button className="w-full flex items-center gap-4 p-4 text-slate-400 hover:text-white transition-colors">
+                            <Plus size={20} />
+                            <span className="text-sm font-medium">Editar parada</span>
+                          </button>
+                          <button className="w-full flex items-center gap-4 p-4 text-slate-400 hover:text-white transition-colors">
+                            <RotateCcw size={20} />
+                            <span className="text-sm font-medium">Duplicar parada</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="trip-list"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                      >
+                        <div className="relative mb-6">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                          <input 
+                            type="text"
+                            placeholder="Toque para adicionar"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-500">
+                            <Maximize size={18} />
+                            <Phone size={18} />
+                          </div>
+                        </div>
+
+                        <div className="mb-6">
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
+                            {selectedTrip.passengers.length} paradas • {selectedTrip.time}
+                          </p>
+                          <h2 className="text-3xl font-bold text-white">Rota de hoje</h2>
+                        </div>
+
+                        <div className="space-y-6">
+                          <div className="flex items-start gap-4">
+                            <div className="w-2 h-2 bg-slate-700 rounded-full mt-2" />
+                            <div>
+                              <p className="text-sm font-bold text-white">Sem pausa</p>
+                              <p className="text-[10px] text-slate-500">Toque para agendar uma pausa</p>
+                            </div>
+                          </div>
+
+                          <div className="relative pl-6 border-l-2 border-slate-800 ml-1 space-y-8">
+                            <div className="relative">
+                              <div className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-600 rounded-full border-4 border-slate-950" />
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="text-sm font-bold text-white">Ponto de partida</p>
+                                  <p className="text-[10px] text-slate-500">Posição do GPS usada ao otimizar</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] text-slate-500 font-bold uppercase">{selectedTrip.time}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {selectedTrip.passengers?.map((passenger: any, idx: number) => {
+                              const status = passengerStatuses[passenger.id || passenger.name] || 'pending';
+                              return (
+                                <div 
+                                  key={passenger.id || passenger.name} 
+                                  className="relative cursor-pointer group"
+                                  onClick={() => {
+                                    setSelectedPassenger(passenger);
+                                    const coords = passengerCoords[passenger.id || passenger.name];
+                                    if (coords) {
+                                      setMapCenter(coords);
+                                      setMapZoom(18);
+                                    }
+                                  }}
+                                >
+                                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-slate-950 ${
+                                    status === 'delivered' ? 'bg-green-500' : status === 'canceled' ? 'bg-red-500' : 'bg-slate-700'
+                                  }`} />
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0 pr-4">
+                                      <p className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">
+                                        {passenger.address || passenger.neighborhood}
+                                      </p>
+                                      <p className="text-[10px] text-slate-500 truncate">
+                                        {passenger.neighborhood}, {(!driverData?.system || driverData.system.toLowerCase().includes('pg') || driverData.system.toLowerCase().includes('praia')) ? 'Praia Grande' : 'Mongaguá'}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <p className="text-[10px] text-blue-400 font-bold uppercase">{arrivalEstimates[passenger.id || passenger.name] || selectedTrip.time}</p>
+                                      <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 ${
+                                        status === 'delivered' ? 'bg-green-500/20 text-green-400' : 
+                                        status === 'canceled' ? 'bg-red-500/20 text-red-400' : 
+                                        'bg-slate-800 text-slate-500'
+                                      }`}>
+                                        ID {idx + 1} {status === 'delivered' && <Check size={10} />}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+
+              {/* Undo Action Toast */}
+              <AnimatePresence>
+                {lastAction && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    className="fixed bottom-24 left-4 right-4 z-[60] bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl flex items-center justify-between"
+                  >
+                    <span className="text-xs font-bold text-white">
+                      {lastAction.status === 'delivered' ? 'Marcado como entregue' : 'Viagem cancelada'}
+                    </span>
+                    <button 
+                      onClick={handleUndoAction}
+                      className="text-blue-400 text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors"
+                    >
+                      Desfazer
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ) : activeTab === 'trips' ? (
             <motion.div
               key="trips-list"
               initial={{ opacity: 0, y: 10 }}
