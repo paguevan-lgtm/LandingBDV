@@ -265,6 +265,8 @@ export default function MotoristaDashboard() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const [tripFilter, setTripFilter] = useState<'today' | 'history'>('today');
+  const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
+  const [routeOptimized, setRouteOptimized] = useState(false);
   const navigate = useNavigate();
 
   const sensors = useSensors(
@@ -616,6 +618,41 @@ export default function MotoristaDashboard() {
     });
   };
 
+  const calculateDistance = (p1: [number, number], p2: [number, number]) => {
+    return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
+  };
+
+  const optimizeRoute = (passengers: any[], coords: Record<string, [number, number]>, startLoc: [number, number]) => {
+    if (!startLoc || passengers.length === 0) return passengers;
+
+    const unvisited = [...passengers];
+    const optimized: any[] = [];
+    let currentLoc = startLoc;
+
+    while (unvisited.length > 0) {
+      let closestIdx = 0;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < unvisited.length; i++) {
+        const pCoords = coords[unvisited[i].id || unvisited[i].name];
+        if (pCoords) {
+          const dist = calculateDistance(currentLoc, pCoords);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestIdx = i;
+          }
+        }
+      }
+
+      const nextPassenger = unvisited.splice(closestIdx, 1)[0];
+      optimized.push(nextPassenger);
+      const nextCoords = coords[nextPassenger.id || nextPassenger.name];
+      if (nextCoords) currentLoc = nextCoords;
+    }
+
+    return optimized;
+  };
+
   // Geolocation effect
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -645,6 +682,7 @@ export default function MotoristaDashboard() {
 
   // Geocoding effect - Only runs when trip changes
   useEffect(() => {
+    setRouteOptimized(false);
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
         const coords: Record<string, [number, number]> = {};
@@ -714,6 +752,15 @@ export default function MotoristaDashboard() {
       geocodeAll();
     }
   }, [selectedTrip?.firebaseId, driverData?.system]);
+
+  // Route Optimization effect
+  useEffect(() => {
+    if (userLocation && selectedTrip && selectedTrip.passengers.length > 0 && Object.keys(passengerCoords).length > 0 && !routeOptimized) {
+      const optimized = optimizeRoute(selectedTrip.passengers, passengerCoords, userLocation);
+      setSelectedTrip(prev => ({ ...prev, passengers: optimized }));
+      setRouteOptimized(true);
+    }
+  }, [userLocation, passengerCoords, selectedTrip?.firebaseId, routeOptimized]);
 
   // Routing effect - Runs when location or status changes
   useEffect(() => {
@@ -936,30 +983,15 @@ export default function MotoristaDashboard() {
                         key={idx} 
                         position={coords} 
                         icon={createNumberedIcon(idx + 1, color)}
-                      >
-                        <Popup>
-                          <div className="p-1">
-                            <p className="font-bold text-slate-900">{p.name}</p>
-                            <p className="text-[10px] text-slate-600">{p.address || p.neighborhood}</p>
-                            <div className="flex gap-2 mt-2">
-                              <button 
-                                onClick={() => openNavigation(navApp, p.address || p.neighborhood)}
-                                className="bg-blue-600 text-white text-[10px] px-2 py-1 rounded"
-                              >
-                                Navegar
-                              </button>
-                              {status === 'pending' && (
-                                <button 
-                                  onClick={() => handleStatusChange(p.id || p.name, 'delivered')}
-                                  className="bg-green-600 text-white text-[10px] px-2 py-1 rounded"
-                                >
-                                  Entregue
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </Popup>
-                      </Marker>
+                        eventHandlers={{
+                          click: () => {
+                            setSelectedPassenger(p);
+                            setMapCenter(coords);
+                            setMapZoom(18);
+                            setSheetState('half');
+                          }
+                        }}
+                      />
                     );
                   })}
 
@@ -1043,110 +1075,216 @@ export default function MotoristaDashboard() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 pb-24">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
-                          {selectedTrip.time}
-                        </span>
-                        <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
-                          {selectedTrip.vaga ? `Vaga ${selectedTrip.vaga}` : 'S/ Vaga'}
-                        </span>
-                      </div>
-                      <h2 className="text-2xl font-bold text-white">Jabaquara</h2>
-                      <p className="text-slate-500 text-xs flex items-center gap-1 mt-1">
-                        <Calendar size={12} /> {new Date(selectedTrip.date).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-
-                    {!tripStarted ? (
-                      <button 
-                        onClick={() => setTripStarted(true)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2"
+                  <AnimatePresence mode="wait">
+                    {selectedPassenger ? (
+                      <motion.div
+                        key="stop-detail"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="space-y-6"
                       >
-                        <Play size={18} fill="currentColor" /> Iniciar
-                      </button>
-                    ) : (
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                          <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" /> Em Rota
-                        </span>
-                        <button 
-                          onClick={() => {
-                            if (window.confirm('Deseja finalizar esta viagem?')) {
-                              setTripStarted(false);
-                              setSelectedTrip(null);
-                            }
-                          }}
-                          className="text-red-400 text-[10px] font-bold uppercase tracking-widest hover:text-red-300"
-                        >
-                          Finalizar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="grid grid-cols-2 gap-3 mb-8">
-                    <button 
-                      onClick={() => openNavigation(navApp, 'Pão de Açúcar Jabaquara')}
-                      className="bg-slate-900 border border-slate-800 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
-                    >
-                      <MapPin size={16} className="text-blue-500" /> Pão de Açúcar Jabaquara
-                    </button>
-                    <button 
-                      onClick={() => openWhatsApp({ name: 'Central', phone: '13997744720' })}
-                      className="bg-slate-900 border border-slate-800 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
-                    >
-                      <MessageCircle size={16} className="text-green-500" /> Suporte
-                    </button>
-                  </div>
-
-                  {/* Passengers List */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="font-bold text-slate-400 uppercase text-[10px] tracking-widest flex items-center gap-2">
-                        <Users size={12} /> Passageiros ({selectedTrip.passengers?.length || 0})
-                      </h3>
-                      {!tripStarted && <span className="text-[9px] text-slate-600 italic">Arraste para reordenar a rota</span>}
-                    </div>
-
-                    <DndContext 
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <SortableContext 
-                        items={selectedTrip.passengers?.map((p: any) => p.id || p.name) || []}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        {selectedTrip.passengers?.map((passenger: any, idx: number) => (
-                          <div key={passenger.id || passenger.name} className="relative">
-                            <div className="absolute -left-3 top-6 w-6 h-6 bg-slate-800 rounded-full border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-slate-400 z-10">
-                              {idx + 1}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h2 className="text-2xl font-bold text-white leading-tight">
+                              {selectedPassenger.address || selectedPassenger.neighborhood}
+                            </h2>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                              <span className="text-xs text-slate-400 font-medium">
+                                {selectedTrip.passengers.indexOf(selectedPassenger) + 1}/{selectedTrip.passengers.length}, {selectedTrip.time}
+                              </span>
                             </div>
-                            <SortablePassengerItem 
-                              passenger={passenger} 
-                              onWhatsApp={openWhatsApp}
-                              onNavigate={(p) => openNavigation(navApp, p.address || p.neighborhood)}
-                              navApp={navApp}
-                              tripStarted={tripStarted}
-                              status={passengerStatuses[passenger.id || passenger.name] || 'pending'}
-                              onStatusChange={handleStatusChange}
-                              onRevert={handleRevertStatus}
-                            />
                           </div>
-                        ))}
-                      </SortableContext>
-                    </DndContext>
+                          <button 
+                            onClick={() => setSelectedPassenger(null)}
+                            className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
 
-                    {(!selectedTrip.passengers || selectedTrip.passengers.length === 0) && (
-                      <div className="text-center py-12 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
-                        <Users size={40} className="mx-auto text-slate-700 mb-3" />
-                        <p className="text-slate-500 text-sm">Nenhum passageiro nesta viagem.</p>
-                      </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <button 
+                            onClick={() => openNavigation(navApp, selectedPassenger.address || selectedPassenger.neighborhood)}
+                            className="bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl flex flex-col items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
+                          >
+                            <Navigation size={20} />
+                            <span className="text-[10px] font-bold uppercase">Navegar</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              handleStatusChange(selectedPassenger.id || selectedPassenger.name, 'canceled');
+                              setSelectedPassenger(null);
+                            }}
+                            className="bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
+                          >
+                            <X size={20} />
+                            <span className="text-[10px] font-bold uppercase">Não entregue</span>
+                          </button>
+                          <button 
+                            onClick={() => {
+                              handleStatusChange(selectedPassenger.id || selectedPassenger.name, 'delivered');
+                              setSelectedPassenger(null);
+                            }}
+                            className="bg-slate-800 hover:bg-green-500/20 hover:text-green-400 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
+                          >
+                            <Check size={20} />
+                            <span className="text-[10px] font-bold uppercase">Entregue</span>
+                          </button>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                            <div className="flex items-center gap-4">
+                              <LayoutList size={18} className="text-slate-500" />
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Adicionar notas</p>
+                                <p className="text-sm text-slate-300">{selectedPassenger.obs || 'Nenhuma nota'}</p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                            <div className="flex items-center gap-4">
+                              <MapPin size={18} className="text-slate-500" />
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Bairro</p>
+                                <p className="text-sm text-slate-300">{selectedPassenger.neighborhood || 'Não informado'}</p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                            <div className="flex items-center gap-4">
+                              <Info size={18} className="text-slate-500" />
+                              <div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">ID {selectedTrip.passengers.indexOf(selectedPassenger) + 1}</p>
+                                <p className="text-sm text-slate-300">{selectedPassenger.name}</p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </div>
+                        </div>
+
+                        <div className="pt-4 space-y-3">
+                          <button className="w-full flex items-center gap-4 p-4 text-slate-400 hover:text-white transition-colors">
+                            <Plus size={20} />
+                            <span className="text-sm font-medium">Editar parada</span>
+                          </button>
+                          <button className="w-full flex items-center gap-4 p-4 text-slate-400 hover:text-white transition-colors">
+                            <RotateCcw size={20} />
+                            <span className="text-sm font-medium">Duplicar parada</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="trip-list"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                      >
+                        <div className="relative mb-6">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                          <input 
+                            type="text"
+                            placeholder="Toque para adicionar"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-500">
+                            <Maximize size={18} />
+                            <Phone size={18} />
+                          </div>
+                        </div>
+
+                        <div className="mb-6">
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
+                            Término: {selectedTrip.time} • {selectedTrip.passengers.length} paradas
+                          </p>
+                          <h2 className="text-3xl font-bold text-white">Rota de hoje</h2>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-8">
+                          <button className="bg-slate-900 border border-slate-800 text-white py-3 rounded-2xl font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2">
+                            <TrendingUp size={14} className="text-blue-500" /> Compartilhar rota
+                          </button>
+                          <button className="bg-slate-900 border border-slate-800 text-white py-3 rounded-2xl font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-2">
+                            <Car size={14} className="text-blue-500" /> Carregar veículo
+                          </button>
+                        </div>
+
+                        <div className="space-y-6">
+                          <div className="flex items-start gap-4">
+                            <div className="w-2 h-2 bg-slate-700 rounded-full mt-2" />
+                            <div>
+                              <p className="text-sm font-bold text-white">Sem pausa</p>
+                              <p className="text-[10px] text-slate-500">Toque para agendar uma pausa</p>
+                            </div>
+                          </div>
+
+                          <div className="relative pl-6 border-l-2 border-slate-800 ml-1 space-y-8">
+                            <div className="relative">
+                              <div className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-600 rounded-full border-4 border-slate-950" />
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="text-sm font-bold text-white">Ponto de partida</p>
+                                  <p className="text-[10px] text-slate-500">Posição do GPS usada ao otimizar</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] text-slate-500 font-bold uppercase">{selectedTrip.time}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {selectedTrip.passengers?.map((passenger: any, idx: number) => {
+                              const status = passengerStatuses[passenger.id || passenger.name] || 'pending';
+                              return (
+                                <div 
+                                  key={passenger.id || passenger.name} 
+                                  className="relative cursor-pointer group"
+                                  onClick={() => {
+                                    setSelectedPassenger(passenger);
+                                    const coords = passengerCoords[passenger.id || passenger.name];
+                                    if (coords) {
+                                      setMapCenter(coords);
+                                      setMapZoom(18);
+                                    }
+                                  }}
+                                >
+                                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-slate-950 ${
+                                    status === 'delivered' ? 'bg-green-500' : status === 'canceled' ? 'bg-red-500' : 'bg-slate-700'
+                                  }`} />
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0 pr-4">
+                                      <p className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">
+                                        {passenger.address || passenger.neighborhood}
+                                      </p>
+                                      <p className="text-[10px] text-slate-500 truncate">
+                                        {passenger.neighborhood}, {driverData.system === 'Pg' ? 'Praia Grande' : 'Mongaguá'}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <p className="text-[10px] text-slate-500 font-bold uppercase">{selectedTrip.time}</p>
+                                      <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 ${
+                                        status === 'delivered' ? 'bg-green-500/20 text-green-400' : 
+                                        status === 'canceled' ? 'bg-red-500/20 text-red-400' : 
+                                        'bg-slate-800 text-slate-500'
+                                      }`}>
+                                        ID {idx + 1} {status === 'delivered' && <Check size={10} />}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </motion.div>
                     )}
-                  </div>
+                  </AnimatePresence>
                 </div>
               </motion.div>
 
