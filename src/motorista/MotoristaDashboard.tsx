@@ -397,6 +397,7 @@ function MotoristaDashboardContent() {
   const [mapZoom, setMapZoom] = useState(13);
   const [shouldFitBounds, setShouldFitBounds] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [lastRoutedLocation, setLastRoutedLocation] = useState<[number, number] | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const [tripFilter, setTripFilter] = useState<'today' | 'history'>('today');
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
@@ -945,6 +946,12 @@ function MotoristaDashboardContent() {
   useEffect(() => {
     if (selectedTrip && selectedTrip.passengers && Object.keys(passengerCoords).length > 0) {
       const fetchRoute = async () => {
+        // Only recalculate if user moved more than 50 meters or it's the first time
+        if (userLocation && lastRoutedLocation) {
+          const dist = calculateDistance(userLocation, lastRoutedLocation) * 111000; // approx meters
+          if (dist < 50) return; // Skip if moved less than 50m
+        }
+
         const pendingPassengers = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
         
         const orderedCoords = [
@@ -970,6 +977,7 @@ function MotoristaDashboardContent() {
             if (osrmData.routes && osrmData.routes.length > 0) {
               const polyline = osrmData.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
               setRouteGeometry(polyline);
+              if (userLocation) setLastRoutedLocation(userLocation);
             } else {
               setRouteGeometry(orderedCoords);
             }
@@ -982,9 +990,11 @@ function MotoristaDashboardContent() {
           setRouteGeometry([]);
         }
       };
-      fetchRoute();
+
+      const timer = setTimeout(fetchRoute, 500); // 500ms debounce
+      return () => clearTimeout(timer);
     }
-  }, [selectedTrip?.firebaseId, userLocation, passengerStatuses, passengerCoords]);
+  }, [selectedTrip?.firebaseId, userLocation, passengerStatuses, passengerCoords, lastRoutedLocation]);
 
   const handleChangePassword = async () => {
     if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
@@ -1146,6 +1156,7 @@ function MotoristaDashboardContent() {
                   center={mapCenter} 
                   zoom={mapZoom} 
                   zoomControl={false}
+                  preferCanvas={true}
                   style={{ height: '100%', width: '100%' }}
                   key={selectedTrip.firebaseId || selectedTrip.id || 'map'}
                 >
@@ -1157,6 +1168,8 @@ function MotoristaDashboardContent() {
                   <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    updateWhenIdle={true}
+                    keepBuffer={8}
                   />
                   
                   {/* User Location */}
