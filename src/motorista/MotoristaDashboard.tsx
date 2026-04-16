@@ -174,6 +174,21 @@ const FitBounds = ({ coords }: { coords: [number, number][] }) => {
   return null;
 };
 
+// --- Cache Utils ---
+const getGeoCache = () => {
+  try {
+    return JSON.parse(localStorage.getItem('geo_cache') || '{}');
+  } catch { return {}; }
+};
+
+const setGeoCache = (key: string, val: [number, number]) => {
+  try {
+    const cache = getGeoCache();
+    cache[key] = val;
+    localStorage.setItem('geo_cache', JSON.stringify(cache));
+  } catch {}
+};
+
 // --- Utilities ---
 const calculateDistance = (p1: [number, number], p2: [number, number]) => {
   if (!p1 || !p2) return 0;
@@ -218,8 +233,9 @@ const getStableFallback = (seed: string | undefined, base: [number, number]): [n
     hash = ((hash << 5) - hash) + seed.charCodeAt(i);
     hash |= 0;
   }
-  const latOffset = (hash % 100) / 2000;
-  const lngOffset = ((hash >> 8) % 100) / 2000;
+  // Larger distributed jitter to avoid overlap if geocoding fails
+  const latOffset = ((hash % 1000) - 500) / 15000;
+  const lngOffset = (((hash >> 8) % 1000) - 500) / 15000;
   return [base[0] + latOffset, base[1] + lngOffset];
 };
 
@@ -400,6 +416,7 @@ function MotoristaDashboardContent() {
   const [lastRoutedLocation, setLastRoutedLocation] = useState<[number, number] | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const [tripFilter, setTripFilter] = useState<'today' | 'history'>('today');
+  const [tripSearchTerm, setTripSearchTerm] = useState('');
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
   const [routeOptimized, setRouteOptimized] = useState(false);
   const navigate = useNavigate();
@@ -836,6 +853,7 @@ function MotoristaDashboardContent() {
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
         const coords: Record<string, [number, number]> = {};
+        const cache = getGeoCache();
         
         // Robust city detection
         const systemStr = (driverData?.system || '').toLowerCase();
@@ -858,15 +876,27 @@ function MotoristaDashboardContent() {
         setMapCenter(base);
         setMapZoom(13);
 
-        // Parallel geocoding with staggered delay to avoid 429
-        selectedTrip.passengers.forEach(async (p: any, index: number) => {
+        const passengersToGeocode = selectedTrip.passengers || [];
+
+        for (let i = 0; i < passengersToGeocode.length; i++) {
+          const p = passengersToGeocode[i];
           const rawAddress = p.address || p.neighborhood;
           const pId = p.id || p.name;
-          
-          if (!rawAddress) return;
+          const cacheKey = `${rawAddress}_${cityContext}`;
 
-          // Add staggered delay (400ms between requests)
-          await new Promise(resolve => setTimeout(resolve, index * 400));
+          if (cache[cacheKey]) {
+            setPassengerCoords(prev => ({ ...prev, [pId]: cache[cacheKey] }));
+            if (i === 0) {
+              setMapCenter(cache[cacheKey]);
+              setMapZoom(15);
+            }
+            continue;
+          }
+
+          if (!rawAddress) continue;
+
+          // Add staggered delay to avoid 429 if not in cache
+          await new Promise(resolve => setTimeout(resolve, 400));
 
           const cleanAddress = rawAddress
             .replace(/prox\.|próximo|casa|fundos|apto|bloco|nº/gi, '')
@@ -877,7 +907,7 @@ function MotoristaDashboardContent() {
             try {
               const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}${bounded ? '&bounded=1' : ''}&limit=1`;
               const response = await fetch(url, {
-                headers: { 'User-Agent': 'BoraDeVanApp/1.1' }
+                headers: { 'User-Agent': 'BoraDeVanApp/1.2' }
               });
               const data = await response.json();
               
@@ -892,37 +922,24 @@ function MotoristaDashboardContent() {
             } catch (e) { return null; }
           };
 
-          // Strategy 1: Full cleaned address + city
           let result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`);
-          
-          // Strategy 2: Just address + city
-          if (!result) result = await tryGeocode(`${rawAddress}, ${cityContext}, Brazil`);
-
-          // Strategy 3: Neighborhood + city
           if (!result && p.neighborhood) result = await tryGeocode(`${p.neighborhood}, ${cityContext}, Brazil`);
-
-          // Strategy 4: Try without bounding box
           if (!result) result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`, false);
-
-          // Strategy 5: Just the street name + city
-          if (!result) {
-            const streetOnly = cleanAddress.split(',')[0].split('-')[0].trim();
-            result = await tryGeocode(`${streetOnly}, ${cityContext}, Brazil`, false);
-          }
 
           const finalCoords = result ? (result as [number, number]) : getStableFallback(pId, base);
           
+          if (result) setGeoCache(cacheKey, finalCoords);
+
           setPassengerCoords(prev => ({
             ...prev,
             [pId]: finalCoords
           }));
 
-          // If it's the first passenger, center the map
-          if (index === 0) {
+          if (i === 0) {
             setMapCenter(finalCoords);
             setMapZoom(15);
           }
-        });
+        }
 
         setPassengerCoords(prev => ({
           ...prev,
@@ -1136,6 +1153,8 @@ function MotoristaDashboardContent() {
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => {
+                      // Clear specific trip cache to force fresh geocoding
+                      localStorage.removeItem('geo_cache');
                       setRouteOptimized(false);
                       setPassengerCoords({});
                     }}
@@ -1402,28 +1421,6 @@ function MotoristaDashboardContent() {
                             </div>
                             <ChevronRight size={16} className="text-slate-600" />
                           </div>
-
-                          <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
-                            <div className="flex items-center gap-4">
-                              <Info size={18} className="text-slate-500" />
-                              <div>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase">ID {selectedTrip.passengers.indexOf(selectedPassenger) + 1}</p>
-                                <p className="text-sm text-slate-300">{selectedPassenger.name}</p>
-                              </div>
-                            </div>
-                            <ChevronRight size={16} className="text-slate-600" />
-                          </div>
-                        </div>
-
-                        <div className="pt-4 space-y-3">
-                          <button className="w-full flex items-center gap-4 p-4 text-slate-400 hover:text-white transition-colors">
-                            <Plus size={20} />
-                            <span className="text-sm font-medium">Editar parada</span>
-                          </button>
-                          <button className="w-full flex items-center gap-4 p-4 text-slate-400 hover:text-white transition-colors">
-                            <RotateCcw size={20} />
-                            <span className="text-sm font-medium">Duplicar parada</span>
-                          </button>
                         </div>
                       </motion.div>
                     ) : (
@@ -1437,13 +1434,11 @@ function MotoristaDashboardContent() {
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                           <input 
                             type="text"
-                            placeholder="Toque para adicionar"
+                            placeholder="Buscar passageiros na rota..."
+                            value={tripSearchTerm}
+                            onChange={(e) => setTripSearchTerm(e.target.value)}
                             className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
                           />
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-500">
-                            <Maximize size={18} />
-                            <Phone size={18} />
-                          </div>
                         </div>
 
                         <div className="mb-6">
@@ -1454,14 +1449,6 @@ function MotoristaDashboardContent() {
                         </div>
 
                         <div className="space-y-6">
-                          <div className="flex items-start gap-4">
-                            <div className="w-2 h-2 bg-slate-700 rounded-full mt-2" />
-                            <div>
-                              <p className="text-sm font-bold text-white">Sem pausa</p>
-                              <p className="text-[10px] text-slate-500">Toque para agendar uma pausa</p>
-                            </div>
-                          </div>
-
                           <div className="relative pl-6 border-l-2 border-slate-800 ml-1 space-y-8">
                             <div className="relative">
                               <div className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-600 rounded-full border-4 border-slate-950" />
@@ -1476,7 +1463,13 @@ function MotoristaDashboardContent() {
                               </div>
                             </div>
 
-                            {selectedTrip.passengers?.map((passenger: any, idx: number) => {
+                            {selectedTrip.passengers?.filter((p: any) => {
+                              if (!tripSearchTerm) return true;
+                              const lower = tripSearchTerm.toLowerCase();
+                              return (p.name || '').toLowerCase().includes(lower) || 
+                                     (p.address || '').toLowerCase().includes(lower) || 
+                                     (p.neighborhood || '').toLowerCase().includes(lower);
+                            }).map((passenger: any, idx: number) => {
                               const status = passengerStatuses[passenger.id || passenger.name] || 'pending';
                               return (
                                 <div 
