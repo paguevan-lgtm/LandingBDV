@@ -717,7 +717,8 @@ export default function MotoristaDashboard() {
   }, []);
 
   // Stable fallback generator
-  const getStableFallback = (seed: string, base: [number, number]): [number, number] => {
+  const getStableFallback = (seed: string | undefined, base: [number, number]): [number, number] => {
+    if (!seed) return base;
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
       hash = ((hash << 5) - hash) + seed.charCodeAt(i);
@@ -775,7 +776,15 @@ export default function MotoristaDashboard() {
                 headers: { 'User-Agent': 'BoraDeVanApp/1.1' }
               });
               const data = await response.json();
-              return data && data.length > 0 ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null;
+              
+              if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                  return [lat, lon];
+                }
+              }
+              return null;
             } catch (e) { return null; }
           };
 
@@ -959,7 +968,7 @@ export default function MotoristaDashboard() {
         </div>
       )}
 
-      <main className="max-w-md mx-auto p-4">
+      <main className={selectedTrip ? "" : "max-w-md mx-auto p-4"}>
         {/* Search Bar */}
         {!selectedTrip && (activeTab === 'trips' || activeTab === 'tabela') && (
           <div className="relative mb-6">
@@ -974,23 +983,23 @@ export default function MotoristaDashboard() {
           </div>
         )}
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="popLayout">
           {selectedTrip ? (
             <motion.div
-              key="trip-detail"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="relative min-h-[calc(100vh-100px)]"
+              key={`trip-${selectedTrip.firebaseId || selectedTrip.id || 'current'}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="relative w-full h-[100dvh]"
             >
               {/* Map View (Background) */}
-              <div className="fixed inset-0 z-0 bg-slate-950">
+              <div className="absolute inset-0 z-0 bg-slate-950">
                 <MapContainer 
                   center={mapCenter} 
                   zoom={mapZoom} 
                   zoomControl={false}
                   style={{ height: '100%', width: '100%' }}
-                  key={selectedTrip.id} // Force re-render on trip change to avoid stale map
+                  key={selectedTrip.firebaseId || selectedTrip.id || 'map'}
                 >
                   <SmoothMapController center={mapCenter} zoom={mapZoom} />
                   {shouldFitBounds && <FitBounds coords={[
