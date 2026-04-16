@@ -52,6 +52,34 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'motion/react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix Leaflet default icon issue
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Custom Marker Icon for Numbered Stops
+const createNumberedIcon = (number: number, color: string = '#2563eb') => {
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; items-center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">${number}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
+
+// Helper to center map
+const ChangeView = ({ center, zoom }: { center: [number, number], zoom: number }) => {
+  const map = useMap();
+  map.setView(center, zoom);
+  return null;
+};
 
 // --- Components ---
 
@@ -62,7 +90,8 @@ const SortablePassengerItem = ({
   navApp, 
   tripStarted, 
   status, 
-  onStatusChange 
+  onStatusChange,
+  onRevert
 }: { 
   passenger: any, 
   onWhatsApp: (p: any) => void, 
@@ -70,7 +99,8 @@ const SortablePassengerItem = ({
   navApp: 'google' | 'waze',
   tripStarted: boolean,
   status: 'pending' | 'delivered' | 'canceled',
-  onStatusChange: (id: string, status: 'delivered' | 'canceled') => void
+  onStatusChange: (id: string, status: 'delivered' | 'canceled') => void,
+  onRevert: (id: string) => void
 }) => {
   const {
     attributes,
@@ -154,6 +184,17 @@ const SortablePassengerItem = ({
           </button>
         </div>
       )}
+
+      {isCompleted && (
+        <div className="flex gap-2 pt-2 border-t border-slate-800/50">
+          <button 
+            onClick={() => onRevert(passenger.id || passenger.name)}
+            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <RotateCcw size={14} /> Reverter Status
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -201,6 +242,9 @@ export default function MotoristaDashboard() {
   const [passengerStatuses, setPassengerStatuses] = useState<Record<string, 'pending' | 'delivered' | 'canceled'>>({});
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [lastAction, setLastAction] = useState<{ passengerId: string, status: 'pending' | 'delivered' | 'canceled' } | null>(null);
+  const [passengerCoords, setPassengerCoords] = useState<Record<string, [number, number]>>({});
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-23.5505, -46.6333]); // São Paulo default
+  const [mapZoom, setMapZoom] = useState(13);
   const navigate = useNavigate();
 
   const sensors = useSensors(
@@ -531,6 +575,56 @@ export default function MotoristaDashboard() {
     setTimeout(() => setLastAction(null), 5000);
   };
 
+  const handleRevertStatus = (id: string) => {
+    setPassengerStatuses(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  // Geocoding effect
+  useEffect(() => {
+    if (selectedTrip && selectedTrip.passengers) {
+      const geocodeAll = async () => {
+        const coords: Record<string, [number, number]> = {};
+        
+        // Add final destination (Pão de Açúcar Jabaquara)
+        // Approx coords for Jabaquara
+        coords['Jabaquara'] = [-23.6447, -46.6406];
+
+        for (const p of selectedTrip.passengers) {
+          const address = p.address || p.neighborhood;
+          if (address && !coords[p.id || p.name]) {
+            try {
+              const query = `${address}, São Paulo, Brazil`;
+              const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+              const data = await response.json();
+              if (data && data.length > 0) {
+                coords[p.id || p.name] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+              } else {
+                // Fallback to random near center for demo if not found
+                coords[p.id || p.name] = [
+                  -23.5505 + (Math.random() - 0.5) * 0.1,
+                  -46.6333 + (Math.random() - 0.5) * 0.1
+                ];
+              }
+            } catch (err) {
+              console.error("Geocoding error:", err);
+            }
+          }
+        }
+        setPassengerCoords(coords);
+        
+        // Center map on first passenger or Jabaquara
+        if (selectedTrip.passengers.length > 0 && coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]) {
+          setMapCenter(coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]);
+        }
+      };
+      geocodeAll();
+    }
+  }, [selectedTrip]);
+
   const handleChangePassword = async () => {
     if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
       return alert('Preencha todos os campos');
@@ -647,51 +741,80 @@ export default function MotoristaDashboard() {
             >
               {/* Map View (Background) */}
               <div className="fixed inset-0 top-0 z-0 bg-slate-950">
-                <div className="absolute inset-0 opacity-20 bg-[url('https://www.google.com/maps/vt/pb=!1m4!1m3!1i13!2i2411!3i4822!2m3!1e0!2sm!3i633140996!3m8!2spt-BR!3sUS!5e1105!12m4!1e68!2m2!1sset!2sRoadmap!4e0!5m1!5f2!23i1301875?key=YOUR_KEY')] bg-cover bg-center" />
-                
-                {/* Numbered Markers Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <MapContainer 
+                  center={mapCenter} 
+                  zoom={mapZoom} 
+                  zoomControl={false}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <ChangeView center={mapCenter} zoom={mapZoom} />
+                  <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  />
+                  
                   {selectedTrip.passengers?.map((p: any, idx: number) => {
-                    const status = passengerStatuses[p.id || p.name] || 'pending';
-                    if (status !== 'pending') return null;
+                    const coords = passengerCoords[p.id || p.name];
+                    if (!coords) return null;
                     
-                    // Random positions for demo
-                    const top = 20 + (idx * 15) % 60;
-                    const left = 20 + (idx * 25) % 60;
+                    const status = passengerStatuses[p.id || p.name] || 'pending';
+                    const color = status === 'delivered' ? '#10b981' : status === 'canceled' ? '#ef4444' : '#2563eb';
                     
                     return (
-                      <motion.div 
-                        key={idx}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="absolute w-8 h-8 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center font-bold text-white shadow-xl"
-                        style={{ top: `${top}%`, left: `${left}%` }}
+                      <Marker 
+                        key={idx} 
+                        position={coords} 
+                        icon={createNumberedIcon(idx + 1, color)}
                       >
-                        {idx + 1}
-                      </motion.div>
+                        <Popup>
+                          <div className="p-1">
+                            <p className="font-bold text-slate-900">{p.name}</p>
+                            <p className="text-[10px] text-slate-600">{p.address || p.neighborhood}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
                     );
                   })}
-                </div>
+
+                  {/* Final Destination Marker */}
+                  {passengerCoords['Jabaquara'] && (
+                    <Marker 
+                      position={passengerCoords['Jabaquara']} 
+                      icon={L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div style="background-color: #f59e0b; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; items-center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"><i class="lucide-map-pin"></i></div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16],
+                      })}
+                    >
+                      <Popup>
+                        <p className="font-bold text-slate-900">Pão de Açúcar Jabaquara</p>
+                      </Popup>
+                    </Marker>
+                  )}
+                </MapContainer>
               </div>
 
               {/* Bottom Sheet */}
               <motion.div 
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 0 }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y < -50) setIsSheetExpanded(true);
+                  if (info.offset.y > 50) setIsSheetExpanded(false);
+                }}
                 initial={{ y: '60%' }}
                 animate={{ y: isSheetExpanded ? '10%' : '60%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh]"
+                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] touch-none"
               >
                 {/* Drag Handle */}
-                <div 
-                  onClick={() => setIsSheetExpanded(!isSheetExpanded)}
-                  className="w-full py-4 flex flex-col items-center cursor-pointer"
-                >
+                <div className="w-full py-4 flex flex-col items-center cursor-grab active:cursor-grabbing">
                   <div className="w-12 h-1.5 bg-slate-800 rounded-full mb-2" />
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      {isSheetExpanded ? 'Recolher' : 'Ver Lista de Passageiros'}
+                      {isSheetExpanded ? 'Arraste para recolher' : 'Arraste para ver lista'}
                     </span>
-                    {isSheetExpanded ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronUp size={14} className="text-slate-500" />}
                   </div>
                 </div>
 
@@ -742,10 +865,10 @@ export default function MotoristaDashboard() {
                   {/* Quick Actions */}
                   <div className="grid grid-cols-2 gap-3 mb-8">
                     <button 
-                      onClick={() => openNavigation(navApp, 'Jabaquara')}
+                      onClick={() => openNavigation(navApp, 'Pão de Açúcar Jabaquara')}
                       className="bg-slate-900 border border-slate-800 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
                     >
-                      <MapPin size={16} className="text-blue-500" /> Destino Final
+                      <MapPin size={16} className="text-blue-500" /> Pão de Açúcar Jabaquara
                     </button>
                     <button 
                       onClick={() => openWhatsApp({ name: 'Central', phone: '13997744720' })}
@@ -786,6 +909,7 @@ export default function MotoristaDashboard() {
                               tripStarted={tripStarted}
                               status={passengerStatuses[passenger.id || passenger.name] || 'pending'}
                               onStatusChange={handleStatusChange}
+                              onRevert={handleRevertStatus}
                             />
                           </div>
                         ))}
