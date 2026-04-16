@@ -26,8 +26,12 @@ import {
   Shield,
   HelpCircle,
   ChevronDown,
+  ChevronUp,
   Plus,
   Trash2,
+  Check,
+  Play,
+  RotateCcw,
   X
 } from 'lucide-react';
 import { 
@@ -51,7 +55,23 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // --- Components ---
 
-const SortablePassengerItem = ({ passenger, onWhatsApp, onNavigate, navApp }: { passenger: any, onWhatsApp: (p: any) => void, onNavigate: (p: any) => void, navApp: 'google' | 'waze' }) => {
+const SortablePassengerItem = ({ 
+  passenger, 
+  onWhatsApp, 
+  onNavigate, 
+  navApp, 
+  tripStarted, 
+  status, 
+  onStatusChange 
+}: { 
+  passenger: any, 
+  onWhatsApp: (p: any) => void, 
+  onNavigate: (p: any) => void, 
+  navApp: 'google' | 'waze',
+  tripStarted: boolean,
+  status: 'pending' | 'delivered' | 'canceled',
+  onStatusChange: (id: string, status: 'delivered' | 'canceled') => void
+}) => {
   const {
     attributes,
     listeners,
@@ -68,46 +88,72 @@ const SortablePassengerItem = ({ passenger, onWhatsApp, onNavigate, navApp }: { 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isCompleted = status === 'delivered' || status === 'canceled';
+
   return (
     <div 
       ref={setNodeRef} 
       style={style} 
-      className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-3 flex items-center gap-4 group shadow-sm"
+      className={`bg-slate-900 border border-slate-800 rounded-xl p-4 mb-3 flex flex-col gap-4 group shadow-sm transition-all ${isCompleted ? 'opacity-60 grayscale' : ''}`}
     >
-      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-slate-600 hover:text-slate-400">
-        <GripVertical size={20} />
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <h4 className="font-bold text-white truncate">{passenger.name}</h4>
-          <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-bold">
-            {passenger.passengerCount || 1} { (passenger.passengerCount || 1) > 1 ? 'Pessoas' : 'Pessoa' }
-          </span>
+      <div className="flex items-center gap-4">
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-slate-600 hover:text-slate-400">
+          <GripVertical size={20} />
         </div>
-        <p className="text-xs text-slate-400 flex items-center gap-1 truncate">
-          <MapPin size={12} className="text-slate-500" /> {passenger.neighborhood || 'Bairro não informado'}
-        </p>
-        {passenger.address && (
-          <p className="text-[10px] text-slate-500 mt-1 truncate">{passenger.address}</p>
-        )}
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <h4 className={`font-bold text-white truncate ${status === 'canceled' ? 'line-through' : ''}`}>{passenger.name}</h4>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              status === 'delivered' ? 'bg-green-500/20 text-green-400' :
+              status === 'canceled' ? 'bg-red-500/20 text-red-400' :
+              'bg-blue-500/20 text-blue-400'
+            }`}>
+              {status === 'delivered' ? 'Entregue' : status === 'canceled' ? 'Cancelado' : `${passenger.passengerCount || 1} ${ (passenger.passengerCount || 1) > 1 ? 'Pessoas' : 'Pessoa' }`}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 flex items-center gap-1 truncate">
+            <MapPin size={12} className="text-slate-500" /> {passenger.neighborhood || 'Bairro não informado'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!isCompleted && (
+            <>
+              <button 
+                onClick={() => onNavigate(passenger)}
+                className="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center hover:bg-blue-600/30 transition-colors"
+                title={`Navegar com ${navApp === 'google' ? 'Google Maps' : 'Waze'}`}
+              >
+                <Navigation size={18} />
+              </button>
+              <button 
+                onClick={() => onWhatsApp(passenger)}
+                className="w-10 h-10 bg-green-600/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-600/30 transition-colors"
+              >
+                <MessageCircle size={18} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button 
-          onClick={() => onNavigate(passenger)}
-          className="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center hover:bg-blue-600/30 transition-colors"
-          title={`Navegar com ${navApp === 'google' ? 'Google Maps' : 'Waze'}`}
-        >
-          <Navigation size={18} />
-        </button>
-        <button 
-          onClick={() => onWhatsApp(passenger)}
-          className="w-10 h-10 bg-green-600/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-600/30 transition-colors"
-        >
-          <MessageCircle size={18} />
-        </button>
-      </div>
+      {tripStarted && !isCompleted && (
+        <div className="flex gap-2 pt-2 border-t border-slate-800/50">
+          <button 
+            onClick={() => onStatusChange(passenger.id || passenger.name, 'delivered')}
+            className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Check size={14} /> Entregue
+          </button>
+          <button 
+            onClick={() => onStatusChange(passenger.id || passenger.name, 'canceled')}
+            className="flex-1 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <X size={14} /> Cancelar
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -151,6 +197,10 @@ export default function MotoristaDashboard() {
   const [deletedItem, setDeletedItem] = useState<any>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [tableTab, setTableTab] = useState<'geral' | 'lousa' | 'confirmados'>('geral');
+  const [tripStarted, setTripStarted] = useState(false);
+  const [passengerStatuses, setPassengerStatuses] = useState<Record<string, 'pending' | 'delivered' | 'canceled'>>({});
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [lastAction, setLastAction] = useState<{ passengerId: string, status: 'pending' | 'delivered' | 'canceled' } | null>(null);
   const navigate = useNavigate();
 
   const sensors = useSensors(
@@ -455,6 +505,17 @@ export default function MotoristaDashboard() {
     setTimeout(() => setShowUndo(false), 5000);
   };
 
+  const handleUndoAction = () => {
+    if (lastAction) {
+      setPassengerStatuses(prev => {
+        const next = { ...prev };
+        delete next[lastAction.passengerId];
+        return next;
+      });
+      setLastAction(null);
+    }
+  };
+
   const handleUndoDelete = async () => {
     if (deletedItem) {
       const { firebaseId, ...data } = deletedItem;
@@ -462,6 +523,12 @@ export default function MotoristaDashboard() {
       setShowUndo(false);
       setDeletedItem(null);
     }
+  };
+
+  const handleStatusChange = (id: string, status: 'delivered' | 'canceled') => {
+    setPassengerStatuses(prev => ({ ...prev, [id]: status }));
+    setLastAction({ passengerId: id, status });
+    setTimeout(() => setLastAction(null), 5000);
   };
 
   const handleChangePassword = async () => {
@@ -526,7 +593,11 @@ export default function MotoristaDashboard() {
           <div className="flex items-center gap-3">
             {selectedTrip && (
               <button 
-                onClick={() => setSelectedTrip(null)}
+                onClick={() => {
+                  setSelectedTrip(null);
+                  setTripStarted(false);
+                  setIsSheetExpanded(false);
+                }}
                 className="p-2 bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors"
               >
                 <ArrowLeft size={20} />
@@ -568,85 +639,190 @@ export default function MotoristaDashboard() {
         <AnimatePresence mode="wait">
           {selectedTrip ? (
             <motion.div
-              key="trip-details"
+              key="trip-detail"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
+              className="relative min-h-[calc(100vh-100px)]"
             >
-              {/* Trip Info Card */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                  <Navigation size={80} />
-                </div>
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase">
-                      {selectedTrip.time}
-                    </span>
-                    <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase">
-                      {selectedTrip.vaga ? `Vaga ${selectedTrip.vaga}` : 'S/ Vaga'}
-                    </span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-1">{selectedTrip.destination || 'Destino'}</h2>
-                  <p className="text-blue-100 text-sm flex items-center gap-1">
-                    <Calendar size={14} /> {new Date(selectedTrip.date).toLocaleDateString('pt-BR')}
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-3 mt-6">
-                    <button 
-                      onClick={() => openNavigation('google', selectedTrip.destination)}
-                      className="bg-white text-blue-600 py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
-                    >
-                      <MapPin size={16} /> Google Maps
-                    </button>
-                    <button 
-                      onClick={() => openNavigation('waze', selectedTrip.destination)}
-                      className="bg-slate-950 text-white py-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
-                    >
-                      <Navigation size={16} /> Waze
-                    </button>
-                  </div>
+              {/* Map View (Background) */}
+              <div className="fixed inset-0 top-0 z-0 bg-slate-950">
+                <div className="absolute inset-0 opacity-20 bg-[url('https://www.google.com/maps/vt/pb=!1m4!1m3!1i13!2i2411!3i4822!2m3!1e0!2sm!3i633140996!3m8!2spt-BR!3sUS!5e1105!12m4!1e68!2m2!1sset!2sRoadmap!4e0!5m1!5f2!23i1301875?key=YOUR_KEY')] bg-cover bg-center" />
+                
+                {/* Numbered Markers Overlay */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  {selectedTrip.passengers?.map((p: any, idx: number) => {
+                    const status = passengerStatuses[p.id || p.name] || 'pending';
+                    if (status !== 'pending') return null;
+                    
+                    // Random positions for demo
+                    const top = 20 + (idx * 15) % 60;
+                    const left = 20 + (idx * 25) % 60;
+                    
+                    return (
+                      <motion.div 
+                        key={idx}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute w-8 h-8 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center font-bold text-white shadow-xl"
+                        style={{ top: `${top}%`, left: `${left}%` }}
+                      >
+                        {idx + 1}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Passengers List */}
-              <div>
-                <div className="flex items-center justify-between mb-4 px-1">
-                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest flex items-center gap-2">
-                    <Users size={14} /> Passageiros ({selectedTrip.passengers?.length || 0})
-                  </h3>
-                  <span className="text-[10px] text-slate-500 italic">Arraste para reordenar</span>
-                </div>
-
-                <DndContext 
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+              {/* Bottom Sheet */}
+              <motion.div 
+                initial={{ y: '60%' }}
+                animate={{ y: isSheetExpanded ? '10%' : '60%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh]"
+              >
+                {/* Drag Handle */}
+                <div 
+                  onClick={() => setIsSheetExpanded(!isSheetExpanded)}
+                  className="w-full py-4 flex flex-col items-center cursor-pointer"
                 >
-                  <SortableContext 
-                    items={selectedTrip.passengers?.map((p: any) => p.id || p.name) || []}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {selectedTrip.passengers?.map((passenger: any) => (
-                      <SortablePassengerItem 
-                        key={passenger.id || passenger.name} 
-                        passenger={passenger} 
-                        onWhatsApp={openWhatsApp}
-                        onNavigate={(p) => openNavigation(navApp, p.address || p.neighborhood)}
-                        navApp={navApp}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-
-                {(!selectedTrip.passengers || selectedTrip.passengers.length === 0) && (
-                  <div className="text-center py-12 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
-                    <Users size={40} className="mx-auto text-slate-700 mb-3" />
-                    <p className="text-slate-500 text-sm">Nenhum passageiro nesta viagem.</p>
+                  <div className="w-12 h-1.5 bg-slate-800 rounded-full mb-2" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      {isSheetExpanded ? 'Recolher' : 'Ver Lista de Passageiros'}
+                    </span>
+                    {isSheetExpanded ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronUp size={14} className="text-slate-500" />}
                   </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 pb-24">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+                          {selectedTrip.time}
+                        </span>
+                        <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+                          {selectedTrip.vaga ? `Vaga ${selectedTrip.vaga}` : 'S/ Vaga'}
+                        </span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-white">Jabaquara</h2>
+                      <p className="text-slate-500 text-xs flex items-center gap-1 mt-1">
+                        <Calendar size={12} /> {new Date(selectedTrip.date).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+
+                    {!tripStarted ? (
+                      <button 
+                        onClick={() => setTripStarted(true)}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center gap-2"
+                      >
+                        <Play size={18} fill="currentColor" /> Iniciar
+                      </button>
+                    ) : (
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" /> Em Rota
+                        </span>
+                        <button 
+                          onClick={() => {
+                            if (window.confirm('Deseja finalizar esta viagem?')) {
+                              setTripStarted(false);
+                              setSelectedTrip(null);
+                            }
+                          }}
+                          className="text-red-400 text-[10px] font-bold uppercase tracking-widest hover:text-red-300"
+                        >
+                          Finalizar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-2 gap-3 mb-8">
+                    <button 
+                      onClick={() => openNavigation(navApp, 'Jabaquara')}
+                      className="bg-slate-900 border border-slate-800 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
+                    >
+                      <MapPin size={16} className="text-blue-500" /> Destino Final
+                    </button>
+                    <button 
+                      onClick={() => openWhatsApp({ name: 'Central', phone: '13997744720' })}
+                      className="bg-slate-900 border border-slate-800 text-white py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
+                    >
+                      <MessageCircle size={16} className="text-green-500" /> Suporte
+                    </button>
+                  </div>
+
+                  {/* Passengers List */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="font-bold text-slate-400 uppercase text-[10px] tracking-widest flex items-center gap-2">
+                        <Users size={12} /> Passageiros ({selectedTrip.passengers?.length || 0})
+                      </h3>
+                      {!tripStarted && <span className="text-[9px] text-slate-600 italic">Arraste para reordenar a rota</span>}
+                    </div>
+
+                    <DndContext 
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext 
+                        items={selectedTrip.passengers?.map((p: any) => p.id || p.name) || []}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {selectedTrip.passengers?.map((passenger: any, idx: number) => (
+                          <div key={passenger.id || passenger.name} className="relative">
+                            <div className="absolute -left-3 top-6 w-6 h-6 bg-slate-800 rounded-full border-2 border-slate-950 flex items-center justify-center text-[10px] font-bold text-slate-400 z-10">
+                              {idx + 1}
+                            </div>
+                            <SortablePassengerItem 
+                              passenger={passenger} 
+                              onWhatsApp={openWhatsApp}
+                              onNavigate={(p) => openNavigation(navApp, p.address || p.neighborhood)}
+                              navApp={navApp}
+                              tripStarted={tripStarted}
+                              status={passengerStatuses[passenger.id || passenger.name] || 'pending'}
+                              onStatusChange={handleStatusChange}
+                            />
+                          </div>
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+
+                    {(!selectedTrip.passengers || selectedTrip.passengers.length === 0) && (
+                      <div className="text-center py-12 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
+                        <Users size={40} className="mx-auto text-slate-700 mb-3" />
+                        <p className="text-slate-500 text-sm">Nenhum passageiro nesta viagem.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Undo Action Toast */}
+              <AnimatePresence>
+                {lastAction && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    className="fixed bottom-24 left-4 right-4 z-[60] bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl flex items-center justify-between"
+                  >
+                    <span className="text-xs font-bold text-white">
+                      {lastAction.status === 'delivered' ? 'Marcado como entregue' : 'Viagem cancelada'}
+                    </span>
+                    <button 
+                      onClick={handleUndoAction}
+                      className="text-blue-400 text-xs font-bold uppercase tracking-widest hover:text-blue-300 transition-colors"
+                    >
+                      Desfazer
+                    </button>
+                  </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
             </motion.div>
           ) : activeTab === 'trips' ? (
             <motion.div
