@@ -631,7 +631,19 @@ export default function MotoristaDashboard() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // Geocoding effect
+  // Stable fallback generator
+  const getStableFallback = (seed: string, base: [number, number]): [number, number] => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    const latOffset = (hash % 100) / 2000;
+    const lngOffset = ((hash >> 8) % 100) / 2000;
+    return [base[0] + latOffset, base[1] + lngOffset];
+  };
+
+  // Geocoding effect - Only runs when trip changes
   useEffect(() => {
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
@@ -639,46 +651,82 @@ export default function MotoristaDashboard() {
         const system = driverData?.system || 'Pg';
         const cityContext = system === 'Pg' ? 'Praia Grande, SP' : system === 'Mip' ? 'Mongaguá, SP' : 'Baixada Santista, SP';
         
-        // Add final destination (Pão de Açúcar Jabaquara)
+        // Baixada Santista bounding box (approx)
+        const viewbox = "-47.2,-24.5,-45.8,-23.8"; 
+
+        const baseCoords: Record<string, [number, number]> = {
+          'Pg': [-24.0089, -46.4128],
+          'Mip': [-24.0928, -46.6206]
+        };
+        const base = baseCoords[system] || [-23.9618, -46.3322];
+
         coords['Jabaquara'] = [-23.6447, -46.6406];
 
         for (const p of selectedTrip.passengers) {
-          const address = p.address || p.neighborhood;
-          if (address && !coords[p.id || p.name]) {
-            try {
-              const query = `${address}, ${cityContext}, Brazil`;
-              const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-              const data = await response.json();
-              if (data && data.length > 0) {
-                coords[p.id || p.name] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-              } else {
-                // Fallback near city center if not found
-                const baseCoords: Record<string, [number, number]> = {
-                  'Pg': [-24.0089, -46.4128],
-                  'Mip': [-24.0928, -46.6206]
-                };
-                const base = baseCoords[system] || [-23.9618, -46.3322]; // Santos fallback
-                coords[p.id || p.name] = [
-                  base[0] + (Math.random() - 0.5) * 0.05,
-                  base[1] + (Math.random() - 0.5) * 0.05
-                ];
-              }
-            } catch (err) {
-              console.error("Geocoding error:", err);
+          const rawAddress = p.address || p.neighborhood;
+          const pId = p.id || p.name;
+          
+          if (rawAddress) {
+            // Clean address: remove common confusing terms
+            const cleanAddress = rawAddress
+              .replace(/prox\.|próximo|casa|fundos|apto|bloco|nº/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const tryGeocode = async (q: string) => {
+              try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}&bounded=1&limit=1`;
+                const response = await fetch(url, {
+                  headers: { 'Accept-Language': 'pt-BR' }
+                });
+                const data = await response.json();
+                return data && data.length > 0 ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null;
+              } catch (e) { return null; }
+            };
+
+            // Strategy 1: Full cleaned address + city
+            let result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`);
+            
+            // Strategy 2: Just address + city (if cleaned failed)
+            if (!result) {
+              result = await tryGeocode(`${rawAddress}, ${cityContext}, Brazil`);
+            }
+
+            // Strategy 3: Neighborhood + city (fallback)
+            if (!result && p.neighborhood) {
+              result = await tryGeocode(`${p.neighborhood}, ${cityContext}, Brazil`);
+            }
+
+            if (result) {
+              coords[pId] = result as [number, number];
+            } else {
+              coords[pId] = getStableFallback(pId, base);
             }
           }
         }
         setPassengerCoords(coords);
         
-        // Fetch Route from OSRM
+        // Initial center
+        if (selectedTrip.passengers.length > 0 && coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]) {
+          setMapCenter(coords[selectedTrip.passengers[0].id || selectedTrip.passengers[0].name]);
+        }
+      };
+      geocodeAll();
+    }
+  }, [selectedTrip?.firebaseId, driverData?.system]);
+
+  // Routing effect - Runs when location or status changes
+  useEffect(() => {
+    if (selectedTrip && selectedTrip.passengers && Object.keys(passengerCoords).length > 0) {
+      const fetchRoute = async () => {
         const pendingPassengers = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
         
         const orderedCoords = [
           ...(userLocation ? [userLocation] : []),
           ...pendingPassengers
-            .map((p: any) => coords[p.id || p.name])
+            .map((p: any) => passengerCoords[p.id || p.name])
             .filter(Boolean),
-          coords['Jabaquara']
+          passengerCoords['Jabaquara']
         ].filter(Boolean) as [number, number][];
 
         if (orderedCoords.length >= 2) {
@@ -697,17 +745,10 @@ export default function MotoristaDashboard() {
         } else {
           setRouteGeometry([]);
         }
-        
-        // Center map on first passenger or user location
-        if (pendingPassengers.length > 0 && coords[pendingPassengers[0].id || pendingPassengers[0].name]) {
-          setMapCenter(coords[pendingPassengers[0].id || pendingPassengers[0].name]);
-        } else if (userLocation) {
-          setMapCenter(userLocation);
-        }
       };
-      geocodeAll();
+      fetchRoute();
     }
-  }, [selectedTrip, driverData, userLocation, passengerStatuses]);
+  }, [selectedTrip?.firebaseId, userLocation, passengerStatuses, passengerCoords]);
 
   const handleChangePassword = async () => {
     if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
@@ -966,12 +1007,15 @@ export default function MotoristaDashboard() {
               <motion.div 
                 drag="y"
                 dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0.1}
                 onDragEnd={(_, info) => {
-                  if (info.offset.y < -50) {
+                  const velocity = info.velocity.y;
+                  const offset = info.offset.y;
+
+                  if (velocity < -500 || offset < -150) {
                     if (sheetState === 'minimized') setSheetState('half');
                     else if (sheetState === 'half') setSheetState('expanded');
-                  }
-                  if (info.offset.y > 50) {
+                  } else if (velocity > 500 || offset > 150) {
                     if (sheetState === 'expanded') setSheetState('half');
                     else if (sheetState === 'half') setSheetState('minimized');
                   }
@@ -980,7 +1024,12 @@ export default function MotoristaDashboard() {
                 animate={{ 
                   y: sheetState === 'expanded' ? '12%' : sheetState === 'half' ? '60%' : '85%' 
                 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                transition={{ 
+                  type: 'spring', 
+                  damping: 30, 
+                  stiffness: 300,
+                  mass: 0.8
+                }}
                 className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 border-t border-slate-800 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] touch-none"
               >
                 {/* Drag Handle */}
