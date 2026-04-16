@@ -227,18 +227,31 @@ const optimizeRoute = (passengers: any[], coords: Record<string, [number, number
 const fetchSmartSequence = async (passengers: any[], coords: Record<string, [number, number]>, startLoc: [number, number]) => {
   if (!startLoc || passengers.length < 2) return passengers;
   try {
-    const waypoints = [startLoc, ...passengers.map(p => coords[p.id || p.name]).filter(Boolean)];
+    const validPassengers = passengers.filter(p => coords[p.id || p.name]);
+    const missingCoordsPassengers = passengers.filter(p => !coords[p.id || p.name]);
+
+    const waypoints = [startLoc, ...validPassengers.map(p => coords[p.id || p.name])];
     if (waypoints.length < 2) return passengers;
+
     const query = waypoints.map(c => `${c[1]},${c[0]}`).join(';');
     // OSRM Trip service for road-aware TSP optimization
-    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${query}?source=first&overview=false`);
+    // roundtrip=false lets it end anywhere, source=first starts at user location
+    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${query}?source=first&roundtrip=false&overview=false`);
     const data = await res.json();
+
     if (data.code === 'Ok' && data.waypoints) {
-      const sortedIndices = data.waypoints
-        .filter((wp: any) => wp.waypoint_index !== 0) // Remove start point
-        .sort((a: any, b: any) => a.trips_index - b.trips_index)
-        .map((wp: any) => wp.waypoint_index - 1);
-      return sortedIndices.map((idx: number) => passengers[idx]);
+      // Map valid passengers to their optimized order index
+      const sequenced = validPassengers.map((p, idx) => ({
+        passenger: p,
+        // The first waypoint in query is startLoc, so passengers start at index 1 in data.waypoints
+        tripIndex: data.waypoints[idx + 1].waypoint_index
+      }));
+      
+      // Sort valid passengers based on the tripIndex
+      sequenced.sort((a, b) => a.tripIndex - b.tripIndex);
+
+      // Return sequenced + any passengers missing coords at the end
+      return [...sequenced.map(item => item.passenger), ...missingCoordsPassengers];
     }
   } catch (e) {
     console.error("Smart optimization failed, using proximity fallback:", e);
@@ -1275,8 +1288,8 @@ function MotoristaDashboardContent() {
                   <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    updateWhenIdle={true}
-                    keepBuffer={8}
+                    updateWhenIdle={false}
+                    keepBuffer={16}
                   />
                   
                   {/* User Location */}

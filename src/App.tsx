@@ -6,6 +6,7 @@ import CentralAjuda from './pages/CentralAjuda';
 import TermosUso from './pages/TermosUso';
 import Privacidade from './pages/Privacidade';
 import SeoLandingPage from './pages/SeoLandingPage';
+import NotFound from './pages/NotFound';
 import { getDeviceFingerprint, setPoisonPill } from './lib/security';
 import { 
   MapPin, 
@@ -1534,6 +1535,7 @@ export default function App() {
             element={<SeoLandingPage {...generateSeoProps(route)} />} 
           />
         ))}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
