@@ -59,6 +59,35 @@ import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
 import L from 'leaflet';
 
+// --- Error Tracking (Top Level) ---
+const LOG_TO_STORAGE = (type: string, msg: any) => {
+  try {
+    const timestamp = new Date().toLocaleTimeString('pt-BR');
+    const logs = JSON.parse(localStorage.getItem('debug_logs') || '[]');
+    const text = typeof msg === 'object' ? JSON.stringify(msg) : String(msg);
+    logs.push(`[${timestamp}] ${type}: ${text}`);
+    localStorage.setItem('debug_logs', JSON.stringify(logs.slice(-200)));
+  } catch(e) {}
+};
+
+// Only patch if not already patched to avoid recursion in some environments
+if (!(window as any).__PR_DEBUG_PATCHED__) {
+  (window as any).__PR_DEBUG_PATCHED__ = true;
+  const originalError = console.error;
+  console.error = (...args) => {
+    LOG_TO_STORAGE('CONSOLE.ERROR', args.join(' '));
+    originalError.apply(console, args);
+  };
+
+  window.addEventListener('error', (e) => {
+    LOG_TO_STORAGE('ERROR', `${e.message} (${e.filename}:${e.lineno})`);
+  });
+
+  window.addEventListener('unhandledrejection', (e) => {
+    LOG_TO_STORAGE('PROMISE REJECTION', e.reason);
+  });
+}
+
 // Fix Leaflet default icon issue
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;
@@ -67,6 +96,47 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+// --- Error Boundary ---
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any, info: any) {
+    console.error('RENDER ERROR:', error.message, info.componentStack);
+    LOG_TO_STORAGE('CRITICAL RENDER ERROR', error.message + '\n' + info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-[999] bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-6 drop-shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+            <X size={40} />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Algo deu errado</h2>
+          <p className="text-slate-400 text-sm mb-8 max-w-xs leading-relaxed">
+            Ocorreu um erro ao carregar esta parte do sistema. O evento foi registrado para suporte.
+          </p>
+          <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl w-full max-w-sm mb-8 text-left overflow-hidden">
+            <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Erro Detectado:</p>
+            <p className="text-red-400 font-mono text-[10px] break-all max-h-32 overflow-y-auto">{this.state.error?.toString()}</p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full max-w-sm bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Custom Marker Icon for Numbered Stops (Square)
 const createNumberedIcon = (number: number, color: string = '#2563eb') => {
@@ -225,6 +295,14 @@ const SortablePassengerItem = ({
 // --- Main Dashboard ---
 
 export default function MotoristaDashboard() {
+  return (
+    <ErrorBoundary>
+      <MotoristaDashboardContent />
+    </ErrorBoundary>
+  );
+}
+
+function MotoristaDashboardContent() {
   const [activeTab, setActiveTab] = useState<'trips' | 'tabela' | 'finance' | 'profile' | 'config'>('trips');
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [trips, setTrips] = useState<any[]>([]);
@@ -276,54 +354,24 @@ export default function MotoristaDashboard() {
   const [routeOptimized, setRouteOptimized] = useState(false);
   const navigate = useNavigate();
 
-  // --- Persistent Debug Logs ---
-  const [debugLogs, setDebugLogs] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('debug_logs');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // --- Debug Display State ---
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
 
+  // Sync with storage only when visible to avoid rendering overhead
   useEffect(() => {
-    localStorage.setItem('debug_logs', JSON.stringify(debugLogs));
-  }, [debugLogs]);
-
-  useEffect(() => {
-    const logToDebug = (type: string, message: any) => {
-      const timestamp = new Date().toLocaleTimeString('pt-BR');
-      const msg = typeof message === 'object' ? JSON.stringify(message) : String(message);
-      const newLog = `[${timestamp}] ${type}: ${msg}`;
-      setDebugLogs(prev => {
-        const next = [...prev, newLog];
-        return next.slice(-200); // Keep last 200 logs
-      });
-    };
-
-    const handleError = (e: ErrorEvent) => {
-      logToDebug('ERROR', `${e.message} (${e.filename}:${e.lineno})`);
-    };
-
-    const handleRejection = (e: PromiseRejectionEvent) => {
-      logToDebug('PROMISE REJECTION', e.reason);
-    };
-
-    // Monkey patch console.error
-    const originalConsoleError = console.error;
-    console.error = (...args) => {
-      logToDebug('CONSOLE.ERROR', args.join(' '));
-      originalConsoleError.apply(console, args);
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-      console.error = originalConsoleError;
-    };
-  }, []);
+    if (showDebug) {
+      const loadLogs = () => {
+        try {
+          const saved = localStorage.getItem('debug_logs');
+          setDebugLogs(saved ? JSON.parse(saved) : []);
+        } catch { setDebugLogs([]); }
+      };
+      loadLogs();
+      const interval = setInterval(loadLogs, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [showDebug]);
 
   const arrivalEstimates = useMemo(() => {
     if (!selectedTrip || !selectedTrip.passengers || !userLocation || Object.keys(passengerCoords).length === 0) return {};
@@ -789,17 +837,20 @@ export default function MotoristaDashboard() {
         
         // Robust city detection
         const systemStr = (driverData?.system || '').toLowerCase();
-        const isPG = systemStr.includes('pg') || systemStr.includes('praia') || systemStr === '';
-        const cityContext = isPG ? 'Praia Grande, SP' : 'Mongaguá, SP';
         
-        // Baixada Santista bounding box (approx)
-        const viewbox = "-46.8,-24.2,-46.2,-23.8"; 
+        // Better detection logic
+        const isMongagua = systemStr.includes('mip') || systemStr.includes('mong') || systemStr.includes('mon');
+        const cityContext = isMongagua ? 'Mongaguá, SP' : 'Praia Grande, SP';
+        const isPG = !isMongagua;
+        
+        // Baixada Santista bounding box
+        const viewbox = isPG ? "-46.52,-24.10,-46.33,-23.90" : "-46.68,-24.16,-46.51,-24.03"; 
 
         const baseCoords: Record<string, [number, number]> = {
           'Pg': [-24.0089, -46.4128],
           'Mip': [-24.0928, -46.6206]
         };
-        const base = isPG ? baseCoords['Pg'] : baseCoords['Mip'];
+        const base = isMongagua ? baseCoords['Mip'] : baseCoords['Pg'];
 
         // Initial center based on system
         setMapCenter(base);
@@ -1043,6 +1094,41 @@ export default function MotoristaDashboard() {
               exit={{ opacity: 0 }}
               className="relative w-full h-[100dvh]"
             >
+              {/* Header */}
+              <div className="absolute top-0 left-0 right-0 z-30 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 p-4 flex items-center justify-between shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      setSelectedTrip(null);
+                      setRouteOptimized(false);
+                      setPassengerCoords({});
+                    }}
+                    className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-white active:scale-95 transition-all"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                  <div>
+                    <h2 className="text-sm font-bold text-white tracking-tight">{selectedTrip.time} • {selectedTrip.route || 'Rota Local'}</h2>
+                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest leading-none mt-0.5">Mapa de Roteiro</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      setRouteOptimized(false);
+                      setPassengerCoords({});
+                    }}
+                    className="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center active:rotate-180 transition-all duration-500"
+                    title="Recarregar Mapa"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+                  <div className="bg-green-500/10 text-green-400 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">
+                    Ao Vivo
+                  </div>
+                </div>
+              </div>
+
               {/* Map View (Background) */}
               <div className="absolute inset-0 z-0 bg-slate-950">
                 <MapContainer 
