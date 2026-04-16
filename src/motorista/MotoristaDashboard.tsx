@@ -34,7 +34,9 @@ import {
   RotateCcw,
   X,
   LocateFixed,
-  Maximize
+  Maximize,
+  Bug,
+  Terminal
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -273,6 +275,55 @@ export default function MotoristaDashboard() {
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
   const [routeOptimized, setRouteOptimized] = useState(false);
   const navigate = useNavigate();
+
+  // --- Persistent Debug Logs ---
+  const [debugLogs, setDebugLogs] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('debug_logs');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [showDebug, setShowDebug] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('debug_logs', JSON.stringify(debugLogs));
+  }, [debugLogs]);
+
+  useEffect(() => {
+    const logToDebug = (type: string, message: any) => {
+      const timestamp = new Date().toLocaleTimeString('pt-BR');
+      const msg = typeof message === 'object' ? JSON.stringify(message) : String(message);
+      const newLog = `[${timestamp}] ${type}: ${msg}`;
+      setDebugLogs(prev => {
+        const next = [...prev, newLog];
+        return next.slice(-200); // Keep last 200 logs
+      });
+    };
+
+    const handleError = (e: ErrorEvent) => {
+      logToDebug('ERROR', `${e.message} (${e.filename}:${e.lineno})`);
+    };
+
+    const handleRejection = (e: PromiseRejectionEvent) => {
+      logToDebug('PROMISE REJECTION', e.reason);
+    };
+
+    // Monkey patch console.error
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      logToDebug('CONSOLE.ERROR', args.join(' '));
+      originalConsoleError.apply(console, args);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+      console.error = originalConsoleError;
+    };
+  }, []);
 
   const arrivalEstimates = useMemo(() => {
     if (!selectedTrip || !selectedTrip.passengers || !userLocation || Object.keys(passengerCoords).length === 0) return {};
@@ -2423,6 +2474,83 @@ export default function MotoristaDashboard() {
           </div>
         </nav>
       )}
+
+      {/* Floating Debug Button */}
+      <button 
+        onClick={() => setShowDebug(true)}
+        className="fixed bottom-24 right-4 z-[50] w-10 h-10 bg-red-600/20 backdrop-blur-md border border-red-600/30 rounded-full flex items-center justify-center text-red-400 shadow-xl active:scale-95 transition-all"
+      >
+        <Bug size={18} />
+      </button>
+
+      {/* Debug Logs Modal */}
+      <AnimatePresence mode="wait">
+        {showDebug && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDebug(false)}
+              className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 shadow-2xl flex flex-col max-h-[85vh] z-[101]"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <Bug className="text-red-400" size={20} />
+                  <h3 className="text-xl font-bold text-white tracking-tight">Logs de Sistema</h3>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(debugLogs.join('\n'));
+                      alert('Copiado com sucesso!');
+                    }}
+                    className="p-2 text-blue-400 hover:text-white transition-colors"
+                    title="Copiar tudo"
+                  >
+                    <Check size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setDebugLogs([])}
+                    className="p-2 text-red-400 hover:text-white transition-colors"
+                    title="Limpar logs"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                  <button onClick={() => setShowDebug(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-4 font-mono text-[10px] overflow-y-auto space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+                {debugLogs.length === 0 ? (
+                  <p className="text-slate-600 italic text-center py-10 underline decoration-dotted decoration-slate-800 underline-offset-4">Nenhum evento registrado no momento.</p>
+                ) : (
+                  debugLogs.map((log, i) => (
+                    <div key={i} className={`pb-1.5 break-all border-b border-white/5 last:border-0 ${
+                      log.includes('ERROR') || log.includes('REJECTION') ? 'text-red-400' : 'text-slate-400'
+                    }`}>
+                      {log}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+                <p className="text-[10px] text-slate-500 font-medium">Auto-salvamento ativo</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{debugLogs.length}/200 LOGS</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
