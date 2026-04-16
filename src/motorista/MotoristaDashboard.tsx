@@ -51,7 +51,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // --- Components ---
 
-const SortablePassengerItem = ({ passenger, onWhatsApp }: { passenger: any, onWhatsApp: (p: any) => void }) => {
+const SortablePassengerItem = ({ passenger, onWhatsApp, onNavigate, navApp }: { passenger: any, onWhatsApp: (p: any) => void, onNavigate: (p: any) => void, navApp: 'google' | 'waze' }) => {
   const {
     attributes,
     listeners,
@@ -93,12 +93,21 @@ const SortablePassengerItem = ({ passenger, onWhatsApp }: { passenger: any, onWh
         )}
       </div>
 
-      <button 
-        onClick={() => onWhatsApp(passenger)}
-        className="w-10 h-10 bg-green-600/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-600/30 transition-colors"
-      >
-        <MessageCircle size={18} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button 
+          onClick={() => onNavigate(passenger)}
+          className="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center hover:bg-blue-600/30 transition-colors"
+          title={`Navegar com ${navApp === 'google' ? 'Google Maps' : 'Waze'}`}
+        >
+          <Navigation size={18} />
+        </button>
+        <button 
+          onClick={() => onWhatsApp(passenger)}
+          className="w-10 h-10 bg-green-600/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-600/30 transition-colors"
+        >
+          <MessageCircle size={18} />
+        </button>
+      </div>
     </div>
   );
 };
@@ -106,7 +115,7 @@ const SortablePassengerItem = ({ passenger, onWhatsApp }: { passenger: any, onWh
 // --- Main Dashboard ---
 
 export default function MotoristaDashboard() {
-  const [activeTab, setActiveTab] = useState<'trips' | 'table' | 'finance' | 'profile' | 'config'>('trips');
+  const [activeTab, setActiveTab] = useState<'trips' | 'tabela' | 'finance' | 'profile' | 'config'>('trips');
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [trips, setTrips] = useState<any[]>([]);
   const [tableData, setTableData] = useState<any[]>([]);
@@ -132,6 +141,7 @@ export default function MotoristaDashboard() {
   });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [navApp, setNavApp] = useState<'google' | 'waze'>('google');
   const [financeFilter, setFinanceFilter] = useState<'today' | '7days' | '30days' | 'months'>('today');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
   const [lotadaSubida, setLotadaSubida] = useState(0);
@@ -140,7 +150,7 @@ export default function MotoristaDashboard() {
   const [isFinanceSettingsOpen, setIsFinanceSettingsOpen] = useState(false);
   const [deletedItem, setDeletedItem] = useState<any>(null);
   const [showUndo, setShowUndo] = useState(false);
-  const [tableTab, setTableTab] = useState<'lousa' | 'confirmados'>('lousa');
+  const [tableTab, setTableTab] = useState<'geral' | 'lousa' | 'confirmados'>('geral');
   const navigate = useNavigate();
 
   const sensors = useSensors(
@@ -234,6 +244,7 @@ export default function MotoristaDashboard() {
           setLotadaSubida(settings.lotadaSubida || 0);
           setLotadaDescida(settings.lotadaDescida || 0);
           setPassengerValue(settings.passengerValue || 0);
+          setNavApp(settings.navApp || 'google');
           break;
         }
       }
@@ -279,7 +290,18 @@ export default function MotoristaDashboard() {
   const openWhatsApp = (passenger: any) => {
     const phone = passenger.phone?.replace(/\D/g, '');
     if (!phone) return alert('Telefone não disponível');
-    const msg = encodeURIComponent(`Olá ${passenger.name}, aqui é o motorista ${driverData.name} da Bora de Van. Estou a caminho!`);
+    
+    const tripTime = selectedTrip?.time || '';
+    let timeWindow = "";
+    if (tripTime) {
+      const [hours, minutes] = tripTime.split(':').map(Number);
+      const endMinutes = (minutes + 45) % 60;
+      const endHours = hours + Math.floor((minutes + 45) / 60);
+      const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+      timeWindow = `das ${tripTime} as ${endTime}`;
+    }
+
+    const msg = encodeURIComponent(`Olá ${passenger.name}, aqui é o motorista ${driverData.name} da Bora de Van. Sua viagem está marcada para as ${tripTime}. Lembrando que ${timeWindow} o carro passa a qualquer momento. Estou a caminho!`);
     window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
   };
 
@@ -358,8 +380,10 @@ export default function MotoristaDashboard() {
     const prancheta = Number(newTransaction.prancheta) || 0;
     const adicional = Number(newTransaction.adicional) || 0;
 
-    // Income from passengers
-    const passengerIncome = (subiu * lotadaSubida) + (desceu * lotadaDescida);
+    // Income calculation: 
+    // Lotada is the fixed fee per trip if anyone boards/alights
+    // PassengerValue is the rate per individual passenger
+    const passengerIncome = (subiu * lotadaSubida) + (desceu * lotadaDescida) + ((subiu + desceu) * passengerValue);
     
     // Total calculation
     let finalAmount = 0;
@@ -510,7 +534,7 @@ export default function MotoristaDashboard() {
             )}
             <div>
               <h1 className="font-bold text-lg text-white leading-tight">
-                {selectedTrip ? 'Roteiro' : activeTab === 'trips' ? 'Minhas Viagens' : activeTab === 'table' ? 'Lousa Digital' : activeTab === 'finance' ? 'Financeiro' : activeTab === 'profile' ? 'Meu Perfil' : 'Configurações'}
+                {selectedTrip ? 'Roteiro' : activeTab === 'trips' ? 'Minhas Viagens' : activeTab === 'tabela' ? 'Tabela Digital' : activeTab === 'finance' ? 'Financeiro' : activeTab === 'profile' ? 'Meu Perfil' : 'Configurações'}
               </h1>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
                 {selectedTrip ? `Viagem #${selectedTrip.id}` : driverData?.system || 'Sistema PG'}
@@ -528,12 +552,12 @@ export default function MotoristaDashboard() {
 
       <main className="max-w-md mx-auto p-4">
         {/* Search Bar */}
-        {!selectedTrip && (activeTab === 'trips' || activeTab === 'table') && (
+        {!selectedTrip && (activeTab === 'trips' || activeTab === 'tabela') && (
           <div className="relative mb-6">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
             <input 
               type="text"
-              placeholder={activeTab === 'trips' ? "Buscar viagens..." : "Buscar motoristas na lousa..."}
+              placeholder={activeTab === 'trips' ? "Buscar viagens..." : "Buscar motoristas na tabela..."}
               className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600 shadow-inner"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -609,6 +633,8 @@ export default function MotoristaDashboard() {
                         key={passenger.id || passenger.name} 
                         passenger={passenger} 
                         onWhatsApp={openWhatsApp}
+                        onNavigate={(p) => openNavigation(navApp, p.address || p.neighborhood)}
+                        navApp={navApp}
                       />
                     ))}
                   </SortableContext>
@@ -674,7 +700,7 @@ export default function MotoristaDashboard() {
                     <div>
                       <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Destino</p>
                       <p className="font-bold text-white flex items-center gap-2">
-                        <MapPin size={16} className="text-blue-500" /> {trip.destination}
+                        <MapPin size={16} className="text-blue-500" /> Jabaquara
                       </p>
                     </div>
                     <div className="flex items-center justify-between pt-4 border-t border-slate-800/50">
@@ -704,7 +730,7 @@ export default function MotoristaDashboard() {
                 </div>
               )}
             </motion.div>
-          ) : activeTab === 'table' ? (
+          ) : activeTab === 'tabela' ? (
             <motion.div
               key="table"
               initial={{ opacity: 0, y: 10 }}
@@ -719,16 +745,22 @@ export default function MotoristaDashboard() {
                 </div>
               </div>
 
-              <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800 mb-4">
+              <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800 mb-4 overflow-x-auto no-scrollbar">
+                <button 
+                  onClick={() => setTableTab('geral')}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${tableTab === 'geral' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+                >
+                  Geral
+                </button>
                 <button 
                   onClick={() => setTableTab('lousa')}
-                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${tableTab === 'lousa' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${tableTab === 'lousa' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500'}`}
                 >
                   Lousa
                 </button>
                 <button 
                   onClick={() => setTableTab('confirmados')}
-                  className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${tableTab === 'confirmados' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-500'}`}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${tableTab === 'confirmados' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-500'}`}
                 >
                   Confirmados
                 </button>
@@ -746,9 +778,11 @@ export default function MotoristaDashboard() {
                   <tbody>
                     {filteredTable
                       .filter(item => {
-                        const status = tableStatus[item.vaga]?.status || tableStatus[item.vaga] || 'Aguardando';
+                        const statusData = tableStatus[item.vaga];
+                        const status = typeof statusData === 'object' ? statusData.status : statusData || 'Aguardando';
+                        if (tableTab === 'lousa') return status === 'Lousa';
                         if (tableTab === 'confirmados') return status === 'Confirmado';
-                        return true;
+                        return true; // Geral
                       })
                       .map((item, idx) => {
                         const statusData = tableStatus[item.vaga];
@@ -770,20 +804,6 @@ export default function MotoristaDashboard() {
                             </td>
                             <td className="p-4 text-right">
                               <div className="flex flex-col items-end gap-1">
-                                {item.name === driverData.name && status === 'Aguardando' && (
-                                  <button 
-                                    onClick={async () => {
-                                      const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                                      const system = driverData.system || 'Pg';
-                                      const today = new Date().toLocaleDateString('en-CA');
-                                      const statusPath = system === 'Pg' ? `daily_tables/${today}/status/${item.vaga}` : `${system}/daily_tables/${today}/status/${item.vaga}`;
-                                      await db.ref(statusPath).set({ status: 'Confirmado', time: now });
-                                    }}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg text-[10px] font-bold mb-1 transition-all active:scale-95"
-                                  >
-                                    Confirmar
-                                  </button>
-                                )}
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                   status === 'Confirmado' ? 'bg-green-500/20 text-green-400' : 
                                   status === 'Baixou' ? 'bg-blue-500/20 text-blue-400' : 
@@ -1015,6 +1035,50 @@ export default function MotoristaDashboard() {
               className="space-y-6"
             >
               <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-lg">
+                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                      <Navigation size={20} />
+                    </div>
+                    <span className="font-bold text-slate-200">App de Navegação</span>
+                  </div>
+                  <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button 
+                      onClick={() => {
+                        setNavApp('google');
+                        db.ref(`drivers`).once('value', (snap) => {
+                          const drivers = snap.val();
+                          for (const key in drivers) {
+                            if (drivers[key].id === driverData.id) {
+                              db.ref(`drivers/${key}/settings/navApp`).set('google');
+                              break;
+                            }
+                          }
+                        });
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${navApp === 'google' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                    >
+                      Maps
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setNavApp('waze');
+                        db.ref(`drivers`).once('value', (snap) => {
+                          const drivers = snap.val();
+                          for (const key in drivers) {
+                            if (drivers[key].id === driverData.id) {
+                              db.ref(`drivers/${key}/settings/navApp`).set('waze');
+                              break;
+                            }
+                          }
+                        });
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${navApp === 'waze' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}
+                    >
+                      Waze
+                    </button>
+                  </div>
+                </div>
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
@@ -1559,13 +1623,13 @@ export default function MotoristaDashboard() {
             </button>
             
             <button 
-              onClick={() => setActiveTab('table')}
+              onClick={() => setActiveTab('tabela')}
               className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
-                activeTab === 'table' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
+                activeTab === 'tabela' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300'
               }`}
             >
               <LayoutList size={22} />
-              <span className="text-[9px] font-bold uppercase tracking-tighter">Lousa</span>
+              <span className="text-[9px] font-bold uppercase tracking-tighter">Tabela</span>
             </button>
 
             <button 
