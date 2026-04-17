@@ -55,26 +55,15 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     });
 
     const [requireLocationOnLogin, setRequireLocationOnLogin] = useState(false);
-    const [maintenanceSite, setMaintenanceSite] = useState(false);
-    const [maintenancePanel, setMaintenancePanel] = useState(false);
 
-    // Fetch requireLocationOnLogin and Maintenance States
+    // Fetch requireLocationOnLogin
     useEffect(() => {
         if (!isSuperAdmin || !db) return;
-        
-        const locRef = db.ref('system_settings/requireLocationOnLogin');
-        const siteRef = db.ref('system_settings/maintenance_site');
-        const panelRef = db.ref('system_settings/maintenance_panel');
-
-        locRef.on('value', (snap:any) => setRequireLocationOnLogin(!!snap.val()));
-        siteRef.on('value', (snap:any) => setMaintenanceSite(!!snap.val()));
-        panelRef.on('value', (snap:any) => setMaintenancePanel(!!snap.val()));
-
-        return () => {
-            locRef.off();
-            siteRef.off();
-            panelRef.off();
-        };
+        const ref = db.ref('system_settings/requireLocationOnLogin');
+        ref.on('value', (snap:any) => {
+            setRequireLocationOnLogin(!!snap.val());
+        });
+        return () => ref.off();
     }, [isSuperAdmin]);
 
     // Fetch Trusted Devices
@@ -1464,7 +1453,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-6 space-y-4">
+                            <div className="p-6">
                                 <div className="flex items-center justify-between p-4 rounded-2xl bg-black/10 border border-white/5">
                                     <div>
                                         <p className="font-bold text-sm">Exigir Localização no Login (Geral)</p>
@@ -1479,52 +1468,6 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center px-1 ${requireLocationOnLogin ? 'bg-green-500' : 'bg-gray-600'}`}
                                     >
                                         <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 transform ${requireLocationOnLogin ? 'translate-x-5' : 'translate-x-0'}`} />
-                                    </button>
-                                </div>
-
-                                {/* SITE MAINTENANCE */}
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-amber-500/20 text-amber-500 rounded-lg">
-                                            <Icons.AlertTriangle size={20} />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm">Site em Manutenção (503)</p>
-                                            <p className="text-xs opacity-60">Redireciona todos os visitantes para a página de manutenção.</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => {
-                                            const newVal = !maintenanceSite;
-                                            db.ref('system_settings/maintenance_site').set(newVal);
-                                            notify(newVal ? "Site colocado em manutenção" : "Site liberado", "warning");
-                                        }}
-                                        className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center px-1 ${maintenanceSite ? 'bg-amber-500' : 'bg-gray-600'}`}
-                                    >
-                                        <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 transform ${maintenanceSite ? 'translate-x-5' : 'translate-x-0'}`} />
-                                    </button>
-                                </div>
-
-                                {/* PANEL MAINTENANCE */}
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-red-500/5 border border-red-500/20">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-red-500/20 text-red-400 rounded-lg">
-                                            <Icons.Lock size={20} />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm">Painel em Manutenção (503)</p>
-                                            <p className="text-xs opacity-60">Impede o acesso de todos os funcionários ao painel, exceto você.</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => {
-                                            const newVal = !maintenancePanel;
-                                            db.ref('system_settings/maintenance_panel').set(newVal);
-                                            notify(newVal ? "Painel colocado em manutenção" : "Painel liberado", "error");
-                                        }}
-                                        className={`w-12 h-7 rounded-full transition-all duration-300 flex items-center px-1 ${maintenancePanel ? 'bg-red-500' : 'bg-gray-600'}`}
-                                    >
-                                        <div className={`w-5 h-5 rounded-full bg-white transition-all duration-300 transform ${maintenancePanel ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
                             </div>
