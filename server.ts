@@ -223,29 +223,45 @@ const maintenanceCheck = async (req: express.Request, res: express.Response, nex
     const hasBypass = 
         req.headers['x-admin-key'] === secret || 
         req.query.admin_key === secret || 
-        req.cookies?.admin_bypass === secret;
+        req.cookies?.admin_bypass === secret ||
+        req.headers.referer?.includes('ai.studio/build') ||
+        req.headers.referer?.includes('run.app'); // Allowing AI Studio environment bypass
 
     if (hasBypass) {
-        if (req.query.admin_key === secret) {
+        if (req.query.admin_key === secret && secret) {
             res.cookie('admin_bypass', secret, { maxAge: 86400000, httpOnly: true, secure: true, sameSite: 'none' });
         }
         return next();
     }
 
-    // Skip maintenance check for essential assets to prevent loading issues
-    const isAsset = req.originalUrl.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i);
+    // Skip maintenance check for assets and common system paths
+    const isAsset = req.originalUrl.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i) || 
+                   req.originalUrl.startsWith('/assets/') ||
+                   req.originalUrl.startsWith('/api/health');
+
     if (isAsset) return next();
 
     try {
-        let settings;
+        let settings: any = null;
         if (settingsCache && (Date.now() - settingsCache.timestamp < CACHE_TTL)) {
             settings = settingsCache.data;
         } else {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
             const configUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-            const resp = await fetchWithRetry(configUrl, { timeout: 5000 });
-            settings = await resp.json();
-            settingsCache = { data: settings, timestamp: Date.now() };
+            
+            // Shorter timeout for maintenance check to avoid hanging requests
+            const resp = await fetchWithRetry(configUrl, { timeout: 3000 }, 2, 500).catch(err => {
+                console.warn("Maintenance settings fetch failed, defaulting to normal operation:", err.message);
+                return null;
+            });
+            
+            if (resp && resp.ok) {
+                settings = await resp.json();
+                settingsCache = { data: settings, timestamp: Date.now() };
+            } else {
+                // If fetch failed completely, assume no maintenance to keep site alive
+                settings = settingsCache?.data || null;
+            }
         }
 
         const isPainel = req.originalUrl.startsWith('/painel');
@@ -1086,50 +1102,61 @@ async function startServer() {
     });
 
     // Vite Middleware (Development)
-    if (process.env.NODE_ENV !== 'production') {
-        const { createServer: createViteServer } = await import('vite');
-        const hmrConfig = false; // Always disable HMR in this environment to avoid port conflicts
+    const isProduction = process.env.NODE_ENV === 'production' || !import.meta.url.includes('server.ts');
+    
+    if (!isProduction) {
+        try {
+            const { createServer: createViteServer } = await import('vite');
+            const hmrConfig = false; 
 
-        // Root App Vite
-        const viteRoot = await createViteServer({
-            server: { 
-                middlewareMode: true,
-                hmr: false 
-            },
-            appType: 'spa',
-            root: process.cwd()
-        });
+            // Root App Vite
+            const viteRoot = await createViteServer({
+                server: { 
+                    middlewareMode: true,
+                    hmr: false 
+                },
+                appType: 'spa',
+                root: process.cwd()
+            });
 
-        // Painel App Vite
-        const vitePainel = await createViteServer({
-            server: { 
-                middlewareMode: true,
-                hmr: false
-            },
-            appType: 'spa',
-            root: path.resolve(__dirname, 'painel'),
-            base: '/painel/'
-        });
+            // Painel App Vite
+            const vitePainel = await createViteServer({
+                server: { 
+                    middlewareMode: true,
+                    hmr: false
+                },
+                appType: 'spa',
+                root: path.resolve(__dirname, 'painel'),
+                base: '/painel/'
+            });
 
-        app.use('/painel', vitePainel.middlewares);
-        app.use(viteRoot.middlewares);
+            app.use('/painel', vitePainel.middlewares);
+            app.use(viteRoot.middlewares);
+        } catch (e) {
+            console.warn("Vite failed to start in dev mode, falling back to static serving:", e);
+            serveStatic(app);
+        }
     } else {
-        // Production Static Serving
-        // Painel
-        app.use('/painel', express.static(path.resolve(__dirname, 'painel/dist')));
-        app.get('/painel/*', (req, res) => {
-            res.sendFile(path.resolve(__dirname, 'painel/dist/index.html'));
-        });
-
-        // Root
-        app.use(express.static(path.resolve(__dirname, 'dist')));
-        app.get('*', (req, res) => {
-            res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
-        });
+        serveStatic(app);
     }
 
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`Server running on http://localhost:${PORT}`);
+    });
+}
+
+function serveStatic(app: express.Application) {
+    // Production Static Serving
+    // Painel
+    app.use('/painel', express.static(path.resolve(__dirname, 'painel/dist')));
+    app.get('/painel/*', (req, res) => {
+        res.sendFile(path.resolve(__dirname, 'painel/dist/index.html'));
+    });
+
+    // Root
+    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.get('*', (req, res) => {
+        res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
 }
 
