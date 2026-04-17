@@ -4,6 +4,8 @@ import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import https from 'https';
+import { URL } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -26,15 +28,62 @@ function getStripe(): Stripe {
 // In-memory token store for login
 const loginTokens = new Map<string, { token: string, expires: number }>();
 
-// Helper function for resilient fetch
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
+// --- RESILIENT FETCH HELPERS ---
+// For Node environments < 18 or restricted environments
+async function universalFetch(url: string, options: any = {}): Promise<any> {
+    if (typeof fetch !== 'undefined') {
+        const res = await fetch(url, options);
+        return {
+            ok: res.ok,
+            status: res.status,
+            json: () => res.json(),
+            text: () => res.text()
+        };
+    }
+
+    return new Promise((resolve, reject) => {
+        const parsedUrl = new URL(url);
+        const reqOptions = {
+            method: options.method || 'GET',
+            headers: options.headers || {},
+            timeout: options.timeout || 10000
+        };
+
+        const req = https.request(url, reqOptions, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                resolve({
+                    ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
+                    status: res.statusCode,
+                    json: async () => JSON.parse(data),
+                    text: async () => data
+                });
+            });
+        });
+
+        req.on('error', (err) => reject(err));
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Request Timeout'));
+        });
+
+        if (options.body) {
+            req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+        }
+        req.end();
+    });
+}
+
+// Helper function for resilient fetch with retries
+async function fetchWithRetry(url: string, options: any = {}, retries = 3, backoff = 1000): Promise<any> {
     try {
-        const response = await fetch(url, options);
+        const response = await universalFetch(url, options);
         if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
         return response;
     } catch (error) {
         if (retries > 0) {
-            console.warn(`Fetch failed, retrying in ${backoff}ms...`, error);
+            console.warn(`Fetch failed for ${url}, retrying in ${backoff}ms...`, error);
             await new Promise(resolve => setTimeout(resolve, backoff));
             return fetchWithRetry(url, options, retries - 1, backoff * 2);
         }

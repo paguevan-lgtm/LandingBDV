@@ -8,6 +8,8 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import https from 'https';
+import { URL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,10 +55,22 @@ const formLimiter = rateLimit({
 });
 
 // Trusted Origins for CORS
+// Trusted Origins for CORS
+const whitelist = [
+    'https://boradevan.com.br', 
+    'https://painel.boradevan.com.br', 
+    'https://ais-dev-5y2pxelzuuimbx4sfpvyrz-89519706987.us-east1.run.app', 
+    'https://ais-pre-5y2pxelzuuimbx4sfpvyrz-89519706987.us-east1.run.app'
+];
 const corsOptions = {
     origin: (origin: any, callback: any) => {
-        // Permitir QUALQUER origem em desenvolvimento/preview para resolver bloqueios
-        callback(null, true);
+        // Permitir localhost, domínios .run.app e whitelist
+        if (!origin || origin.includes('localhost') || origin.includes('.run.app') || whitelist.some(domain => origin.includes(domain))) {
+            callback(null, true);
+        } else {
+            console.warn(`[CORS BLOCKED] Origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
     },
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-App-Version', 'X-Device-Fingerprint'],
@@ -64,16 +78,26 @@ const corsOptions = {
     maxAge: 86400
 };
 
-// Security Middlewares
-const securityHeaders = (req: any, res: any, next: any) => {
-    // Removemos headers restritivos de framing explicitamente
-    res.removeHeader('X-Frame-Options');
-    res.removeHeader('Content-Security-Policy');
-    // Adicionamos permissivos
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    next();
-};
+// Security Middlewares - Recriando Helmet com as permissões necessárias para o AI Studio
+const securityHeaders = helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.stripe.com", "https://maps.googleapis.com", "https://*.googleapis.com", "https://www.gstatic.com", "https://cdn.tailwindcss.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+            imgSrc: ["'self'", "data:", "https:", "https://picsum.photos", "https://*.unsplash.com", "https://*.google.com", "https://*.gstatic.com", "https://boradevan.com.br"],
+            connectSrc: ["'self'", "https://api.stripe.com", "https://*.firebaseio.com", "https://*.firebaseapp.com", "wss://*.firebaseio.com", "https://*.googleapis.com", "https://api.ipify.org", "https://ipwho.is", "https://ipapi.co", "https://nominatim.openstreetmap.org", "https://router.project-osrm.org", "https://api.open-meteo.com"],
+            frameSrc: ["'self'", "https://js.stripe.com", "https://*.firebaseapp.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            frameAncestors: ["'self'", "https://*.run.app", "https://*.google.com", "https://*.googleusercontent.com", "https://boradevan.com.br", "https://*.boradevan.com.br", "*"],
+        },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: false,
+    originAgentCluster: false,
+    xFrameOptions: false,
+});
 
 const validateHttpHeaders = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // 1. Content-Type Enforcement
@@ -126,6 +150,73 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
     next();
 };
 
+// --- RESILIENT FETCH HELPERS ---
+// For Node environments < 18 or restricted environments
+async function universalFetch(url: string, options: any = {}): Promise<any> {
+    if (typeof fetch !== 'undefined') {
+        const res = await fetch(url, options);
+        return {
+            ok: res.ok,
+            status: res.status,
+            json: () => res.json(),
+            text: () => res.text()
+        };
+    }
+
+    return new Promise((resolve, reject) => {
+        const parsedUrl = new URL(url);
+        const reqOptions = {
+            method: options.method || 'GET',
+            headers: options.headers || {},
+            timeout: options.timeout || 10000
+        };
+
+        const req = https.request(url, reqOptions, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                resolve({
+                    ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
+                    status: res.statusCode,
+                    json: async () => JSON.parse(data),
+                    text: async () => data
+                });
+            });
+        });
+
+        req.on('error', (err) => reject(err));
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Request Timeout'));
+        });
+
+        if (options.body) {
+            req.write(typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+        }
+        req.end();
+    });
+}
+
+// Helper function for resilient fetch with retries
+async function fetchWithRetry(url: string, options: any = {}, retries = 3, backoff = 1000): Promise<any> {
+    try {
+        const response = await universalFetch(url, options);
+        if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
+        return response;
+    } catch (error) {
+        if (retries > 0) {
+            console.warn(`Fetch failed for ${url}, retrying in ${backoff}ms...`, error);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        throw error;
+    }
+}
+
+// Simple Cache for system settings to avoid hitting Firebase on every request
+let settingsCache: { data: any, timestamp: number } | null = null;
+const CACHE_TTL = 30000; // 30 seconds
+
 const maintenanceCheck = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     // 1. Bypass Logic (Header, Query or Cookie)
     const secret = process.env.FIREBASE_DATABASE_SECRET;
@@ -135,18 +226,27 @@ const maintenanceCheck = async (req: express.Request, res: express.Response, nex
         req.cookies?.admin_bypass === secret;
 
     if (hasBypass) {
-        // Prolong bypass via cookie if they used query string
         if (req.query.admin_key === secret) {
-            res.cookie('admin_bypass', secret, { maxAge: 86400000, httpOnly: true, secure: true });
+            res.cookie('admin_bypass', secret, { maxAge: 86400000, httpOnly: true, secure: true, sameSite: 'none' });
         }
         return next();
     }
 
+    // Skip maintenance check for essential assets to prevent loading issues
+    const isAsset = req.originalUrl.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i);
+    if (isAsset) return next();
+
     try {
-        const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-        const configUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-        const resp = await fetch(configUrl);
-        const settings = await resp.json();
+        let settings;
+        if (settingsCache && (Date.now() - settingsCache.timestamp < CACHE_TTL)) {
+            settings = settingsCache.data;
+        } else {
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const configUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const resp = await fetchWithRetry(configUrl, { timeout: 5000 });
+            settings = await resp.json();
+            settingsCache = { data: settings, timestamp: Date.now() };
+        }
 
         const isPainel = req.originalUrl.startsWith('/painel');
         const isApi = req.originalUrl.startsWith('/api');
@@ -247,22 +347,6 @@ function getStripe(): Stripe {
         });
     }
     return stripeClient;
-}
-
-// Helper function for resilient fetch
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
-    try {
-        const response = await fetch(url, options);
-        if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
-        return response;
-    } catch (error) {
-        if (retries > 0) {
-            console.warn(`Fetch failed, retrying in ${backoff}ms...`, error);
-            await new Promise(resolve => setTimeout(resolve, backoff));
-            return fetchWithRetry(url, options, retries - 1, backoff * 2);
-        }
-        throw error;
-    }
 }
 
 // Helper function to update system subscription status in Firebase RTDB
@@ -495,7 +579,7 @@ async function startServer() {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
             const userCheckUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users.json?orderBy="email"&equalTo="${emailKey}"${dbSecret ? `&auth=${dbSecret}` : ''}`;
             
-            const userCheckRes = await fetch(userCheckUrl);
+            const userCheckRes = await fetchWithRetry(userCheckUrl);
             const userData = await userCheckRes.json();
             
             // If user doesn't exist and it's a login attempt, don't send email but return success
@@ -552,7 +636,7 @@ async function startServer() {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
             const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             try {
-                await fetch(trustedUrl, {
+                await fetchWithRetry(trustedUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ expiresAt: Date.now() + 12 * 60 * 60 * 1000, lastUsed: Date.now(), ip: req.ip, fingerprint })

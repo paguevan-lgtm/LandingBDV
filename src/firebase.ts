@@ -1,5 +1,6 @@
-// Access the global firebase object loaded via scripts in index.html
-const firebase = (window as any).firebase;
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/database';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBTF5M7HcFIvF_TbFqpG7zMjh29AXP1zzM",
@@ -12,25 +13,11 @@ const firebaseConfig = {
   measurementId: "G-3KWB2PQMCN"
 };
 
-let db: any;
-let auth: any;
-
-if (firebase) {
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    // Safety check: ensure database module is attached
-    if (firebase.database) {
-        db = firebase.database();
-    } else {
-        console.error("Firebase Database module not found.");
-    }
-
-    if (firebase.auth) {
-        auth = firebase.auth();
-    }
-} else {
-    console.error("Firebase SDK not loaded");
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
 }
+
+const db = firebase.database();
+const auth = firebase.auth();
 
 export { db, auth, firebase };
