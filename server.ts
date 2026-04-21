@@ -868,7 +868,7 @@ async function startServer() {
                 currency: 'brl',
                 payment_method_types: ['pix'],
                 metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' },
-                receipt_email: email
+                ...(email && { receipt_email: email })
             });
             
             const confirmedIntent = await getStripe().paymentIntents.confirm(

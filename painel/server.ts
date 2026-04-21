@@ -650,7 +650,7 @@ async function startServer() {
                     systemContext: systemContext || 'unknown',
                     type: 'pix_payment' // To distinguish from subscription
                 },
-                receipt_email: email
+                ...(email && { receipt_email: email })
             });
             
             // Confirm the PaymentIntent
