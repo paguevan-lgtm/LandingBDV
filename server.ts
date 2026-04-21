@@ -772,7 +772,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/verify_session', requireAuth, async (req, res) => {
+    app.post('/api/verify_session', async (req, res) => {
         try {
             const { session_id } = req.body;
             if (!session_id) return res.status(400).json({ error: 'session_id required' });
@@ -827,7 +827,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create_subscription_preference', requireAuth, async (req, res) => {
+    app.post('/api/create_subscription_preference', async (req, res) => {
         try {
             const { email, userId, systemContext } = req.body;
             if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
@@ -858,7 +858,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create-pix-payment', requireAuth, async (req, res) => {
+    app.post('/api/create-pix-payment', async (req, res) => {
         try {
             const { email, userId, systemContext, amount } = req.body;
             if (!userId || !amount) return res.status(400).json({ error: 'userId and amount are required' });
