@@ -633,43 +633,27 @@ async function startServer() {
 
     app.post('/api/create-pix-payment', async (req, res) => {
         try {
-            const { email, userId, systemContext, amount } = req.body;
+            const { email, userId, systemContext } = req.body;
             
-            if (!userId || !amount) {
-                return res.status(400).json({ error: 'userId and amount are required' });
+            if (!userId || !email) {
+                return res.status(400).json({ error: 'userId and email are required' });
             }
 
-            // Create Stripe PaymentIntent for PIX
-            console.log('Creating PIX PaymentIntent for amount:', amount);
-            const paymentIntent = await getStripe().paymentIntents.create({
-                amount: amount, // amount in cents
-                currency: 'brl',
-                payment_method_types: ['pix'],
-                metadata: {
-                    userId,
-                    systemContext: systemContext || 'unknown',
-                    type: 'pix_payment' // To distinguish from subscription
-                },
-                ...(email && { receipt_email: email })
+            const appUrl = process.env.APP_URL || 'http://localhost:3000';
+            const priceId = 'price_1TOUer2N7Ik4UR6lPOQL8XRQ';
+
+            const session = await getStripe().checkout.sessions.create({
+                payment_method_types: ['pix', 'card'],
+                line_items: [{ price: priceId, quantity: 1 }],
+                mode: 'payment',
+                success_url: `${appUrl}/painel?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `${appUrl}/painel`,
+                customer_email: email,
+                client_reference_id: `BORA_VAN_PIX_${userId}_${systemContext || 'unknown'}`,
+                metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' }
             });
-            
-            // Confirm the PaymentIntent
-            const confirmedIntent = await getStripe().paymentIntents.confirm(
-                paymentIntent.id,
-                { payment_method_data: { type: 'pix' } }
-            );
 
-            console.log('PaymentIntent confirmed:', JSON.stringify(confirmedIntent, null, 2));
-
-            if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
-                res.json({
-                    qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
-                    qrCode: confirmedIntent.next_action.pix_display_qr_code.hosted_instructions_url,
-                    id: confirmedIntent.id
-                });
-            } else {
-                res.status(500).json({ error: 'Failed to generate PIX QR code' });
-            }
+            res.json({ id: session.id, url: session.url });
         } catch (error: any) {
             console.error('Error creating PIX PaymentIntent:', error);
             res.status(500).json({ error: error.message });

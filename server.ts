@@ -115,7 +115,7 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
 }
 
 // Helper function to update system subscription status in Firebase RTDB
-async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string) {
+async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string, isRecurringFromPayment: boolean = true) {
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
     // We update the global system settings, not the individual user
@@ -134,7 +134,7 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             return true;
         }
         
-        console.log(`Updating subscription status for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
+        console.log(`Updating subscription status for ${systemContext || 'Mistura'} to ${status} by user ${userId}. Recurring: ${isRecurringFromPayment}`);
         const updates: any = {
             lastPaymentId: mpId,
             lastPaymentDate: date || new Date().toISOString(),
@@ -164,15 +164,15 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             if (systemContext === 'Mistura') {
                 updates.expiresAt = newExpiresAt.toISOString();
                 updates.isBlockedByAdmin = false;
-                updates.isRecurring_Mistura = true;
+                updates.isRecurring_Mistura = isRecurringFromPayment;
             } else if (systemContext && systemContext !== 'unknown') {
                 updates[`expiresAt_${systemContext}`] = newExpiresAt.toISOString();
                 updates[`isBlocked_${systemContext}`] = false;
-                updates[`isRecurring_${systemContext}`] = true;
+                updates[`isRecurring_${systemContext}`] = isRecurringFromPayment;
             } else {
                 updates.expiresAt = newExpiresAt.toISOString();
                 updates.isBlockedByAdmin = false;
-                updates.isRecurring_Mistura = true;
+                updates.isRecurring_Mistura = isRecurringFromPayment;
             }
         } else if (status === 'past_due' || status === 'cancelled') {
             // If subscription is cancelled or past due, we turn off auto-renewal flag
@@ -860,31 +860,26 @@ async function startServer() {
 
     app.post('/api/create-pix-payment', async (req, res) => {
         try {
-            const { email, userId, systemContext, amount } = req.body;
-            if (!userId || !amount) return res.status(400).json({ error: 'userId and amount are required' });
+            const { email, userId, systemContext } = req.body;
+            if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
-            const paymentIntent = await getStripe().paymentIntents.create({
-                amount: amount,
-                currency: 'brl',
-                payment_method_types: ['pix'],
-                metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' },
-                ...(email && { receipt_email: email })
-            });
+            const appUrl = process.env.APP_URL || 'http://localhost:3000';
             
-            const confirmedIntent = await getStripe().paymentIntents.confirm(
-                paymentIntent.id,
-                { payment_method_data: { type: 'pix' } }
-            );
+            // User provided price for one-time payment
+            const priceId = 'price_1TOUer2N7Ik4UR6lPOQL8XRQ';
 
-            if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
-                res.json({
-                    qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
-                    qrCode: confirmedIntent.next_action.pix_display_qr_code.hosted_instructions_url,
-                    id: confirmedIntent.id
-                });
-            } else {
-                res.status(500).json({ error: 'Failed to generate PIX QR code' });
-            }
+            const session = await getStripe().checkout.sessions.create({
+                payment_method_types: ['pix', 'card'],
+                line_items: [{ price: priceId, quantity: 1 }],
+                mode: 'payment',
+                success_url: `${appUrl}/painel?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `${appUrl}/painel`,
+                customer_email: email,
+                client_reference_id: `BORA_VAN_PIX_${userId}_${systemContext || 'unknown'}`,
+                metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' }
+            });
+
+            res.json({ id: session.id, url: session.url });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }
@@ -915,13 +910,24 @@ async function startServer() {
                     const session = event.data.object;
                     let userId = session.metadata?.userId;
                     let systemContext = session.metadata?.systemContext;
-                    if (!userId && session.client_reference_id && session.client_reference_id.startsWith('BORA_VAN_SUB_')) {
-                        const parts = session.client_reference_id.split('_');
-                        userId = parts[3];
-                        systemContext = parts[4];
+                    let isRecurring = session.mode === 'subscription';
+
+                    if (!userId && session.client_reference_id) {
+                        if (session.client_reference_id.startsWith('BORA_VAN_SUB_')) {
+                            const parts = session.client_reference_id.split('_');
+                            userId = parts[3];
+                            systemContext = parts[4];
+                            isRecurring = true;
+                        } else if (session.client_reference_id.startsWith('BORA_VAN_PIX_')) {
+                            const parts = session.client_reference_id.split('_');
+                            userId = parts[3];
+                            systemContext = parts[4];
+                            isRecurring = false;
+                        }
                     }
+                    
                     if (userId && systemContext) {
-                        await updateUserSubscriptionStatus(userId, 'active', session.subscription as string || session.id, new Date().toISOString(), systemContext);
+                        await updateUserSubscriptionStatus(userId, 'active', session.subscription as string || session.id, new Date().toISOString(), systemContext, isRecurring);
                     }
                     break;
                 }

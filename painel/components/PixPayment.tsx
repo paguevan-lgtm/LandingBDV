@@ -27,10 +27,13 @@ const PixForm = ({ amount, userId, systemContext, email }: any) => {
 
             const data = await response.json();
             
-            if (data.qrCodeBase64) {
+            if (data.url) {
+                // Se o servidor retornou uma URL do Stripe Checkout, redireciona o usuário
+                window.location.href = data.url;
+            } else if (data.qrCodeBase64) {
                 setPixDetails(data);
             } else {
-                throw new Error('Failed to generate PIX');
+                throw new Error('Falha ao gerar pagamento');
             }
         } catch (err: any) {
             console.error(err);
