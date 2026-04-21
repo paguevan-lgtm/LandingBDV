@@ -175,6 +175,7 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
     const [savedSubscriptionEmail, setSavedSubscriptionEmail] = useState('');
     const [emailError, setEmailError] = useState('');
     const [pendingPaymentMethod, setPendingPaymentMethod] = useState<'card' | 'pix' | null>(null);
+    const [pixData, setPixData] = useState<any>(null);
 
     // Sync subscription status on mount
     useEffect(() => {
@@ -415,7 +416,10 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
             const data = await response.json();
             if (data.error) throw new Error(data.error);
             
-            if (data.url) {
+            if (data.qrCodeBase64) {
+                setPixData(data);
+                setSelectedMethod('pix');
+            } else if (data.url) {
                 window.location.href = data.url;
             }
         } catch (error: any) {
@@ -811,7 +815,18 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
                             </button>
                         </div>
                     </div>
-                ) : null}
+                ) : (
+                    selectedMethod === 'pix' ? (
+                        <div className="animate-in fade-in zoom-in duration-300">
+                             <PixPayment 
+                                pixData={pixData} 
+                                userId={user.username} 
+                                systemContext={systemContext} 
+                                email={subscriptionEmail} 
+                            />
+                        </div>
+                    ) : null
+                )}
             </div>
 
             {renderModals()}

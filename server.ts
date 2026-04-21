@@ -863,24 +863,44 @@ async function startServer() {
             const { email, userId, systemContext } = req.body;
             if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
-            const appUrl = process.env.APP_URL || 'http://localhost:3000';
-            
-            // User provided price for one-time payment
-            const priceId = 'price_1TOUer2N7Ik4UR6lPOQL8XRQ';
-
-            const session = await getStripe().checkout.sessions.create({
-                payment_method_types: ['pix', 'card'],
-                line_items: [{ price: priceId, quantity: 1 }],
-                mode: 'payment',
-                success_url: `${appUrl}/painel?session_id={CHECKOUT_SESSION_ID}`,
-                cancel_url: `${appUrl}/painel`,
-                customer_email: email,
-                client_reference_id: `BORA_VAN_PIX_${userId}_${systemContext || 'unknown'}`,
-                metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' }
+            // Create Stripe PaymentIntent for PIX
+            const paymentIntent = await getStripe().paymentIntents.create({
+                amount: 30000, // 300.00 BRL
+                currency: 'brl',
+                payment_method_types: ['pix'],
+                metadata: {
+                    userId,
+                    systemContext: systemContext || 'unknown',
+                    type: 'pix_payment'
+                },
+                receipt_email: email
             });
+            
+            // Confirm the PaymentIntent to get PIX instructions (QR code)
+            const confirmedIntent = await getStripe().paymentIntents.confirm(
+                paymentIntent.id,
+                { 
+                    payment_method_data: { 
+                        type: 'pix',
+                        billing_details: { email }
+                    } 
+                }
+            );
 
-            res.json({ id: session.id, url: session.url });
+            if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
+                res.json({
+                    qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
+                    qrCode: confirmedIntent.next_action.pix_display_qr_code.data, // Literal copy-paste code
+                    id: confirmedIntent.id,
+                    expires_at: confirmedIntent.next_action.pix_display_qr_code.expires_at
+                });
+            } else {
+                res.status(400).json({ 
+                    error: 'PIX não está habilitado ou disponível para esta conta Stripe. Verifique se o método PIX está ativo no seu Dashboard do Stripe.' 
+                });
+            }
         } catch (error: any) {
+            console.error('PIX Error:', error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -901,7 +921,7 @@ async function startServer() {
                         const userId = paymentIntent.metadata.userId;
                         const systemContext = paymentIntent.metadata.systemContext;
                         if (userId && systemContext) {
-                            await updateUserSubscriptionStatus(userId, 'active', paymentIntent.id, new Date().toISOString(), systemContext);
+                            await updateUserSubscriptionStatus(userId, 'active', paymentIntent.id, new Date().toISOString(), systemContext, false);
                         }
                     }
                     break;
