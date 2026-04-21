@@ -834,11 +834,11 @@ async function startServer() {
 
             const appUrl = process.env.APP_URL || 'http://localhost:3000';
             const priceMap: any = {
-                'Mip': 'price_1TCiud2N7Ik4UR6lmc0cL6nK',
-                'Pg': 'price_1TCk6c2N7Ik4UR6lAIkjBTUb',
-                'Sv': 'price_1TCk6A2N7Ik4UR6l46SnE2KD'
+                'Mip': 'price_1TOUDi2N7Ik4UR6linH20Duh',
+                'Pg': 'price_1TOUAv2N7Ik4UR6lkRIvD9VR',
+                'Sv': 'price_1TOUEq2N7Ik4UR6lnPlsuAQ6'
             };
-            const priceId = priceMap[systemContext] || 'price_1TCiud2N7Ik4UR6lmc0cL6nK';
+            const priceId = priceMap[systemContext] || 'price_1TOUAv2N7Ik4UR6lkRIvD9VR';
 
             const session = await getStripe().checkout.sessions.create({
                 payment_method_types: ['card'],

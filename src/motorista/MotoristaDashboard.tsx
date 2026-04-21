@@ -37,8 +37,161 @@ import {
   Maximize,
   Bug,
   Terminal,
-  ListOrdered
+  ListOrdered,
+  Pencil
 } from 'lucide-react';
+
+/* ... after imports, before components ... */
+
+const AddressAutocomplete = ({ 
+  value, 
+  onChange, 
+  onSelect,
+  onClose,
+  placeholder = "Digite o endereço..."
+}: { 
+  value: string, 
+  onChange: (val: string) => void,
+  onSelect: (address: string, neighborhood: string, coords: [number, number]) => void,
+  onClose: () => void,
+  placeholder?: string
+}) => {
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (value.length < 3) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsLoading(true);
+      setShowSuggestions(true);
+      setSelectedIndex(-1);
+      try {
+        // Photon API with Baixada Santista bias and bbox
+        const bbox = "-46.68,-24.16,-46.20,-23.90";
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(value)}&lat=-24.0089&lon=-46.4128&bbox=${bbox}&lang=pt&limit=5`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("API error");
+        
+        const data = await res.json();
+        setSuggestions(data.features || []);
+      } catch (err) {
+        console.error("Autocomplete error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const timer = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(timer);
+  }, [value]);
+
+  const handleSelect = (idx: number) => {
+    const feature = suggestions[idx];
+    if (!feature) return;
+    const props = feature.properties;
+    const geom = feature.geometry.coordinates; // [lon, lat]
+    const street = props.name || '';
+    const houseNumber = props.housenumber ? `, ${props.housenumber}` : '';
+    const neighborhood = props.district || props.suburb || props.city || '';
+    const fullLabel = `${street}${houseNumber}`;
+    onSelect(fullLabel, neighborhood, [geom[1], geom[0]]);
+    setShowSuggestions(false);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0) {
+        handleSelect(selectedIndex);
+      } else if (suggestions.length > 0) {
+        handleSelect(0); // Select first if none selected
+      }
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="relative w-full">
+      <div className="relative">
+        <input 
+          autoFocus
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          className="w-full bg-slate-900 border border-blue-500/50 rounded-xl py-3 px-4 text-sm text-white outline-none ring-2 ring-blue-500/10 focus:ring-blue-500/30 transition-all font-medium"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          {isLoading && (
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent animate-spin rounded-full" />
+          )}
+          <button 
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+      
+      {showSuggestions && value.length >= 3 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] overflow-hidden max-h-64 overflow-y-auto ring-1 ring-white/5 backdrop-blur-xl">
+          {suggestions.length > 0 ? (
+            suggestions.map((feature: any, idx: number) => {
+              const props = feature.properties;
+              const street = props.name || '';
+              const houseNumber = props.housenumber ? `, ${props.housenumber}` : '';
+              const neighborhood = props.district || props.suburb || props.city || '';
+              const city = props.city || '';
+              const fullLabel = `${street}${houseNumber}`;
+              const isSelected = selectedIndex === idx;
+              
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelect(idx)}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                  className={`w-full text-left px-4 py-3 border-b border-white/5 last:border-0 transition-all flex flex-col gap-0.5 ${
+                    isSelected ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <MapPin size={12} className={isSelected ? 'text-blue-400' : 'text-slate-500'} />
+                    <p className={`text-xs font-bold truncate ${isSelected ? 'text-blue-400' : 'text-white'}`}>
+                      {fullLabel}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-500 truncate ml-5 font-medium">
+                    {neighborhood}{city && city !== neighborhood ? `, ${city}` : ''} • {props.state || 'SP'}
+                  </p>
+                </button>
+              );
+            })
+          ) : !isLoading && (
+            <div className="p-4 text-center">
+              <p className="text-xs text-slate-500 font-bold">Nenhum endereço encontrado</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 import { 
   DndContext, 
   closestCenter,
@@ -57,7 +210,15 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, Circle } from 'react-leaflet';
+import { 
+  MapContainer, 
+  TileLayer, 
+  Marker, 
+  Circle,
+  Polyline,
+  useMap,
+  Popup
+} from 'react-leaflet';
 import L from 'leaflet';
 
 // --- Error Tracking (Top Level) ---
@@ -88,15 +249,6 @@ if (!(window as any).__PR_DEBUG_PATCHED__) {
     LOG_TO_STORAGE('PROMISE REJECTION', e.reason);
   });
 }
-
-// Fix Leaflet default icon issue
-// @ts-ignore
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
 
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
@@ -141,43 +293,121 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 
 // --- Components ---
 
-const FitBounds = ({ coords }: { coords: [number, number][] }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (coords && coords.length > 0) {
-      const validCoords = coords.filter(c => c && c.length === 2);
-      if (validCoords.length > 0) {
-        const bounds = L.latLngBounds(validCoords);
-        map.fitBounds(bounds, { padding: [50, 50] });
-      }
-    }
-  }, [coords, map]);
-  return null;
-};
-
 const SmoothMapController = ({ center, zoom }: { center: [number, number], zoom: number }) => {
   const map = useMap();
   useEffect(() => {
-    if (center && center.length === 2) {
-      map.flyTo(center, zoom, {
-        duration: 1.5,
-        easeLinearity: 0.25
-      });
-    }
+    if (center) map.setView(center, zoom, { animate: true, duration: 1.5 });
   }, [center, zoom, map]);
   return null;
 };
 
-const createNumberedIcon = (number: number, color: string = '#2563eb') => {
+const createNumberedIcon = (number: number, color: string) => {
   return L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 8px; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">${number}</div>`,
+    className: 'custom-marker',
+    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transform: scale(1); transition: all 0.3s; font-size: 14px;">${number}</div>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
 };
 
+const createPlusIcon = (color: string) => {
+  return L.divIcon({
+    className: 'custom-marker-plus',
+    html: `<div style="background-color: ${color}; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transform: scale(1); transition: all 0.3s; font-size: 18px;">+</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
+
+// --- Map Constants ---
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const darkMapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#263c3f" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#6b9a76" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#38414e" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#212a37" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9ca5b3" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#746855" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1f2835" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#f3d19c" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#2f3948" }],
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#17263c" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#515c6d" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#17263c" }],
+  },
+];
+
 // --- Cache Utils ---
+
 const getGeoCache = () => {
   try {
     return JSON.parse(localStorage.getItem('geo_cache') || '{}');
@@ -480,11 +710,82 @@ function MotoristaDashboardContent() {
   const [manualMarker, setManualMarker] = useState<[number, number] | null>(null);
   const [selectedPassenger, setSelectedPassenger] = useState<any>(null);
   const [routeOptimized, setRouteOptimized] = useState(false);
+  const [isRouting, setIsRouting] = useState(false);
   const [stopPreferences, setStopPreferences] = useState<Record<string, 'first' | 'auto' | 'last'>>({});
   const [needsReoptimization, setNeedsReoptimization] = useState(false);
   const navigate = useNavigate();
 
-  // --- Debug Display State ---
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [editingAddressValue, setEditingAddressValue] = useState("");
+
+  const handleUpdateAddress = async (passengerId: string, newAddress: string, newNeighborhood: string, newCoords?: [number, number]) => {
+    if (!selectedTrip) return;
+
+    try {
+      // Find and update passenger locally
+      const updatedPassengers = selectedTrip.passengers.map((p: any) => {
+        if ((p.id || p.name) === passengerId) {
+          return { ...p, address: newAddress, neighborhood: newNeighborhood };
+        }
+        return p;
+      });
+
+      const updatedTrip = { ...selectedTrip, passengers: updatedPassengers };
+      setSelectedTrip(updatedTrip);
+      
+      // If we have a firebaseId, sync back to Firebase
+      if (selectedTrip.firebaseId) {
+        const system = driverData.system || 'Pg';
+        const tripsPath = system === 'Pg' ? 'trips' : `${system}/trips`;
+        await db.ref(`${tripsPath}/${selectedTrip.firebaseId}/passengersSnapshot`).set(updatedPassengers);
+      }
+
+      // Update selectedPassenger locally if it's the one we're editing
+      if (selectedPassenger && (selectedPassenger.id || selectedPassenger.name) === passengerId) {
+        setSelectedPassenger({ ...selectedPassenger, address: newAddress, neighborhood: newNeighborhood });
+      }
+
+      // Update coords immediately to avoid redundant geocoding call
+      if (newCoords) {
+        setPassengerCoords(prev => ({ ...prev, [passengerId]: newCoords }));
+        setMapCenter(newCoords);
+        setMapZoom(18);
+      } else {
+        // Fallback: force re-geocoding
+        setPassengerCoords(prev => {
+          const next = { ...prev };
+          delete next[passengerId];
+          return next;
+        });
+      }
+
+      setIsEditingAddress(false);
+      setEditingAddressValue("");
+    } catch (err) {
+      console.error("Error updating address:", err);
+      alert("Não foi possível atualizar o endereço. Tente novamente.");
+    }
+  };
+
+  // Fix Leaflet default icon issue
+  useEffect(() => {
+    // @ts-ignore
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    });
+  }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
 
@@ -524,13 +825,7 @@ function MotoristaDashboardContent() {
     return estimates;
   }, [selectedTrip, userLocation, passengerCoords]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
+  // Sync with storage only when visible to avoid rendering overhead
   useEffect(() => {
     const session = localStorage.getItem('motorista_session');
     if (!session) {
@@ -644,6 +939,7 @@ function MotoristaDashboardContent() {
       const updatedTrip = { ...selectedTrip, passengers: newPassengers };
       
       setSelectedTrip(updatedTrip);
+      setRouteOptimized(true);
       
       const system = driverData.system || 'Pg';
       const tripsPath = system === 'Pg' ? 'trips' : `${system}/trips`;
@@ -862,6 +1158,8 @@ function MotoristaDashboardContent() {
   const handleStatusChange = (id: string, status: 'delivered' | 'canceled') => {
     setPassengerStatuses(prev => ({ ...prev, [id]: status }));
     setLastAction({ passengerId: id, status });
+    setIsEditingAddress(false);
+    setEditingAddressValue("");
     
     // Auto-advance to next pending passenger
     if (selectedTrip && selectedTrip.passengers) {
@@ -915,6 +1213,7 @@ function MotoristaDashboardContent() {
     setRouteOptimized(false);
     if (selectedTrip && selectedTrip.passengers) {
       const geocodeAll = async () => {
+        setIsRouting(true);
         const cache = getGeoCache();
         const systemStr = (driverData?.system || '').toLowerCase();
         const isMongagua = systemStr.includes('mip') || systemStr.includes('mong') || systemStr.includes('mon');
@@ -947,9 +1246,6 @@ function MotoristaDashboardContent() {
           }
         });
 
-        // 2. Clear fixed destination references
-        // Jabaquara removed per request
-
         // 3. Batch update cached results for speed
         if (Object.keys(initialCoords).length > 0) {
           setPassengerCoords(prev => ({ ...prev, ...initialCoords }));
@@ -960,7 +1256,7 @@ function MotoristaDashboardContent() {
           }
         }
 
-        const tryGeocode = async (q: string, bounded: boolean = true) => {
+        const tryGeocodeNominatim = async (q: string, bounded: boolean = true): Promise<[number, number] | null> => {
           try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&viewbox=${viewbox}${bounded ? '&bounded=1' : ''}&limit=1`;
             const response = await fetch(url, { headers: { 'User-Agent': 'BoraDeVanApp/1.2' } });
@@ -981,18 +1277,22 @@ function MotoristaDashboardContent() {
           const pId = p.id || p.name;
           const cacheKey = `${rawAddress}_${cityContext}`;
 
-          await new Promise(resolve => setTimeout(resolve, 500)); // Rate limit safety
-
           const cleanAddress = (rawAddress || '')
             .replace(/prox\.|próximo|casa|fundos|apto|bloco|nº/gi, '')
             .replace(/\s+/g, ' ')
             .trim();
 
-          let result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`);
-          if (!result && p.neighborhood) result = await tryGeocode(`${p.neighborhood}, ${cityContext}, Brazil`);
-          if (!result) result = await tryGeocode(`${cleanAddress}, ${cityContext}, Brazil`, false);
+          const fullQuery = `${cleanAddress}, ${cityContext}, Brazil`;
+          
+          let result: [number, number] | null = await tryGeocodeNominatim(fullQuery);
+          
+          if (!result) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // Rate limit safety
+            if (p.neighborhood) result = await tryGeocodeNominatim(`${p.neighborhood}, ${cityContext}, Brazil`);
+            if (!result) result = await tryGeocodeNominatim(fullQuery, false);
+          }
 
-          const finalCoords = result ? (result as [number, number]) : getStableFallback(pId, base);
+          const finalCoords: [number, number] = result ? result : getStableFallback(pId, base);
           if (result) setGeoCache(cacheKey, finalCoords);
 
           setPassengerCoords(prev => ({ ...prev, [pId]: finalCoords }));
@@ -1002,30 +1302,40 @@ function MotoristaDashboardContent() {
             setMapZoom(15);
           }
         }
+        setIsRouting(false);
       };
       geocodeAll();
     }
   }, [selectedTrip?.firebaseId, driverData?.system]);
 
-  const handleManualSearch = async () => {
-    if (!tripSearchTerm.trim()) return;
+  const handleManualSearch = async (forcedAddress?: string, forcedCoords?: [number, number]) => {
+    const query = forcedAddress || tripSearchTerm;
+    if (!query.trim()) return;
     setManualGeocoding(true);
     setManualMarker(null);
+    if (forcedAddress) setTripSearchTerm(forcedAddress);
     
     try {
-      const sys = (driverData?.system || '').toLowerCase();
-      const isMongagua = sys.includes('mip') || sys.includes('mong');
-      const city = isMongagua ? 'Mongaguá, SP' : 'Praia Grande, SP';
-      
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(tripSearchTerm + ', ' + city + ', Brazil')}&limit=1`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'BoraDeVanApp/1.2' } });
-      const data = await res.json();
-      
-      if (data && data.length > 0) {
-        const coords: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-        setManualMarker(coords);
-        setMapCenter(coords);
+      let coords = forcedCoords;
+      if (!coords) {
+        const sys = (driverData?.system || '').toLowerCase();
+        const isMongagua = sys.includes('mip') || sys.includes('mong');
+        const city = isMongagua ? 'Mongaguá, SP' : 'Praia Grande, SP';
+        
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', ' + city + ', Brazil')}&limit=1`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'BoraDeVanApp/1.2' } });
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+          coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        }
+      }
+
+      if (coords) {
+        setManualMarker(coords as [number, number]);
+        setMapCenter(coords as [number, number]);
         setMapZoom(18);
+        setSheetState('minimized');
       } else {
         alert('Endereço não encontrado. Tente pesquisar com nome de rua e número.');
       }
@@ -1065,54 +1375,57 @@ function MotoristaDashboardContent() {
   useEffect(() => {
     if (selectedTrip && selectedTrip.passengers && Object.keys(passengerCoords).length > 0) {
       const fetchRoute = async () => {
-        // Only recalculate if user moved more than 50 meters or it's the first time
+        // Only recalculate if user moved more than 100 meters or it's the first time
         if (userLocation && lastRoutedLocation) {
           const dist = calculateDistance(userLocation, lastRoutedLocation) * 111000; // approx meters
-          if (dist < 50) return; // Skip if moved less than 50m
+          if (dist < 100) return; 
         }
 
         const pendingPassengers = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
         
-        const orderedCoords = [
-          ...(userLocation ? [userLocation] : []),
-          ...pendingPassengers
-            .map((p: any) => passengerCoords[p.id || p.name])
-            .filter(Boolean)
-        ].filter(Boolean) as [number, number][];
-
-        if (orderedCoords.length >= 2) {
+        if (pendingPassengers.length > 0 && userLocation) {
+          setIsRouting(true);
           try {
-            const osrmQuery = orderedCoords.map(c => `${c[1]},${c[0]}`).join(';');
-            const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${osrmQuery}?overview=full&geometries=geojson`);
-            
-            // Check if response is actually JSON before parsing
-            const contentType = osrmRes.headers.get("content-type");
-            if (!osrmRes.ok || !contentType || !contentType.includes("application/json")) {
-               throw new Error(`OSRM unavailable (HTTP ${osrmRes.status})`);
-            }
+            const orderedCoords = [
+              userLocation,
+              ...pendingPassengers
+                .map((p: any) => passengerCoords[p.id || p.name])
+                .filter(Boolean)
+            ].filter(Boolean) as [number, number][];
 
-            const osrmData = await osrmRes.json();
-            if (osrmData.routes && osrmData.routes.length > 0) {
-              const polyline = osrmData.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
-              setRouteGeometry(polyline);
-              if (userLocation) setLastRoutedLocation(userLocation);
+            if (orderedCoords.length >= 2) {
+              const osrmQuery = orderedCoords.map(c => `${c[1]},${c[0]}`).join(';');
+              const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${osrmQuery}?overview=full&geometries=geojson`);
+              const osrmData = await osrmRes.json();
+              
+              if (osrmData.routes && osrmData.routes.length > 0) {
+                const polyline = osrmData.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+                setRouteGeometry(polyline);
+                setLastRoutedLocation(userLocation);
+              } else {
+                setRouteGeometry(orderedCoords);
+              }
             } else {
-              setRouteGeometry(orderedCoords);
+              setRouteGeometry([]);
             }
           } catch (err) {
-            console.error("Routing error (falling back to direct lines):", err);
-            // Fallback: draw direct lines between stops if the API fails
-            setRouteGeometry(orderedCoords);
+            console.error("Routing error:", err);
+            // Fallback to straight lines
+            const directLines = [userLocation, ...pendingPassengers.map(p => passengerCoords[p.id || p.name])].filter(Boolean) as [number, number][];
+            setRouteGeometry(directLines);
+          } finally {
+            setIsRouting(false);
           }
         } else {
           setRouteGeometry([]);
+          setIsRouting(false);
         }
       };
 
-      const timer = setTimeout(fetchRoute, 500); // 500ms debounce
+      const timer = setTimeout(fetchRoute, 1000); // 1s debounce
       return () => clearTimeout(timer);
     }
-  }, [selectedTrip?.firebaseId, userLocation, passengerStatuses, passengerCoords, lastRoutedLocation]);
+  }, [selectedTrip?.firebaseId, selectedTrip?.passengers, userLocation, passengerStatuses, passengerCoords]);
 
   const handleChangePassword = async () => {
     if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
@@ -1281,15 +1594,9 @@ function MotoristaDashboardContent() {
                   key={selectedTrip.firebaseId || selectedTrip.id || 'map'}
                 >
                   <SmoothMapController center={mapCenter} zoom={mapZoom} />
-                  {shouldFitBounds && <FitBounds coords={[
-                    ...(userLocation ? [userLocation] : []),
-                    ...Object.values(passengerCoords)
-                  ]} />}
                   <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    updateWhenIdle={false}
-                    keepBuffer={16}
                   />
                   
                   {/* User Location */}
@@ -1297,8 +1604,8 @@ function MotoristaDashboardContent() {
                     <>
                       <Circle 
                         center={userLocation} 
-                        radius={150} 
-                        pathOptions={{ color: '#60a5fa', fillColor: '#60a5fa', fillOpacity: 0.1, weight: 1 }} 
+                        radius={100} 
+                        pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1 }} 
                       />
                       <Marker 
                         position={userLocation} 
@@ -1316,7 +1623,7 @@ function MotoristaDashboardContent() {
                     </>
                   )}
 
-                  {/* Routing Polyline with Glow */}
+                  {/* Routing Polyline */}
                   {routeGeometry.length > 0 && (
                     <>
                       <Polyline 
@@ -1330,34 +1637,20 @@ function MotoristaDashboardContent() {
                     </>
                   )}
                   
-                  {/* Fallback straight lines with Glow */}
-                  {routeGeometry.length === 0 && selectedTrip.passengers && (
-                    <>
-                      <Polyline 
-                        positions={[
-                          ...(userLocation ? [userLocation] : []),
-                          ...selectedTrip.passengers
-                            .filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending')
-                            .map((p: any) => passengerCoords[p.id || p.name])
-                            .filter(Boolean) as [number, number][]
-                        ]}
-                        pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.3, dashArray: '8, 12' }}
-                      />
-                    </>
-                  )}
-                  
+                  {/* Passenger Markers */}
                   {selectedTrip.passengers?.map((p: any, idx: number) => {
                     const coords = passengerCoords[p.id || p.name];
                     if (!coords) return null;
                     
                     const status = passengerStatuses[p.id || p.name] || 'pending';
                     const color = status === 'delivered' ? '#10b981' : status === 'canceled' ? '#ef4444' : '#2563eb';
-                    
+                    const isRouted = routeOptimized && !isRouting;
+
                     return (
                       <Marker 
-                        key={idx} 
-                        position={coords} 
-                        icon={createNumberedIcon(idx + 1, color)}
+                        key={p.id || p.name || idx}
+                        position={coords}
+                        icon={isRouted ? createNumberedIcon(idx + 1, color) : createPlusIcon(color)}
                         eventHandlers={{
                           click: () => {
                             setSelectedPassenger(p);
@@ -1384,7 +1677,7 @@ function MotoristaDashboardContent() {
                       <Popup>
                         <div className="p-2">
                           <p className="font-bold text-slate-900 mb-1">Resultado da Busca</p>
-                          <p className="text-xs text-slate-600">{tripSearchTerm}</p>
+                          <p className="text-xs text-slate-600 font-bold">{tripSearchTerm}</p>
                           <button 
                             onClick={() => setManualMarker(null)}
                             className="text-xs text-red-500 font-bold mt-2"
@@ -1396,6 +1689,29 @@ function MotoristaDashboardContent() {
                     </Marker>
                   )}
                 </MapContainer>
+
+                {/* Loading Overlay for Routing */}
+                <AnimatePresence>
+                  {isRouting && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 z-[100] bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center pointer-events-none"
+                    >
+                      <div className="bg-slate-900/90 border border-white/10 p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                          <Navigation className="absolute inset-0 m-auto text-blue-400 rotate-45" size={16} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-white font-bold text-sm tracking-tight">Roteirizando Rota</p>
+                          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest mt-1">Calculando melhor caminho...</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Map Controls */}
                 <div className="absolute right-4 top-24 z-10 flex flex-col gap-2">
@@ -1493,10 +1809,37 @@ function MotoristaDashboardContent() {
                         className="space-y-6"
                       >
                         <div className="flex items-start justify-between">
-                          <div>
-                            <h2 className="text-2xl font-bold text-white leading-tight">
-                              {selectedPassenger.address || selectedPassenger.neighborhood}
-                            </h2>
+                          <div className="flex-1">
+                            {isEditingAddress ? (
+                              <AddressAutocomplete 
+                                value={editingAddressValue}
+                                onChange={setEditingAddressValue}
+                                onSelect={(addr, neigh, coords) => {
+                                  handleUpdateAddress(selectedPassenger.id || selectedPassenger.name, addr, neigh, coords);
+                                }}
+                                onClose={() => {
+                                  setIsEditingAddress(false);
+                                  setEditingAddressValue("");
+                                }}
+                                placeholder="Novo endereço..."
+                              />
+                            ) : (
+                              <div 
+                                className="group cursor-pointer"
+                                onClick={() => {
+                                  setEditingAddressValue(selectedPassenger.address || selectedPassenger.neighborhood);
+                                  setIsEditingAddress(true);
+                                }}
+                              >
+                                <div className="flex items-center gap-2 mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Pencil size={12} className="text-blue-400" />
+                                  <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Toque para editar</span>
+                                </div>
+                                <h2 className="text-2xl font-bold text-white leading-tight group-hover:text-blue-400 transition-colors">
+                                  {selectedPassenger.address || selectedPassenger.neighborhood}
+                                </h2>
+                              </div>
+                            )}
                             <div className="flex items-center gap-2 mt-2">
                               <div className="w-2 h-2 bg-blue-500 rounded-full" />
                               <span className="text-xs text-slate-400 font-medium">
@@ -1504,12 +1847,14 @@ function MotoristaDashboardContent() {
                               </span>
                             </div>
                           </div>
-                          <button 
-                            onClick={() => setSelectedPassenger(null)}
-                            className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                          >
-                            <X size={20} />
-                          </button>
+                          {!isEditingAddress && (
+                            <button 
+                              onClick={() => setSelectedPassenger(null)}
+                              className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors ml-4 shrink-0"
+                            >
+                              <X size={20} />
+                            </button>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-3 gap-3">
@@ -1609,22 +1954,18 @@ function MotoristaDashboardContent() {
                         exit={{ opacity: 0, x: 20 }}
                       >
                         <div className="relative mb-6">
-                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                          <input 
-                            type="text"
-                            placeholder="Buscar passageiro ou Digitar rua e nº..."
+                          <AddressAutocomplete 
                             value={tripSearchTerm}
-                            onChange={(e) => setTripSearchTerm(e.target.value)}
-                            onKeyDown={(e) => {
-                               if (e.key === 'Enter') handleManualSearch();
-                            }}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-12 text-sm text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
+                            onChange={(val) => setTripSearchTerm(val)}
+                            onSelect={(addr, neigh, coords) => handleManualSearch(addr, coords)}
+                            onClose={() => setTripSearchTerm("")}
+                            placeholder="Buscar passageiro ou Endereço..."
                           />
                           <button 
-                             onClick={handleManualSearch}
+                             onClick={() => handleManualSearch()}
                              disabled={manualGeocoding}
-                             className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                               manualGeocoding ? 'bg-slate-800 text-slate-600' : 'bg-blue-600/20 text-blue-400 active:scale-90 hover:bg-blue-600/30'
+                             className={`absolute right-2 top-1.5 w-10 h-10 rounded-xl flex items-center justify-center transition-all z-[10] ${
+                                manualGeocoding ? 'bg-slate-800 text-slate-600' : 'bg-blue-600/20 text-blue-400 active:scale-90 hover:bg-blue-600/30'
                              }`}
                           >
                             {manualGeocoding ? (
@@ -1635,75 +1976,131 @@ function MotoristaDashboardContent() {
                           </button>
                         </div>
 
-                        <div className="mb-6">
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
-                            {selectedTrip.passengers.length} paradas • {selectedTrip.time}
-                          </p>
-                          <h2 className="text-3xl font-bold text-white">Rota de hoje</h2>
+                        <div className="mb-6 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
+                              {selectedTrip.passengers.length} paradas • {selectedTrip.time}
+                            </p>
+                            <h2 className="text-3xl font-bold text-white">Rota de hoje</h2>
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                setIsRouting(true);
+                                const pending = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') === 'pending');
+                                const completed = selectedTrip.passengers.filter((p: any) => (passengerStatuses[p.id || p.name] || 'pending') !== 'pending');
+                                
+                                const optimizedPending = await smartOptimizeTask(pending, passengerCoords, userLocation || mapCenter, stopPreferences);
+                                setSelectedTrip({ ...selectedTrip, passengers: [...completed, ...optimizedPending] });
+                                setRouteOptimized(true);
+                                setIsRouting(false);
+                              }}
+                              className="p-3 bg-blue-600 text-white rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                              title="Otimizar Rota Automatimente"
+                            >
+                              <ListOrdered size={20} />
+                              <span className="text-[10px] font-bold uppercase tracking-tight">Otimizar</span>
+                            </button>
+                            <button 
+                              onClick={() => setIsReorderMode(!isReorderMode)}
+                              className={`p-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2 ${isReorderMode ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-300'}`}
+                            >
+                              {isReorderMode ? <Check size={20} /> : <GripVertical size={20} />}
+                              <span className="text-[10px] font-bold uppercase tracking-tight">{isReorderMode ? 'Pronto' : 'Organizar'}</span>
+                            </button>
+                          </div>
                         </div>
 
                         <div className="space-y-6">
                           <div className="relative pl-6 border-l-2 border-slate-800 ml-1 space-y-8">
-                            <div className="relative">
-                              <div className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-600 rounded-full border-4 border-slate-950" />
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <p className="text-sm font-bold text-white">Ponto de partida</p>
-                                  <p className="text-[10px] text-slate-500">Posição do GPS usada ao otimizar</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-[10px] text-slate-500 font-bold uppercase">{selectedTrip.time}</p>
+                            {!isReorderMode && (
+                              <div className="relative">
+                                <div className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-600 rounded-full border-4 border-slate-950" />
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="text-sm font-bold text-white">Sua localização</p>
+                                    <p className="text-[10px] text-slate-500">Ponto de partida atual</p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
 
-                            {selectedTrip.passengers?.filter((p: any) => {
-                              if (!tripSearchTerm) return true;
-                              const lower = tripSearchTerm.toLowerCase();
-                              return (p.name || '').toLowerCase().includes(lower) || 
-                                     (p.address || '').toLowerCase().includes(lower) || 
-                                     (p.neighborhood || '').toLowerCase().includes(lower);
-                            }).map((passenger: any, idx: number) => {
-                              const status = passengerStatuses[passenger.id || passenger.name] || 'pending';
-                              return (
-                                <div 
-                                  key={passenger.id || passenger.name} 
-                                  className="relative cursor-pointer group"
-                                  onClick={() => {
-                                    setSelectedPassenger(passenger);
-                                    const coords = passengerCoords[passenger.id || passenger.name];
-                                    if (coords) {
-                                      setMapCenter(coords);
-                                      setMapZoom(18);
-                                    }
-                                  }}
+                            {isReorderMode ? (
+                              <DndContext 
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
+                              >
+                                <SortableContext 
+                                  items={selectedTrip.passengers.map((p: any) => p.id || p.name)}
+                                  strategy={verticalListSortingStrategy}
                                 >
-                                  <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-slate-950 ${
-                                    status === 'delivered' ? 'bg-green-500' : status === 'canceled' ? 'bg-red-500' : 'bg-slate-700'
-                                  }`} />
-                                  <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0 pr-4">
-                                      <p className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">
-                                        {passenger.address || passenger.neighborhood}
-                                      </p>
-                                      <p className="text-[10px] text-slate-500 truncate">
-                                        {passenger.neighborhood}, {(!driverData?.system || driverData.system.toLowerCase().includes('pg') || driverData.system.toLowerCase().includes('praia')) ? 'Praia Grande' : 'Mongaguá'}
-                                      </p>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-2">
-                                      <p className="text-[10px] text-blue-400 font-bold uppercase">{arrivalEstimates[passenger.id || passenger.name] || selectedTrip.time}</p>
-                                      <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 ${
-                                        status === 'delivered' ? 'bg-green-500/20 text-green-400' : 
-                                        status === 'canceled' ? 'bg-red-500/20 text-red-400' : 
-                                        'bg-slate-800 text-slate-500'
-                                      }`}>
-                                        ID {idx + 1} {status === 'delivered' && <Check size={10} />}
+                                  {selectedTrip.passengers.map((passenger: any) => (
+                                    <SortablePassengerItem 
+                                      key={passenger.id || passenger.name}
+                                      passenger={passenger}
+                                      onWhatsApp={(p) => openWhatsApp(p)}
+                                      onNavigate={(p) => openNavigation(navApp, p.address || p.neighborhood)}
+                                      navApp={navApp}
+                                      tripStarted={tripStarted}
+                                      status={passengerStatuses[passenger.id || passenger.name] || 'pending'}
+                                      onStatusChange={handleStatusChange}
+                                      onRevert={handleRevertStatus}
+                                    />
+                                  ))}
+                                </SortableContext>
+                              </DndContext>
+                            ) : (
+                              selectedTrip.passengers?.filter((p: any) => {
+                                if (!tripSearchTerm) return true;
+                                const lower = tripSearchTerm.toLowerCase();
+                                return (p.name || '').toLowerCase().includes(lower) || 
+                                       (p.address || '').toLowerCase().includes(lower) || 
+                                       (p.neighborhood || '').toLowerCase().includes(lower);
+                              }).map((passenger: any, idx: number) => {
+                                const status = passengerStatuses[passenger.id || passenger.name] || 'pending';
+                                return (
+                                  <div 
+                                    key={passenger.id || passenger.name} 
+                                    className="relative cursor-pointer group"
+                                    onClick={() => {
+                                      setSelectedPassenger(passenger);
+                                      setIsEditingAddress(false);
+                                      setEditingAddressValue("");
+                                      const coords = passengerCoords[passenger.id || passenger.name];
+                                      if (coords) {
+                                        setMapCenter(coords);
+                                        setMapZoom(18);
+                                      }
+                                    }}
+                                  >
+                                    <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-slate-950 ${
+                                      status === 'delivered' ? 'bg-green-500' : status === 'canceled' ? 'bg-red-500' : 'bg-slate-700'
+                                    }`} />
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1 min-w-0 pr-4">
+                                        <p className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors">
+                                          {passenger.address || passenger.neighborhood}
+                                        </p>
+                                        <p className="text-[10px] text-slate-500 truncate">
+                                          {passenger.neighborhood}, {(!driverData?.system || driverData.system.toLowerCase().includes('pg') || driverData.system.toLowerCase().includes('praia')) ? 'Praia Grande' : 'Mongaguá'}
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-2">
+                                        <p className="text-[10px] text-blue-400 font-bold uppercase">{arrivalEstimates[passenger.id || passenger.name] || selectedTrip.time}</p>
+                                        <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold flex items-center gap-1 ${
+                                          status === 'delivered' ? 'bg-green-500/20 text-green-400' : 
+                                          status === 'canceled' ? 'bg-red-500/20 text-red-400' : 
+                                          'bg-slate-800 text-slate-500'
+                                        }`}>
+                                          ID {idx + 1} {status === 'delivered' && <Check size={10} />}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })
+                            )}
                           </div>
                         </div>
                       </motion.div>

@@ -669,6 +669,16 @@ const AppContent = () => {
     // Listener de Assinatura Global
     useEffect(() => {
         if (!db || !user) return;
+
+        // Tenta sincronizar com o Stripe ao entrar (apenas para admins Reais)
+        if (user.role === 'admin' && !user.isImpersonated) {
+            fetch('/api/sync-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.uid, systemContext })
+            }).catch(e => console.error("Erro ao sincronizar assinatura:", e));
+        }
+
         const subRef = db.ref('system_settings/subscription');
         const unsub = subRef.on('value', (snap) => {
             const data = snap.val();
