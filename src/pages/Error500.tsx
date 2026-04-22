@@ -28,7 +28,7 @@ export default function Error500() {
              >
                 <div className="w-48 h-48 md:w-64 md:h-64 mx-auto flex items-center justify-center">
                     <img 
-                      src="/BDV.webp" 
+                      src="/BDV.png" 
                       alt="Erro no Motor" 
                       className="w-full h-full object-contain opacity-50 grayscale contrast-125"
                       referrerPolicy="no-referrer"

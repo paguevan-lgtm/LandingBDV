@@ -6,28 +6,9 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import admin from 'firebase-admin';
-import { createServer as createViteServer } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Initialize Firebase Admin
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    try {
-        const saText = process.env.FIREBASE_SERVICE_ACCOUNT.startsWith('{') 
-            ? process.env.FIREBASE_SERVICE_ACCOUNT 
-            : Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString();
-        const serviceAccount = JSON.parse(saText);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            databaseURL: "https://boradevan-546c3-default-rtdb.firebaseio.com"
-        });
-        console.log("Firebase Admin initialized successfully.");
-    } catch (e) {
-        console.error("Error initializing Firebase Admin:", e);
-    }
-}
 
 // Stripe Configuration
 let stripeClient: Stripe | null = null;
@@ -133,67 +114,20 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
     }
 }
 
-// Helper functions for Firebase Database operations (prioritizes Admin SDK)
-async function fbGet(path: string) {
-    if (admin.apps.length > 0) {
-        const snapshot = await admin.database().ref(path).once('value');
-        return snapshot.val();
-    }
-    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-    const res = await fetchWithRetry(url);
-    return res.json();
-}
-
-async function fbUpdate(path: string, data: any) {
-    if (admin.apps.length > 0) {
-        await admin.database().ref(path).update(data);
-        return { ok: true, status: 200, json: async () => ({ success: true }) };
-    }
-    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-    return fetchWithRetry(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-}
-
-async function fbSet(path: string, data: any) {
-    if (admin.apps.length > 0) {
-        await admin.database().ref(path).set(data);
-        return { ok: true, status: 200, json: async () => ({ success: true }) };
-    }
-    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-    return fetchWithRetry(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-}
-
-async function fbPush(path: string, data: any) {
-    if (admin.apps.length > 0) {
-        const newRef = await admin.database().ref(path).push(data);
-        return { ok: true, status: 200, key: newRef.key, json: async () => ({ success: true, name: newRef.key }) };
-    }
-    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-    return fetchWithRetry(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-}
-
 // Helper function to update system subscription status in Firebase RTDB
 async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string, isRecurringFromPayment: boolean = true) {
-    const systemPath = 'system_settings/subscription';
+    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+    
+    // We update the global system settings, not the individual user
+    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+    if (dbSecret) {
+        systemUrl += `?auth=${dbSecret}`;
+    }
 
     try {
         // Fetch current system subscription data
-        const sysData = await fbGet(systemPath) || {};
+        const sysRes = await fetchWithRetry(systemUrl);
+        const sysData = await sysRes.json() || {};
         
         if (sysData.lastPaymentId === mpId && status === 'active') {
             console.log(`Payment ${mpId} already processed, skipping update.`);
@@ -251,10 +185,14 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             }
         }
 
-        const response = await fbUpdate(systemPath, updates);
+        const response = await fetchWithRetry(systemUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
         
         if (!response.ok) {
-            console.error('Failed to update Firebase subscription status');
+            console.error('Failed to update Firebase via REST. Status:', response.status, await response.text());
             return false;
         } else {
             console.log(`Updated system subscription for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
@@ -268,8 +206,11 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
 
 // Helper to log actions to audit_logs
 async function logAction(action: string, details: string, username: string = 'Sistema') {
-    if (username === 'Breno') return;
     try {
+        const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+        const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+        const logUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/audit_logs.json${authParam}`;
+        
         const logEntry = {
             username,
             action,
@@ -278,7 +219,11 @@ async function logAction(action: string, details: string, username: string = 'Si
             date: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }).split('/').reverse().join('-')
         };
 
-        await fbPush('audit_logs', logEntry);
+        await fetchWithRetry(logUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(logEntry)
+        });
     } catch (e) {
         console.error("Error logging action in server:", e);
     }
@@ -286,7 +231,6 @@ async function logAction(action: string, details: string, username: string = 'Si
 
 async function startServer() {
     const app = express();
-    app.set('trust proxy', 1); // Trust first proxy (Cloud Run / AI Studio setup)
     const PORT = Number(process.env.PORT) || 3000;
 
     // Use JSON parser for all non-webhook routes
@@ -320,20 +264,15 @@ async function startServer() {
 
             // 1. Check if device is trusted FIRST (to skip token request and rate limits)
             if (type === 'login' && uid && deviceId) {
+                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                
                 try {
-                    const trustData = await fbGet(`trusted_devices/${uid}/${deviceId}`);
+                    const trustRes = await fetchWithRetry(trustedUrl);
+                    const trustData = await trustRes.json();
                     
                     if (trustData && trustData.expiresAt && Date.now() < trustData.expiresAt) {
-                        // Also return custom token if trusted
-                        let customToken = null;
-                        if (admin.apps.length > 0) {
-                            try {
-                                customToken = await admin.auth().createCustomToken(uid);
-                            } catch (e) {
-                                console.error("Error creating custom token for trusted device:", e);
-                            }
-                        }
-                        return res.json({ success: true, trusted: true, message: 'Device trusted', customToken });
+                        return res.json({ success: true, trusted: true, message: 'Device trusted' });
                     }
                 } catch (e) {
                     console.error("Error checking trusted device:", e);
@@ -387,19 +326,14 @@ async function startServer() {
             loginTokens.set(email.toLowerCase(), { token, expires });
 
             const transporter = nodemailer.createTransport({
-                host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
+                host: (process.env.EMAIL_HOST && !process.env.EMAIL_HOST.includes('@')) ? process.env.EMAIL_HOST : 'smtp.hostinger.com',
                 port: parseInt(process.env.EMAIL_PORT || '465'),
-                secure: process.env.EMAIL_SECURE !== 'false',
+                secure: true,
                 auth: {
-                    user: process.env.EMAIL_USER,
-                    pass: process.env.EMAIL_PASS
+                    user: process.env.EMAIL_USER || 'suporte@painel.boradevan.com.br',
+                    pass: process.env.EMAIL_PASS || '15744751@Bb'
                 }
             });
-
-            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-                console.error("[SECURITY] Tentativa de envio de e-mail falhou: Credenciais não configuradas (EMAIL_USER/EMAIL_PASS)");
-                return res.status(500).json({ error: 'Configuração de e-mail ausente no servidor. Contate o administrador.' });
-            }
 
             const userName = name ? name : 'Usuário';
             let subject = 'Código de Acesso';
@@ -551,34 +485,18 @@ async function startServer() {
         loginTokens.delete(email.toLowerCase());
         tokenAttempts.delete(email.toLowerCase());
 
-        let firebaseCustomToken = null;
-        if (uid && admin.apps.length > 0) {
-            try {
-                // Fallback role logic if DB is inaccessible
-                let userRole = email.toLowerCase() === 'breno0452@gmail.com' ? 'admin' : 'operador';
-                
-                try {
-                    const userSnapshot = await admin.database().ref(`users/${uid}`).once('value');
-                    const userData = userSnapshot.val();
-                    if (userData && userData.role) {
-                        userRole = userData.role;
-                    }
-                } catch (dbErr) {
-                    console.warn("[AUTH] Could not fetch role from DB, using default:", userRole);
-                }
-                
-                firebaseCustomToken = await admin.auth().createCustomToken(uid, { role: userRole });
-                console.log(`[AUTH] Token generated for ${email} with role ${userRole}`);
-            } catch (e) {
-                console.error("Error creating custom token:", e);
-            }
-        }
-
         if (uid && deviceId) {
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            
             try {
-                await fbSet(`trusted_devices/${uid}/${deviceId}`, {
-                    expiresAt: Date.now() + 12 * 60 * 60 * 1000,
-                    lastUsed: Date.now()
+                await fetchWithRetry(trustedUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+                        lastUsed: Date.now()
+                    })
                 });
             } catch (e) {
                 console.error("Error registering trusted device:", e);
@@ -592,92 +510,7 @@ async function startServer() {
             expires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
         });
 
-        res.json({ success: true, sessionToken, customToken: firebaseCustomToken });
-    });
-
-    app.post('/api/find-users', async (req, res) => {
-        const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-
-        try {
-            const users = await fbGet('users');
-            
-            const matchingUsers: any[] = [];
-            if (users) {
-                const usernameTrimmed = username.trim().toLowerCase();
-                Object.keys(users).forEach(key => {
-                    const user = users[key];
-                    if (user && user.username && user.pass && user.username.toLowerCase() === usernameTrimmed && user.pass === password) {
-                        const isBreno = user.username === 'Breno';
-                        if (user.systems && Array.isArray(user.systems)) {
-                            user.systems.forEach((sys: string) => {
-                                if (sys === 'Mistura' && !isBreno) return;
-                                matchingUsers.push({
-                                    uid: key,
-                                    username: user.username,
-                                    role: user.role,
-                                    displayName: isBreno ? 'Sistema' : user.username,
-                                    system: sys,
-                                    email: user.email,
-                                    systems: user.systems,
-                                    createdBy: user.createdBy
-                                });
-                            });
-                        } else {
-                            if (user.system === 'Mistura' && !isBreno) return;
-                            matchingUsers.push({
-                                uid: key,
-                                username: user.username,
-                                role: user.role,
-                                displayName: isBreno ? 'Sistema' : user.username,
-                                system: user.system,
-                                email: user.email,
-                                createdBy: user.createdBy
-                            });
-                        }
-                    }
-                });
-            }
-            res.json({ users: matchingUsers });
-        } catch (error) {
-            console.error("Error finding users:", error);
-            res.status(500).json({ error: "Erro interno ao buscar usuários" });
-        }
-    });
-
-    app.post('/api/find-user-for-recovery', async (req, res) => {
-        const { input } = req.body;
-        if (!input) return res.status(400).json({ error: 'Input required' });
-
-        try {
-            const users = await fbGet('users');
-            
-            if (users) {
-                const trimmedInput = input.trim().toLowerCase();
-                for (const key of Object.keys(users)) {
-                    const u = users[key];
-                    if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'breno0452@gmail.com') {
-                        continue;
-                    }
-
-                    if (u.username?.toLowerCase() === trimmedInput || u.email?.toLowerCase() === trimmedInput) {
-                        return res.json({ 
-                            success: true, 
-                            user: {
-                                uid: key,
-                                username: u.username,
-                                displayName: u.displayName || u.username,
-                                email: u.email
-                            }
-                        });
-                    }
-                }
-            }
-            res.status(404).json({ error: "Usuário não encontrado" });
-        } catch (error) {
-            console.error("Error finding user for recovery:", error);
-            res.status(500).json({ error: "Erro interno" });
-        }
+        res.json({ success: true, sessionToken });
     });
 
     async function findExistingPassenger(name: string, phone: string, address: string, authParam: string, fingerprint?: string) {
@@ -686,21 +519,14 @@ async function startServer() {
         const normalizedPhone = phone.replace(/\D/g, '');
 
         try {
-            const results = await Promise.all(systems.map(async sys => {
-                let data: any = null;
-                if (admin.apps.length > 0) {
-                    const path = sys === 'Pg' ? 'passengers' : `${sys}/passengers`;
-                    const snapshot = await admin.database().ref(path).once('value');
-                    data = snapshot.val();
-                } else {
-                    let url = `https://boradevan-546c3-default-rtdb.firebaseio.com/`;
-                    if (sys === 'Pg') url += `passengers.json${authParam}`;
-                    else url += `${sys}/passengers.json${authParam}`;
-                    const res = await fetchWithRetry(url);
-                    data = await res.json();
-                }
-                return { system: sys, data };
-            }));
+            const promises = systems.map(sys => {
+                let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+                if (sys === 'Pg') url += `passengers.json${authParam}`;
+                else url += `${sys}/passengers.json${authParam}`;
+                return fetchWithRetry(url).then(r => r.json().then(data => ({ system: sys, data })));
+            });
+
+            const results = await Promise.all(promises);
 
             for (const result of results) {
                 const passengers = result.data;
@@ -809,8 +635,9 @@ async function startServer() {
             } else {
                 // 3. Get the last passenger ID to continue sequence
                 try {
-                    const allPassPath = `${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers`;
-                    const allPassData = await fbGet(allPassPath);
+                    const allPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
+                    const allPassRes = await fetchWithRetry(allPassUrl);
+                    const allPassData = await allPassRes.json();
                     
                     let maxSiteId = 0;
                     if (allPassData && typeof allPassData === 'object') {
@@ -855,11 +682,22 @@ async function startServer() {
             passengerData.isSiteBooking = true;
 
             // 5. Save to Firebase
-            const savePath = systemToSave === 'Pg' ? `passengers/${firebaseKey}` : `${systemToSave}/passengers/${firebaseKey}`;
-            const response = await fbSet(savePath, passengerData);
+            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            if (systemToSave === 'Pg') {
+                url += `passengers/${firebaseKey}.json${authParam}`;
+            } else {
+                url += `${systemToSave}/passengers/${firebaseKey}.json${authParam}`;
+            }
+
+            const response = await fetchWithRetry(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(passengerData)
+            });
 
             if (!response.ok) {
-                console.error('Failed to create booking in Firebase');
+                const errorText = await response.text();
+                console.error('Failed to create booking in Firebase. Status:', response.status, errorText);
                 return res.status(500).json({ error: 'Failed to create booking' });
             }
 
@@ -868,7 +706,7 @@ async function startServer() {
 
             // 5. Push notification for real-time alerts in the panel
             try {
-                const notificationPath = 'site_notifications';
+                const notificationUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/site_notifications.json${authParam}`;
                 const notificationData = {
                     id: Date.now().toString(),
                     type: 'new_booking',
@@ -879,9 +717,14 @@ async function startServer() {
                     read: false
                 };
 
-                await fbPush(notificationPath, notificationData);
+                await fetchWithRetry(notificationUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(notificationData)
+                });
             } catch (notifError) {
                 console.error('Failed to push notification:', notifError);
+                // Don't fail the request if notification fails
             }
 
             res.json({ success: true, id: displayId, system: systemToSave });
@@ -901,12 +744,23 @@ async function startServer() {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
             const authParam = dbSecret ? `?auth=${dbSecret}` : '';
             const firebaseKey = id.replace(' #', '_');
-            const updatePath = system === 'Pg' ? `passengers/${firebaseKey}` : `${system}/passengers/${firebaseKey}`;
+            
+            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            if (system === 'Pg') {
+                url += `passengers/${firebaseKey}.json${authParam}`;
+            } else {
+                url += `${system}/passengers/${firebaseKey}.json${authParam}`;
+            }
 
-            const response = await fbUpdate(updatePath, { phone });
+            const response = await fetchWithRetry(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
 
             if (!response.ok) {
-                console.error('Failed to update phone in Firebase');
+                const errorText = await response.text();
+                console.error('Failed to update phone in Firebase. Status:', response.status, errorText);
                 return res.status(500).json({ error: 'Failed to update phone' });
             }
 
@@ -944,7 +798,11 @@ async function startServer() {
                     );
                     
                     if (updateSuccess) {
-                        const sysData = await fbGet('system_settings/subscription') || {};
+                        const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                        if (dbSecret) systemUrl += `?auth=${dbSecret}`;
+                        const sysRes = await fetchWithRetry(systemUrl);
+                        const sysData = await sysRes.json() || {};
                         let expiresAt = sysData.expiresAt;
                         if (systemContext && systemContext !== 'Mistura') {
                             expiresAt = sysData[`expiresAt_${systemContext}`];
@@ -964,67 +822,6 @@ async function startServer() {
                 }
             }
             res.json({ success: false, status: session.payment_status });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/renew-custom-token', async (req, res) => {
-        try {
-            const authHeader = req.headers.authorization;
-            if (!authHeader) return res.status(401).json({ error: 'Authorization header missing' });
-
-            const token = authHeader.split(' ')[1];
-            const session = apiSessionTokens.get(token);
-            
-            if (!session || Date.now() > session.expires) {
-                return res.status(401).json({ error: 'Session expired or invalid' });
-            }
-
-            // Find user in DB to get their UID
-            const users = await fbGet('users');
-            let userUid = null;
-            let userRole = session.email === 'breno0452@gmail.com' ? 'admin' : 'operador';
-            if (users) {
-                Object.keys(users).forEach(key => {
-                    if (users[key].email?.toLowerCase() === session.email) {
-                        userUid = key;
-                        userRole = users[key].role || userRole;
-                    }
-                });
-            }
-
-            if (!userUid) {
-                // Check USERS_DB as fallback
-                const localUser = USERS_DB.find(u => u.email?.toLowerCase() === session.email);
-                if (localUser) {
-                    userUid = 'local_' + localUser.username;
-                    userRole = localUser.role || userRole;
-                }
-            }
-
-            if (!userUid) return res.status(404).json({ error: 'User not found' });
-
-            const customToken = await admin.auth().createCustomToken(userUid, { role: userRole });
-            res.json({ customToken });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/sync-subscription', async (req, res) => {
-        try {
-            const { userId, systemContext } = req.body;
-            if (!userId) return res.status(400).json({ error: 'userId required' });
-
-            // In a real app, we would verify with Stripe here
-            // For now, we just ensure the Firebase state reflects what we have in the system_settings
-            const sysData = await fbGet('system_settings/subscription') || {};
-            
-            // This endpoint is mainly to ensure the frontend has a valid way to trigger a "refresh" of subscription state from server to DB
-            // Or to verify against Stripe if there's an inconsistency.
-            
-            res.json({ success: true, synced: true });
         } catch (error: any) {
             res.status(500).json({ error: error.message });
         }

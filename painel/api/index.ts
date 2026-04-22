@@ -48,7 +48,7 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
     // We update the global system settings, not the individual user
-    let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
     if (dbSecret) {
         systemUrl += `?auth=${dbSecret}`;
     }
@@ -311,7 +311,7 @@ async function startServer() {
                     if (updateSuccess) {
                         // Fetch the updated expiration date to send back
                         const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                        let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                         if (dbSecret) systemUrl += `?auth=${dbSecret}`;
                         const sysRes = await fetchWithRetry(systemUrl);
                         const sysData = await sysRes.json() || {};
@@ -355,7 +355,7 @@ async function startServer() {
 
             // Save the subscription email to Firebase
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }
@@ -434,7 +434,7 @@ async function startServer() {
 
             // Check if user is admin
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const userUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             const userRes = await fetchWithRetry(userUrl);
             const userData = await userRes.json();
             
@@ -443,7 +443,7 @@ async function startServer() {
             }
 
             // Fetch current system subscription data to get the subscription ID
-            let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }
@@ -659,7 +659,7 @@ async function startServer() {
                 
                 // Update Firebase
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};
@@ -685,7 +685,7 @@ async function startServer() {
             } else {
                 // No active subscription found, ensure auto-renewal is off
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};

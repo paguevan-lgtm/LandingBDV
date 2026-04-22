@@ -2,14 +2,14 @@
 const firebase = (window as any).firebase;
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDn_xnhOl9oxHrY5CMDCujVtt8edh8dexQ",
-  authDomain: "boradevan-546c3.firebaseapp.com",
-  databaseURL: "https://boradevan-546c3-default-rtdb.firebaseio.com",
-  projectId: "boradevan-546c3",
-  storageBucket: "boradevan-546c3.firebasestorage.app",
-  messagingSenderId: "1013849550765",
-  appId: "1:1013849550765:web:9e41ed68858fb02e80fb24",
-  measurementId: "G-M52ZYDNDMG"
+  apiKey: "AIzaSyBTF5M7HcFIvF_TbFqpG7zMjh29AXP1zzM",
+  authDomain: "lotacao-753a1.firebaseapp.com",
+  databaseURL: "https://lotacao-753a1-default-rtdb.firebaseio.com",
+  projectId: "lotacao-753a1",
+  storageBucket: "lotacao-753a1.firebasestorage.app",
+  messagingSenderId: "755549088369",
+  appId: "1:755549088369:web:6182fc39adbd73ea4789d0",
+  measurementId: "G-3KWB2PQMCN"
 };
 
 let db: any;
