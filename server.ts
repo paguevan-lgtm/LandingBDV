@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1173,6 +1174,33 @@ async function startServer() {
 
         app.use('/painel', vitePainel.middlewares);
         app.use(viteRoot.middlewares);
+
+        // History Fallback for SPAs in Development
+        app.get(['/painel', '/painel/*'], async (req, res, next) => {
+            if (req.originalUrl.includes('.') || req.originalUrl.includes('/api/')) return next();
+            try {
+                const url = req.originalUrl;
+                let template = await fs.readFile(path.resolve(__dirname, 'painel/index.html'), 'utf-8');
+                template = await vitePainel.transformIndexHtml(url, template);
+                res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+            } catch (e) {
+                console.error('[Vite] Fallback Error (Painel):', e);
+                next(e);
+            }
+        });
+
+        app.get('*', async (req, res, next) => {
+            if (req.originalUrl.includes('.') || req.originalUrl.includes('/api/')) return next();
+            try {
+                const url = req.originalUrl;
+                let template = await fs.readFile(path.resolve(__dirname, 'index.html'), 'utf-8');
+                template = await viteRoot.transformIndexHtml(url, template);
+                res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+            } catch (e) {
+                console.error('[Vite] Fallback Error (Root):', e);
+                next(e);
+            }
+        });
     } else {
         // Production Static Serving
         // Painel
