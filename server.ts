@@ -12,6 +12,16 @@ import admin from 'firebase-admin';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Global Uncaught Exception Handlers
+process.on('uncaughtException', (err) => {
+    console.error('[UNCAUGHT_EXCEPTION] FATAL ERROR:', err);
+    // In production, we don't want to exit immediately if possible, but for diagnostic we log it
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[UNHANDLED_REJECTION] Promise:', promise, 'Reason:', reason);
+});
+
 // Initialize Firebase Admin
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
@@ -307,6 +317,11 @@ async function startServer() {
     // Health check
     app.get('/api/health', (req, res) => {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    // Test route for root to debug 503
+    app.get('/test-server', (req, res) => {
+        res.send('Server is responding correctly on boradevan.com.br');
     });
 
     // API Routes
@@ -1199,21 +1214,50 @@ async function startServer() {
         app.use(viteRoot.middlewares);
     } else {
         // Production Static Serving
+        const painelDist = path.resolve(__dirname, 'painel/dist');
+        const rootDist = path.resolve(__dirname, 'dist');
+
+        console.log(`[BUILD_PATHS] Painel: ${painelDist}`);
+        console.log(`[BUILD_PATHS] Root: ${rootDist}`);
+
         // Painel
-        app.use('/painel', express.static(path.resolve(__dirname, 'painel/dist')));
+        app.use('/painel', express.static(painelDist));
         app.get('/painel/*', (req, res) => {
-            res.sendFile(path.resolve(__dirname, 'painel/dist/index.html'));
+            const indexPath = path.join(painelDist, 'index.html');
+            res.sendFile(indexPath, (err) => {
+                if (err) {
+                    console.error("[ERROR] Failed to send painel index.html", err);
+                    res.status(404).send("Painel não encontrado. Execute 'npm run build' no servidor.");
+                }
+            });
         });
 
         // Root
-        app.use(express.static(path.resolve(__dirname, 'dist')));
+        app.use(express.static(rootDist));
         app.get('*', (req, res) => {
-            res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+            const indexPath = path.join(rootDist, 'index.html');
+            res.sendFile(indexPath, (err) => {
+                if (err) {
+                    // Se estiver em uma rota de API que não existe, não mande o index
+                    if (req.url.startsWith('/api/')) {
+                        return res.status(404).json({ error: 'API route not found' });
+                    }
+                    console.error("[ERROR] Failed to send root index.html", err);
+                    res.status(404).send("Página inicial não encontrada. Execute 'npm run build' no servidor.");
+                }
+            });
         });
     }
 
+    // Global Error Handler for Express
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        console.error("[EXPRESS_ERROR]", err);
+        res.status(500).json({ error: 'Erro interno do servidor', details: process.env.NODE_ENV === 'development' ? err.message : undefined });
+    });
+
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`Server is LIVE on port ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'production'}`);
     });
 }
 
