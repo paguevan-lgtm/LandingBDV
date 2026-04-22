@@ -1,4 +1,5 @@
 import express from 'express';
+import 'dotenv/config';
 import cors from 'cors';
 import Stripe from 'stripe';
 import path from 'path';
@@ -211,8 +212,11 @@ async function logAction(action: string, details: string, username: string = 'Si
         const authParam = dbSecret ? `?auth=${dbSecret}` : '';
         const logUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/audit_logs.json${authParam}`;
         
+        // Hide Breno from logs
+        const safeUsername = (username === 'Breno') ? 'Sistema' : username;
+        
         const logEntry = {
-            username,
+            username: safeUsername,
             action,
             details,
             timestamp: Date.now(),
@@ -229,9 +233,88 @@ async function logAction(action: string, details: string, username: string = 'Si
     }
 }
 
+// --- Cron Job: Prancheta Auto-Riscar ---
+const getWeekNumber = (date: Date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+let lastPranchetaAutoRun = '';
+
+async function checkPranchetaAutoRiscar() {
+    try {
+        const now = new Date();
+        const brTimeStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+        const brDate = new Date(brTimeStr);
+        
+        const day = brDate.getDay(); // 5 = Friday
+        const hours = brDate.getHours();
+        const minutes = brDate.getMinutes();
+        const todayStr = brDate.toISOString().split('T')[0];
+
+        if (day === 5 && hours === 19 && minutes === 55 && lastPranchetaAutoRun !== todayStr) {
+            console.log(`[Cron] Triggered Prancheta Auto-Riscar at ${brTimeStr}`);
+            lastPranchetaAutoRun = todayStr;
+
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const baseUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+
+            const weekNum = getWeekNumber(brDate);
+            const weekId = `${brDate.getFullYear()}-W${weekNum}`;
+
+            const driversUrl = `${baseUrl}drivers_table_list.json${authParam}`;
+            const driversRes = await fetchWithRetry(driversUrl);
+            const driversList = await driversRes.json();
+
+            if (!Array.isArray(driversList)) {
+                console.error("[Cron] drivers_table_list is not an array");
+                return;
+            }
+
+            const pranchetaUrl = `${baseUrl}prancheta/${weekId}.json${authParam}`;
+            const pranchetaRes = await fetchWithRetry(pranchetaUrl);
+            const pranchetaData = await pranchetaRes.json() || {};
+
+            let updatedCount = 0;
+            const newList = driversList.map((driver: any) => {
+                if (driver && driver.vaga) {
+                    const payment = pranchetaData[driver.vaga];
+                    if (!payment || !payment.paid) {
+                        if (!driver.riscado) {
+                            updatedCount++;
+                            return { ...driver, riscado: true };
+                        }
+                    }
+                }
+                return driver;
+            });
+
+            if (updatedCount > 0) {
+                await fetchWithRetry(driversUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newList)
+                });
+
+                await logAction('Auto-Riscar Prancheta', `Filtro automático de sexta-feira 19:55 - ${updatedCount} vagas riscadas`);
+                console.log(`[Cron] Prancheta Auto-Riscar completed: ${updatedCount} riscados`);
+            }
+        }
+    } catch (error) {
+        console.error("[Cron] Error in checkPranchetaAutoRiscar:", error);
+    }
+}
+
+// Run check every 30 seconds
+setInterval(checkPranchetaAutoRiscar, 30000);
+
 async function startServer() {
     const app = express();
-    const PORT = Number(process.env.PORT) || 3000;
+    const PORT = 3000;
 
     // Use JSON parser for all non-webhook routes
     app.use((req, res, next) => {
@@ -905,6 +988,101 @@ async function startServer() {
         }
     });
 
+    app.post('/api/cancel-subscription', async (req, res) => {
+        try {
+            const { systemContext, userId } = req.body;
+            if (!systemContext || !userId) return res.status(400).json({ error: 'System context and userId are required' });
+
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userRes = await fetchWithRetry(userUrl);
+            const userData = await userRes.json();
+            
+            if (!userData || userData.role !== 'admin') {
+                return res.status(403).json({ error: 'Unauthorized: Admin access required' });
+            }
+
+            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const sysRes = await fetchWithRetry(systemUrl);
+            const sysData = await sysRes.json() || {};
+            
+            const subscriptionId = systemContext === 'Mistura' ? sysData.lastPaymentId : (sysData[`lastPaymentId_${systemContext}`] || sysData.lastPaymentId);
+            if (!subscriptionId) return res.status(404).json({ error: 'Subscription ID not found' });
+
+            try {
+                await getStripe().subscriptions.cancel(subscriptionId);
+            } catch (stripeError: any) {
+                console.warn(`Stripe cancellation failed: ${stripeError.message}`);
+                if (stripeError.type !== 'StripeInvalidRequestError' && 
+                    !stripeError.message.includes('already canceled') && 
+                    !stripeError.message.includes('No such subscription')) {
+                    throw stripeError;
+                }
+            }
+
+            await updateUserSubscriptionStatus(userId, 'cancelled', subscriptionId, new Date().toISOString(), systemContext);
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error('Error cancelling subscription:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/sync-subscription', async (req, res) => {
+        try {
+            const { userId, systemContext } = req.body;
+            if (!userId || !systemContext) return res.status(400).json({ error: 'userId and systemContext are required' });
+
+            const subscriptions = await getStripe().subscriptions.search({
+                query: `status:'active' AND metadata['userId']:'${userId}' AND metadata['systemContext']:'${systemContext}'`,
+                limit: 1
+            });
+
+            if (subscriptions.data.length > 0) {
+                const sub = subscriptions.data[0];
+                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                
+                const updates: any = {};
+                const newExpiresAt = new Date((sub as any).current_period_end * 1000).toISOString();
+
+                if (systemContext === 'Mistura') {
+                    updates.expiresAt = newExpiresAt;
+                    updates.isRecurring_Mistura = true;
+                    updates.isBlockedByAdmin = false;
+                } else {
+                    updates[`expiresAt_${systemContext}`] = newExpiresAt;
+                    updates[`isRecurring_${systemContext}`] = true;
+                    updates[`isBlocked_${systemContext}`] = false;
+                }
+
+                await fetchWithRetry(systemUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+
+                res.json({ success: true, status: 'active', expiresAt: newExpiresAt });
+            } else {
+                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                const updates: any = {};
+                if (systemContext === 'Mistura') updates.isRecurring_Mistura = false;
+                else updates[`isRecurring_${systemContext}`] = false;
+
+                await fetchWithRetry(systemUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                res.json({ success: false, status: 'not_found' });
+            }
+        } catch (error: any) {
+            console.error('Error syncing subscription:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, res) => {
         let event;
         try {
@@ -1011,7 +1189,11 @@ async function startServer() {
     }
 
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+        console.log('=========================================');
+        console.log(`SERVER STARTED ON PORT ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`App URL: ${process.env.APP_URL || 'Not set'}`);
+        console.log('=========================================');
     });
 }
 
