@@ -772,7 +772,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/verify_session', async (req, res) => {
+    app.post('/api/verify_session', requireAuth, async (req, res) => {
         try {
             const { session_id } = req.body;
             if (!session_id) return res.status(400).json({ error: 'session_id required' });
@@ -827,18 +827,18 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create_subscription_preference', async (req, res) => {
+    app.post('/api/create_subscription_preference', requireAuth, async (req, res) => {
         try {
             const { email, userId, systemContext } = req.body;
             if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
             const appUrl = process.env.APP_URL || 'http://localhost:3000';
             const priceMap: any = {
-                'Mip': 'price_1TOUDi2N7Ik4UR6linH20Duh',
-                'Pg': 'price_1TOUAv2N7Ik4UR6lkRIvD9VR',
-                'Sv': 'price_1TOUEq2N7Ik4UR6lnPlsuAQ6'
+                'Mip': 'price_1TCiud2N7Ik4UR6lmc0cL6nK',
+                'Pg': 'price_1TCk6c2N7Ik4UR6lAIkjBTUb',
+                'Sv': 'price_1TCk6A2N7Ik4UR6l46SnE2KD'
             };
-            const priceId = priceMap[systemContext] || 'price_1TOUAv2N7Ik4UR6lkRIvD9VR';
+            const priceId = priceMap[systemContext] || 'price_1TCiud2N7Ik4UR6lmc0cL6nK';
 
             const session = await getStripe().checkout.sessions.create({
                 payment_method_types: ['card'],
@@ -858,7 +858,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create-pix-payment', async (req, res) => {
+    app.post('/api/create-pix-payment', requireAuth, async (req, res) => {
         try {
             const { email, userId, systemContext, amount } = req.body;
             if (!userId || !amount) return res.status(400).json({ error: 'userId and amount are required' });

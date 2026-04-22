@@ -1,5 +1,5 @@
 {
   "name": "Bora de Van",
   "description": "Layout moderno e chamativo para agência de viagens com foco em transporte de van, aventura e conforto.",
-  "requestFramePermissions": ["geolocation"]
+  "requestFramePermissions": []
 }
