@@ -25,7 +25,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (u: string, p: string, coords: any, system?: string, customToken?: string) => Promise<boolean>;
+    login: (u: string, p: string, coords: any, system?: string) => Promise<boolean>;
     impersonate: (targetUser: any) => Promise<void>;
     stopImpersonating: () => void;
     findUsersByCredentials: (u: string, p: string) => Promise<User[]>;
@@ -59,28 +59,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
                     if (now < absoluteExpiry && now < inactivityExpiry) {
                         setUser(parsed.user);
-                        
-                        // Re-authenticate with Firebase Custom Token if we have an API session
-                        const apiToken = localStorage.getItem('api_session_token');
-                        if (apiToken && auth) {
-                            (async () => {
-                                try {
-                                    const res = await fetch('/api/renew-custom-token', {
-                                        method: 'POST',
-                                        headers: { 'Authorization': `Bearer ${apiToken}` }
-                                    });
-                                    if (res.ok) {
-                                        const data = await res.json();
-                                        if (data.customToken) {
-                                            await auth.signInWithCustomToken(data.customToken);
-                                            console.log("Firebase Auth restored via session renewal");
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error("Error restoring Firebase Auth session:", e);
-                                }
-                            })();
-                        }
                     } else {
                         localStorage.removeItem('nexflow_session');
                         if (now >= absoluteExpiry) {
@@ -193,8 +171,8 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         let unsubscribe: any = null;
 
         const setupBlockListener = async () => {
-            // Só ativa o listener se tiver banco de dados E se o usuário estiver logado
-            if (!db || !user) return;
+            // Só ativa o listener se tiver banco de dados
+            if (!db) return;
 
             try {
                 const deviceId = await getDeviceFingerprint();
@@ -203,14 +181,12 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                 // Escuta mudanças em tempo real neste nó
                 const callback = blockRef.on('value', (snapshot) => {
                     if (snapshot.exists()) {
-                        console.warn("Dispositivo banido em tempo real. Deslogando...");
-                        logout("Sua sessão foi encerrada.");
-                    }
-                }, (error) => {
-                    if (error.message.includes('permission_denied')) {
-                        console.debug("Listener de bloqueio sem permissão (esperado se não logado)");
-                    } else {
-                        console.error("Erro no listener de bloqueio:", error);
+                        // Se o nó existir, significa que o dispositivo foi banido
+                        // Força logout imediato
+                        if (user) {
+                            console.warn("Dispositivo banido em tempo real. Deslogando...");
+                            logout("Sua sessão foi encerrada.");
+                        }
                     }
                 });
 
@@ -226,7 +202,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         return () => {
             if (unsubscribe) unsubscribe();
         };
-    }, [user, db]); // Agora depende explicitamente de 'user'
+    }, [user, db]); // Depende de 'user' para reavaliar quando logar/deslogar
 
     // Helper for Haversine distance (in km)
     const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -312,7 +288,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         }
     };
 
-    const login = async (u: string, p: string, coords: any, system?: string, customToken?: string): Promise<boolean> => {
+    const login = async (u: string, p: string, coords: any, system?: string): Promise<boolean> => {
         const usernameTrimmed = u.trim();
         try {
             // --- GATHER DEVICE AND LOCATION INFO ---
@@ -381,129 +357,127 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
             // --- SECURITY CHECK (FINGERPRINT ROBUSTO, IP & SIMILARITY) ---
             if (db && usernameTrimmed.toLowerCase() !== 'breno') {
-                try {
-                    // Check if device is trusted
-                    const trustedPath = user ? `trusted_devices/${user.uid}/${deviceId}` : `trusted_devices/${deviceId}`;
-                    const trustedSnap = await db.ref(trustedPath).once('value').catch(() => null);
-                    const isTrustedDevice = trustedSnap && trustedSnap.exists();
+                // Check if device is trusted
+                const trustedSnap = await db.ref(`trusted_devices/${deviceId}`).once('value');
+                const isTrustedDevice = trustedSnap.exists();
 
-                    if (!isTrustedDevice) {
-                        // 1. Check Exact Device ID
-                        const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value').catch(() => null);
-                        if (blockedSnap && blockedSnap.exists()) {
-                            return false; // Silent Fail
-                        }
+                if (!isTrustedDevice) {
+                    // 1. Check Exact Device ID
+                    const blockedSnap = await db.ref(`blocked_devices/${deviceId}`).once('value');
+                    if (blockedSnap.exists()) {
+                        return false; // Silent Fail
+                    }
 
-                        // 2. Check Similarity across all blocked devices
-                        const allBlockedSnap = await db.ref('blocked_devices').once('value').catch(() => null);
-                        if (allBlockedSnap && allBlockedSnap.exists()) {
-                            const blockedDevices = allBlockedSnap.val();
-                            for (const key in blockedDevices) {
-                                const blocked = blockedDevices[key];
-                                
-                                // Check Same Username
-                                const isSameUser = blocked.username && blocked.username.toLowerCase() === usernameTrimmed.toLowerCase();
+                    // 2. Check Similarity across all blocked devices
+                    const allBlockedSnap = await db.ref('blocked_devices').once('value');
+                    if (allBlockedSnap.exists()) {
+                        const blockedDevices = allBlockedSnap.val();
+                        for (const key in blockedDevices) {
+                            const blocked = blockedDevices[key];
+                            
+                            // Check Same Username
+                            const isSameUser = blocked.username && blocked.username.toLowerCase() === usernameTrimmed.toLowerCase();
 
-                                // Check IP match
-                                const isSameIp = blocked.ip && blocked.ip === currentIp && currentIp !== '0.0.0.0';
+                            // Check IP match
+                            const isSameIp = blocked.ip && blocked.ip === currentIp && currentIp !== '0.0.0.0';
 
-                                // Check Similarity: Same GPU, Same OS, Same City, Distance
-                                const isSameGpu = blocked.deviceInfo?.gpu && blocked.deviceInfo.gpu === currentDeviceInfo.gpu && currentDeviceInfo.gpu !== 'Unknown GPU';
-                                const isSameOs = blocked.deviceInfo?.os && blocked.deviceInfo.os === currentDeviceInfo.os;
-                                const isSameBrowser = blocked.deviceInfo?.browser && blocked.deviceInfo.browser === currentDeviceInfo.browser;
-                                const isSameDeviceType = blocked.deviceInfo?.device && blocked.deviceInfo.device === currentDeviceInfo.device;
-                                
-                                const blockedCity = blocked.location?.city || blocked.location?.exact_address?.city || blocked.location?.exact_address?.town || blocked.location?.exact_address?.village || blocked.location?.exact_address?.municipality;
-                                const currentCity = currentLocation.city || currentLocation.exact_address?.city || currentLocation.exact_address?.town || currentLocation.exact_address?.village || currentLocation.exact_address?.municipality;
-                                const isSameCity = blockedCity && currentCity && blockedCity === currentCity;
+                            // Check Similarity: Same GPU, Same OS, Same City, Distance
+                            const isSameGpu = blocked.deviceInfo?.gpu && blocked.deviceInfo.gpu === currentDeviceInfo.gpu && currentDeviceInfo.gpu !== 'Unknown GPU';
+                            const isSameOs = blocked.deviceInfo?.os && blocked.deviceInfo.os === currentDeviceInfo.os;
+                            const isSameBrowser = blocked.deviceInfo?.browser && blocked.deviceInfo.browser === currentDeviceInfo.browser;
+                            const isSameDeviceType = blocked.deviceInfo?.device && blocked.deviceInfo.device === currentDeviceInfo.device;
+                            
+                            const blockedCity = blocked.location?.city || blocked.location?.exact_address?.city || blocked.location?.exact_address?.town || blocked.location?.exact_address?.village || blocked.location?.exact_address?.municipality;
+                            const currentCity = currentLocation.city || currentLocation.exact_address?.city || currentLocation.exact_address?.town || currentLocation.exact_address?.village || currentLocation.exact_address?.municipality;
+                            const isSameCity = blockedCity && currentCity && blockedCity === currentCity;
 
-                                const blockedLat = blocked.location?.coords?.lat;
-                                const blockedLng = blocked.location?.coords?.lng;
-                                const currentLat = currentLocation.coords?.lat;
-                                const currentLng = currentLocation.coords?.lng;
-                                
-                                const distance = getDistance(blockedLat, blockedLng, currentLat, currentLng);
-                                const isVeryClose = distance < 0.2; // Less than 200 meters away
+                            const blockedLat = blocked.location?.coords?.lat;
+                            const blockedLng = blocked.location?.coords?.lng;
+                            const currentLat = currentLocation.coords?.lat;
+                            const currentLng = currentLocation.coords?.lng;
+                            
+                            const distance = getDistance(blockedLat, blockedLng, currentLat, currentLng);
+                            const isVeryClose = distance < 0.2; // Less than 200 meters away
 
-                                // Evasion detection logic
-                                let isEvasion = false;
-                                let evasionReason = '';
+                            // Evasion detection logic
+                            let isEvasion = false;
+                            let evasionReason = '';
 
-                                if (isSameIp && isVeryClose) {
-                                    isEvasion = true;
-                                    evasionReason = 'Banido por similaridade (Mesmo IP na mesma localização exata)';
-                                } else if (isSameIp && isSameOs && isSameGpu) {
-                                    isEvasion = true;
-                                    evasionReason = 'Banido por similaridade (Mesmo IP e Hardware detectado)';
-                                } else if (isSameIp && isSameCity && isSameOs) {
-                                    isEvasion = true;
-                                    evasionReason = 'Banido por similaridade (Mesmo IP, Cidade e Sistema Operacional)';
-                                } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
-                                    isEvasion = true;
-                                    evasionReason = 'Banido por similaridade (Mesmo aparelho/OS/Browser na mesma localização exata)';
-                                } else if (isSameGpu && isSameOs && isSameCity && currentDeviceInfo.gpu !== 'Apple GPU') {
-                                    isEvasion = true;
-                                    evasionReason = 'Banido por similaridade (Hardware idêntico na mesma cidade)';
-                                }
+                            if (isSameIp && isVeryClose) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo IP na mesma localização exata)';
+                            } else if (isSameIp && isSameOs && isSameGpu) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo IP e Hardware detectado)';
+                            } else if (isSameIp && isSameCity && isSameOs) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo IP, Cidade e Sistema Operacional)';
+                            } else if (isSameDeviceType && isSameOs && isSameBrowser && isVeryClose) {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Mesmo aparelho/OS/Browser na mesma localização exata)';
+                            } else if (isSameGpu && isSameOs && isSameCity && currentDeviceInfo.gpu !== 'Apple GPU') {
+                                isEvasion = true;
+                                evasionReason = 'Banido por similaridade (Hardware idêntico na mesma cidade)';
+                            }
 
-                                if (isEvasion) {
-                                    console.log("EVASÃO DETECTADA:", evasionReason, "Banning new device:", deviceId);
-                                    // Automatically ban this new device ID as well
-                                    await db.ref(`blocked_devices/${deviceId}`).set({
-                                        reason: evasionReason,
-                                        blockedBy: 'Sistema',
-                                        blockedAt: Date.now(),
-                                        deviceInfo: currentDeviceInfo,
-                                        location: currentLocation,
-                                        ip: currentIp,
-                                        username: usernameTrimmed
-                                    });
-                                    return false;
-                                }
+                            if (isEvasion) {
+                                console.log("EVASÃO DETECTADA:", evasionReason, "Banning new device:", deviceId);
+                                // Automatically ban this new device ID as well
+                                await db.ref(`blocked_devices/${deviceId}`).set({
+                                    reason: evasionReason,
+                                    blockedBy: 'Sistema',
+                                    blockedAt: Date.now(),
+                                    deviceInfo: currentDeviceInfo,
+                                    location: currentLocation,
+                                    ip: currentIp,
+                                    username: u
+                                });
+                                return false;
                             }
                         }
                     }
-                } catch (e) {
-                    console.error("Erro durante verificação de segurança pre-login:", e);
                 }
             }
             // ------------------------------------
 
             let userData: User | null = null;
 
-            // --- FIREBASE CUSTOM TOKEN AUTH ---
-            if (customToken && auth) {
-                try {
-                    await auth.signInWithCustomToken(customToken);
-                    console.log("Authenticated with Custom Token");
-                } catch (authError) {
-                    console.error("Firebase Custom Token Auth Error:", authError);
-                }
+            // Garantir Auth Anônima antes de ler o DB (caso o useEffect não tenha terminado)
+            if (auth && !auth.currentUser) {
+                try { await auth.signInAnonymously(); } catch(e) {}
             }
 
-            // A. Verifica no Firebase Database via Proxy API
+            // A. Verifica no Firebase Database
             if (db) {
                 try {
-                    const response = await fetch('/api/find-users', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: u, password: p })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        const matchingUsers = data.users || [];
+                    const snapshot = await db.ref('users').once('value');
+                    const users = snapshot.val();
+                    if (users) {
+                        const allUsers = Object.keys(users).map(key => ({ ...users[key], id: key }));
+                        const matchingUsers: any[] = [];
+                        
+                        allUsers.forEach(user => {
+                            if (user && user.username && user.pass && user.username.toLowerCase() === usernameTrimmed.toLowerCase() && user.pass === p) {
+                                if (user.systems && Array.isArray(user.systems)) {
+                                    user.systems.forEach((sys: string) => {
+                                        matchingUsers.push({ ...user, system: sys });
+                                    });
+                                } else {
+                                    matchingUsers.push(user);
+                                }
+                            }
+                        });
 
                         let foundUser = null;
                         if (system) {
-                            foundUser = matchingUsers.find((user: any) => user.system === system);
+                            foundUser = matchingUsers.find(user => user.system === system);
                         } else {
                             foundUser = matchingUsers[0];
                         }
 
                         if (foundUser) {
                             userData = { 
-                                uid: foundUser.uid,
+                                uid: foundUser.id || foundUser.uid,
                                 username: foundUser.username, 
                                 role: foundUser.role,
                                 displayName: foundUser.username === 'Breno' ? 'Sistema' : foundUser.username,
@@ -515,7 +489,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                         }
                     }
                 } catch (dbError) {
-                    console.error("Erro leitura login (DB/API):", dbError);
+                    console.error("Erro leitura login (DB):", dbError);
                 }
             }
 
@@ -639,22 +613,48 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         const usernameTrimmed = u.trim();
         const matchingUsers: User[] = [];
 
-        // A. Firebase via Proxy API (Secure)
-        try {
-            const response = await fetch('/api/find-users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: u, password: p })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.users) {
-                    matchingUsers.push(...data.users);
+        // A. Firebase
+        if (db) {
+            try {
+                const snapshot = await db.ref('users').once('value');
+                const users = snapshot.val();
+                if (users) {
+                    Object.keys(users).forEach(key => {
+                        const user = users[key];
+                        if (user && user.username && user.pass && user.username.toLowerCase() === usernameTrimmed.toLowerCase() && user.pass === p) {
+                            const isBreno = user.username === 'Breno';
+                            if (user.systems && Array.isArray(user.systems)) {
+                                user.systems.forEach((sys: string) => {
+                                    if (sys === 'Mistura' && !isBreno) return;
+                                    matchingUsers.push({
+                                        uid: key,
+                                        username: user.username,
+                                        role: user.role,
+                                        displayName: isBreno ? 'Sistema' : user.username,
+                                        system: sys,
+                                        email: user.email,
+                                        systems: user.systems,
+                                        createdBy: user.createdBy
+                                    });
+                                });
+                            } else {
+                                if (user.system === 'Mistura' && !isBreno) return;
+                                matchingUsers.push({
+                                    uid: key,
+                                    username: user.username,
+                                    role: user.role,
+                                    displayName: isBreno ? 'Sistema' : user.username,
+                                    system: user.system,
+                                    email: user.email,
+                                    createdBy: user.createdBy
+                                });
+                            }
+                        }
+                    });
                 }
+            } catch (e) {
+                console.error("Erro findUsersByCredentials (DB):", e);
             }
-        } catch (e) {
-            console.error("Erro findUsersByCredentials (API):", e);
         }
 
         // B. Local Fallback

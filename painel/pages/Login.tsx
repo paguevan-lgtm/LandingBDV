@@ -29,7 +29,6 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const [token, setToken] = useState('');
     const [userEmail, setUserEmail] = useState('');
     const [currentUserUid, setCurrentUserUid] = useState('');
-    const [customToken, setCustomToken] = useState<string | null>(null);
     const [resendTimer, setResendTimer] = useState(0);
     const [isBlocked, setIsBlocked] = useState(false);
 
@@ -153,8 +152,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     
                     if (result && result.trusted) {
                         // Device is trusted, skip token input
-                        if (result.customToken) setCustomToken(result.customToken);
-                        proceedToLogin(user.system || selectedSystem || undefined, result.customToken);
+                        proceedToLogin(user.system || selectedSystem || undefined);
                     } else {
                         setShowTokenInput(true);
                     }
@@ -241,13 +239,9 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     localStorage.setItem('api_session_token', data.sessionToken);
                 }
                 
-                if (data.customToken) {
-                    setCustomToken(data.customToken);
-                }
-                
                 setLoading(false);
                 setShowTokenInput(false);
-                proceedToLogin(selectedSystem || undefined, data.customToken);
+                proceedToLogin(selectedSystem || undefined);
             } else {
                 const text = await response.text();
                 console.error("Non-JSON response:", text);
@@ -267,24 +261,24 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             let foundUser = null;
             let targetEmail = '';
 
-            // Search in Firebase via Proxy API
+            // Search in Firebase
             if (db) {
-                try {
-                    const response = await fetch('/api/find-user-for-recovery', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ input: trimmedInput })
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success && data.user) {
-                            foundUser = data.user;
-                            targetEmail = data.user.email;
+                const snapshot = await db.ref('users').once('value');
+                const users = snapshot.val();
+                if (users) {
+                    for (const key of Object.keys(users)) {
+                        const u = users[key];
+                        // Exclude Breno, Sistema and specific email
+                        if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'breno0452@gmail.com') {
+                            continue;
+                        }
+
+                        if (u.username?.toLowerCase() === trimmedInput.toLowerCase() || u.email?.toLowerCase() === trimmedInput.toLowerCase()) {
+                            foundUser = { ...u, uid: key };
+                            targetEmail = u.email;
+                            break;
                         }
                     }
-                } catch (apiErr) {
-                    console.error("Erro API find-user-for-recovery:", apiErr);
                 }
             }
 
@@ -475,27 +469,24 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         );
     };
 
-    const proceedToLogin = (system?: string, tokenFromApi?: string) => {
-        const tokenToUse = tokenFromApi || customToken || undefined;
+    const proceedToLogin = (system?: string) => {
         if (requireLocationOnLogin) {
             setGeoStatus('');
             setLoading(false);
             setShowGeoPrompt(true);
             // We store the system to use it when geo is done
             if (system) setSelectedSystem(system);
-            if (tokenToUse) setCustomToken(tokenToUse);
         } else {
-            startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, system, tokenToUse);
+            startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, system);
         }
     };
 
-    const startEntrySequence = (coords: any, system?: string, tokenFromApi?: string) => {
-        const tokenToUse = tokenFromApi || customToken || undefined;
+    const startEntrySequence = (coords: any, system?: string) => {
         setGeoStatus('Motor ligado. Iniciando...');
         setIsZooming(true); 
 
         setTimeout(async () => {
-            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined, tokenToUse);
+            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined);
             if (!success) {
                 setIsZooming(false);
                 setLoading(false);
@@ -746,8 +737,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                                                 
                                                 if (result && result.trusted) {
                                                     // Device is trusted, skip token input
-                                                    if (result.customToken) setCustomToken(result.customToken);
-                                                    proceedToLogin(u.system, result.customToken);
+                                                    proceedToLogin(u.system);
                                                 } else {
                                                     setShowTokenInput(true);
                                                 }

@@ -415,10 +415,20 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                     }
                     return obj;
                 }
-                if (Array.isArray(obj)) return obj.map(cleanBreno);
+                
+                if (Array.isArray(obj)) {
+                    // Filter out objects that represent the user Breno
+                    return obj
+                        .filter((item: any) => {
+                            if (item && typeof item === 'object' && item.username === 'Breno') return false;
+                            return true;
+                        })
+                        .map(cleanBreno);
+                }
                 
                 const newObj: any = {};
                 for (const key in obj) {
+                    if (key === 'Breno') continue; // Skip keys named Breno
                     newObj[key] = cleanBreno(obj[key]);
                 }
                 return newObj;
