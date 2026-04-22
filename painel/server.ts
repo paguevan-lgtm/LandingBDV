@@ -47,7 +47,7 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
     // We update the global system settings, not the individual user
-    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+    let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
     if (dbSecret) {
         systemUrl += `?auth=${dbSecret}`;
     }
@@ -162,7 +162,7 @@ async function checkPranchetaAutoRiscar() {
             lastPranchetaAutoRun = todayStr;
 
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const baseUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            const baseUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/`;
             const authParam = dbSecret ? `?auth=${dbSecret}` : '';
 
             // 1. Get current week ID
@@ -264,7 +264,7 @@ async function startServer() {
             // Check if device is trusted for this user (only for login type)
             if (type === 'login' && uid && deviceId) {
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                const trustedUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
                 
                 try {
                     const trustRes = await fetchWithRetry(trustedUrl);
@@ -406,7 +406,7 @@ async function startServer() {
         // Register device as trusted for 12 hours
         if (uid && deviceId) {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const trustedUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             
             try {
                 await fetchWithRetry(trustedUrl, {
@@ -455,7 +455,7 @@ async function startServer() {
                     if (updateSuccess) {
                         // Fetch the updated expiration date to send back
                         const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                        let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                         if (dbSecret) systemUrl += `?auth=${dbSecret}`;
                         const sysRes = await fetchWithRetry(systemUrl);
                         const sysData = await sysRes.json() || {};
@@ -499,7 +499,7 @@ async function startServer() {
 
             // Save the subscription email to Firebase
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }
@@ -525,12 +525,12 @@ async function startServer() {
 
             // Create Stripe Checkout Session
             const priceMap: any = {
-                'Mip': 'price_1TCiud2N7Ik4UR6lmc0cL6nK',
-                'Pg': 'price_1TCk6c2N7Ik4UR6lAIkjBTUb',
-                'Sv': 'price_1TCk6A2N7Ik4UR6l46SnE2KD'
+                'Mip': 'price_1TOUDi2N7Ik4UR6linH20Duh',
+                'Pg': 'price_1TOUAv2N7Ik4UR6lkRIvD9VR',
+                'Sv': 'price_1TOUEq2N7Ik4UR6lnPlsuAQ6'
             };
             
-            const priceId = priceMap[systemContext] || 'price_1TCiud2N7Ik4UR6lmc0cL6nK'; // Default to MIP if not found
+            const priceId = priceMap[systemContext] || 'price_1TOUAv2N7Ik4UR6lkRIvD9VR'; // Default to PG if not found
 
             const session = await getStripe().checkout.sessions.create({
                 payment_method_types: ['card'],
@@ -578,7 +578,7 @@ async function startServer() {
 
             // Check if user is admin
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             const userRes = await fetchWithRetry(userUrl);
             const userData = await userRes.json();
             
@@ -587,7 +587,7 @@ async function startServer() {
             }
 
             // Fetch current system subscription data to get the subscription ID
-            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }
@@ -633,45 +633,47 @@ async function startServer() {
 
     app.post('/api/create-pix-payment', async (req, res) => {
         try {
-            const { email, userId, systemContext, amount } = req.body;
-            
-            if (!userId || !amount) {
-                return res.status(400).json({ error: 'userId and amount are required' });
-            }
+            const { email, userId, systemContext } = req.body;
+            if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
             // Create Stripe PaymentIntent for PIX
-            console.log('Creating PIX PaymentIntent for amount:', amount);
             const paymentIntent = await getStripe().paymentIntents.create({
-                amount: amount, // amount in cents
+                amount: 30000, // 300.00 BRL
                 currency: 'brl',
                 payment_method_types: ['pix'],
                 metadata: {
                     userId,
                     systemContext: systemContext || 'unknown',
-                    type: 'pix_payment' // To distinguish from subscription
+                    type: 'pix_payment'
                 },
                 receipt_email: email
             });
             
-            // Confirm the PaymentIntent
+            // Confirm the PaymentIntent to get PIX instructions (QR code)
             const confirmedIntent = await getStripe().paymentIntents.confirm(
                 paymentIntent.id,
-                { payment_method_data: { type: 'pix' } }
+                { 
+                    payment_method_data: { 
+                        type: 'pix',
+                        billing_details: { email }
+                    } 
+                }
             );
-
-            console.log('PaymentIntent confirmed:', JSON.stringify(confirmedIntent, null, 2));
 
             if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
                 res.json({
                     qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
-                    qrCode: confirmedIntent.next_action.pix_display_qr_code.hosted_instructions_url,
-                    id: confirmedIntent.id
+                    qrCode: confirmedIntent.next_action.pix_display_qr_code.data, // Literal copy-paste code
+                    id: confirmedIntent.id,
+                    expires_at: confirmedIntent.next_action.pix_display_qr_code.expires_at
                 });
             } else {
-                res.status(500).json({ error: 'Failed to generate PIX QR code' });
+                res.status(400).json({ 
+                    error: 'PIX não está habilitado ou disponível para esta conta Stripe. Verifique se o método PIX está ativo no seu Dashboard do Stripe.' 
+                });
             }
         } catch (error: any) {
-            console.error('Error creating PIX PaymentIntent:', error);
+            console.error('PIX Error:', error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -803,7 +805,7 @@ async function startServer() {
                 
                 // Update Firebase
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};
@@ -829,7 +831,7 @@ async function startServer() {
             } else {
                 // No active subscription found, ensure auto-renewal is off
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};

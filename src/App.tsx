@@ -6,6 +6,11 @@ import CentralAjuda from './pages/CentralAjuda';
 import TermosUso from './pages/TermosUso';
 import Privacidade from './pages/Privacidade';
 import SeoLandingPage from './pages/SeoLandingPage';
+import NotFound from './pages/NotFound';
+import Error401 from './pages/Error401';
+import Error403 from './pages/Error403';
+import Error500 from './pages/Error500';
+import Error503 from './pages/Error503';
 import { getDeviceFingerprint, setPoisonPill } from './lib/security';
 import { 
   MapPin, 
@@ -292,7 +297,7 @@ function LandingPage() {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-16 h-12 flex items-center justify-center">
-              <img src="/BDV.png" alt="Bora de Van Logo" className="w-full h-full object-contain" />
+              <img src="/BDV.webp" alt="Bora de Van Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-display font-extrabold tracking-tight text-white">
               Bora de <span className="text-brand-pink">Van</span>
@@ -405,7 +410,7 @@ function LandingPage() {
                     <div className="w-full aspect-[4/3] md:aspect-[16/10] bg-transparent flex flex-col items-center justify-center relative mt-8 md:mt-0">
                        {/* A imagem fica aqui, mas como o arquivo pode estar ausente, o box acima serve de guia */}
                        <img 
-                         src="/BDV.png" 
+                         src="/BDV.webp" 
                          alt="Bora de Van" 
                          className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl z-10 scale-[1.2] md:scale-125" 
                          onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -713,7 +718,7 @@ function LandingPage() {
             <div className="space-y-6">
               <div className="flex items-center gap-2">
                 <div className="w-16 h-12 flex items-center justify-center">
-                  <img src="/BDV.png" alt="Bora de Van Logo" className="w-full h-full object-contain" />
+                  <img src="/BDV.webp" alt="Bora de Van Logo" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-2xl font-display font-extrabold tracking-tight">
                   Bora de <span className="text-brand-pink">Van</span>
@@ -1462,16 +1467,53 @@ const seoRoutesData = [
   // Outros
   { path: '/van-bertioga', destino: 'Bertioga', origem: 'São Paulo', prefix: 'Van' },
   { path: '/van-sao-sebastiao', destino: 'São Sebastião', origem: 'São Paulo', prefix: 'Van' },
+  { path: '/viagem-barata', destino: 'Baixada Santista e São Paulo', origem: 'Várias Cidades', prefix: 'Viagem Barata' },
+  { path: '/carona-compartilhada', destino: 'Baixada Santista e São Paulo', origem: 'Várias Cidades', prefix: 'Carona Compartilhada' },
+  
+  // Temas Específicos
+  { path: '/borade', destino: 'Litoral SP', origem: 'São Paulo', prefix: 'BoraDe' },
+  { path: '/bora-transporte', destino: 'Baixada Santista', origem: 'São Paulo', prefix: 'Bora Transporte' },
+  { path: '/boravan', destino: 'Praia Grande e Região', origem: 'São Paulo', prefix: 'BoraVan' },
+  { path: '/lotacao', destino: 'Litoral', origem: 'São Paulo', prefix: 'Lotação' },
+  { path: '/van-jabaquara-telefone', destino: 'Jabaquara', origem: 'Litoral', prefix: 'Van Jabaquara Telefone' },
+  { path: '/van-para-praia', destino: 'Praia', origem: 'São Paulo', prefix: 'Van para Praia' },
+  { path: '/van-bem-avaliada', destino: 'Seu Destino', origem: 'São Paulo', prefix: 'Van Bem Avaliada' },
+  { path: '/van-para-sao-paulo', destino: 'São Paulo', origem: 'Litoral', prefix: 'Van para São Paulo' },
+  { path: '/van-para-sp-jabaquara', destino: 'SP Jabaquara', origem: 'Litoral', prefix: 'Van para SP Jabaquara' },
 ];
 
 const generateSeoProps = (route: { path: string, destino: string, origem: string, prefix: string }) => {
-  const { destino, origem, prefix } = route;
+  const { destino, origem, prefix, path } = route;
   
-  const title = `${prefix} para ${destino} | Transporte Rápido e Seguro saindo de ${origem}`;
-  const description = `Procurando ${prefix.toLowerCase()} para ${destino}? Oferecemos transporte rápido, seguro e confortável saindo de ${origem}. Saídas frequentes e motoristas experientes. Agende agora!`;
-  const h1 = `${prefix} para ${destino} com Saída Rápida e Conforto`;
-  const seoText = `Precisa de ${prefix.toLowerCase()} para ${destino}? Nosso serviço de transporte e lotação oferece a melhor experiência de viagem saindo de ${origem}. Garantimos um traslado seguro, rápido e com total conforto para você chegar ao seu destino sem preocupações.`;
-  const whatsappMessage = `Olá, quero agendar uma vaga na ${prefix.toLowerCase()} para ${destino}`;
+  let title = `${prefix} para ${destino} | Transporte Rápido e Seguro saindo de ${origem}`;
+  let description = `Procurando ${prefix.toLowerCase()} para ${destino}? Oferecemos transporte rápido, seguro e confortável saindo de ${origem}. Saídas frequentes e motoristas experientes. Agende agora!`;
+  let h1 = `${prefix} para ${destino} com Saída Rápida e Conforto`;
+  let seoText = `Precisa de ${prefix.toLowerCase()} para ${destino}? Nosso serviço de transporte e lotação oferece a melhor experiência de viagem saindo de ${origem}. Garantimos um traslado seguro, rápido e com total conforto para você chegar ao seu destino sem preocupações.`;
+  let whatsappMessage = `Olá, quero agendar uma vaga na ${prefix.toLowerCase()} para ${destino}`;
+
+  // Customizações por Prefix ou Path
+  if (prefix === 'Viagem Barata' || prefix === 'Carona Compartilhada') {
+    title = `Passagem Barata e ${prefix} | Alternativa Econômica para sua Viagem`;
+    description = `Encontre passagem barata e ${prefix.toLowerCase()} de confiança. A melhor alternativa para quem busca economia, conforto e segurança entre a Baixada Santista e São Paulo.`;
+    h1 = `Buscando Passagem Barata? Experimente nossa ${prefix}!`;
+    seoText = `Viaje com o melhor custo-benefício da região. Oferecemos uma alternativa de transporte seguro e extremamente econômico para quem costuma buscar passagens baratas e viagens compartilhadas. Nossas vans executivas garantem que você economize sem abrir mão do conforto e da pontualidade.`;
+    whatsappMessage = `Olá, vi o anúncio de ${prefix.toLowerCase()} e passagem barata, gostaria de informações sobre vagas.`;
+  }
+  
+  if (path === '/van-jabaquara-telefone') {
+    title = `Telefone Van Jabaquara | Reserve sua Passagem para o Litoral`;
+    description = `Procurando o telefone de van para o Jabaquara? Ligue agora ou chame no WhatsApp para garantir sua passagem barata e segura. Atendimento rápido e saídas frequentes.`;
+    h1 = `Telefone e WhatsApp para Van Jabaquara`;
+    seoText = `Precisa do contato de transporte para o Jabaquara? Estás no lugar certo! Oferecemos o melhor serviço de van com saídas do mercado Pão de Açúcar Jabaquara. Entre em contato agora e agende sua viagem com segurança e conforto.`;
+    whatsappMessage = `Olá, peguei o telefone no site e gostaria de agendar uma van para o Jabaquara`;
+  }
+
+  if (prefix === 'Van Bem Avaliada') {
+    title = `Van Bem Avaliada para ${destino} | 4.9 estrelas em Segurança e Conforto`;
+    description = `Viaje com a van melhor avaliada da região. Conforto, pontualidade e segurança garantida por nossos passageiros. Reserve sua vaga agora mesmo!`;
+    h1 = `A Van Mais Bem Avaliada para sua Viagem`;
+    seoText = `Nossos passageiros confirmam: somos a melhor opção de transporte da região. Com alto índice de satisfação e avaliações positivas, garantimos que sua viagem seja tranquila, segura e muito confortável.`;
+  }
 
   return { destino, origem, title, description, h1, seoText, whatsappMessage };
 };
@@ -1489,6 +1531,12 @@ export default function App() {
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/motorista/*" element={<MotoristaApp />} />
         
+        {/* Error Pages */}
+        <Route path="/401" element={<Error401 />} />
+        <Route path="/403" element={<Error403 />} />
+        <Route path="/500" element={<Error500 />} />
+        <Route path="/503" element={<Error503 />} />
+        
         {/* SEO Landing Pages */}
         {seoRoutesData.map(route => (
           <Route 
@@ -1497,6 +1545,7 @@ export default function App() {
             element={<SeoLandingPage {...generateSeoProps(route)} />} 
           />
         ))}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

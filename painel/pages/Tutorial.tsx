@@ -11,6 +11,7 @@ import Tabela from './Tabela';
 import Financeiro from './Financeiro';
 import { GlobalModals } from '../components/GlobalModals';
 import { getTodayDate, formatTime } from '../utils';
+import { useAuth } from '../contexts/AuthContext';
 
 const INITIAL_SANDBOX_DATA = {
     passengers: [
@@ -57,6 +58,7 @@ const INITIAL_SANDBOX_DATA = {
 };
 
 export default function Tutorial({ theme, systemContext, notify }: any) {
+    const { user } = useAuth();
     const [activeTutorial, setActiveTutorial] = useState<string | null>(null);
     const [currentStep, setCurrentStep] = useState(0);
     
@@ -207,7 +209,8 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             title: '6. Tabela Geral (Avançado)',
             description: 'Aprenda a gerenciar a fila de motoristas e a lousa.',
             icon: Icons.List,
-            locked: !completedTutorials.includes('magic'),
+            isAdvanced: true,
+            locked: user?.username !== 'Breno' ? true : !completedTutorials.includes('magic'),
             steps: [
                 { target: 'tut-menu-btn-table', text: 'Vamos para o módulo avançado! Clique em Tabela para ver a fila de motoristas.', position: 'right' },
                 { target: 'tut-btn-add-vaga', text: 'Aqui você adiciona novas vagas na fila manualmente.', position: 'bottom', showNext: true },
@@ -224,7 +227,8 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             title: '7. Lousa e Confirmados (Avançado)',
             description: 'Controle a fila de saída em tempo real.',
             icon: Icons.Clipboard,
-            locked: !completedTutorials.includes('table_adv'),
+            isAdvanced: true,
+            locked: user?.username !== 'Breno' ? true : !completedTutorials.includes('table_adv'),
             steps: [
                 { target: 'tut-menu-btn-table', text: 'Para gerenciar a Lousa, vamos voltar para a Tabela.', position: 'right' },
                 { target: 'tut-tab-confirmados', text: 'Veja quem já confirmou presença para hoje.', position: 'bottom', showNext: true },
@@ -240,7 +244,8 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             title: '8. Financeiro e Cobrança (Avançado)',
             description: 'Gerencie pagamentos e cobranças de forma profissional.',
             icon: Icons.Dollar,
-            locked: !completedTutorials.includes('lousa_adv'),
+            isAdvanced: true,
+            locked: user?.username !== 'Breno' ? true : !completedTutorials.includes('lousa_adv'),
             steps: [
                 { target: 'tut-menu-btn-billing', text: 'Por fim, vamos ao Financeiro. Clique no ícone de Cifrão.', position: 'right' },
                 { target: 'tut-card-daily-cash', text: 'Aqui você vê o total recebido hoje por todos os operadores.', position: 'bottom', showNext: true },
@@ -259,7 +264,7 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
             icon: Icons.PlayCircle,
             steps: [] // Sem passos = modo livre
         }
-    ], [completedTutorials, lastDriver, lastPassenger, lastTrip]);
+    ], [completedTutorials, lastDriver, lastPassenger, lastTrip, user]);
 
     const tutorial = useMemo(() => {
         const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -1040,6 +1045,48 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
         );
     }
 
+    const renderTutorialCard = (t: any) => (
+        <div 
+            key={t.id} 
+            className={`${theme.card} border ${t.locked ? 'border-white/5 opacity-50' : theme.border} p-6 rounded-2xl flex flex-col gap-4 hover:border-amber-500/50 transition-colors group relative overflow-hidden`}
+        >
+            {t.locked && (
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center z-10">
+                    <div className="bg-slate-800 p-2 rounded-full shadow-xl">
+                        <Icons.Lock size={20} className="text-white/40" />
+                    </div>
+                </div>
+            )}
+            
+            <div className="flex items-start justify-between">
+                <div className={`p-3 ${completedTutorials.includes(t.id) ? 'bg-green-500/10 text-green-500' : (t.isAdvanced ? 'bg-purple-500/10 text-purple-500' : 'bg-amber-500/10 text-amber-500')} rounded-xl group-hover:scale-110 transition-transform`}>
+                    <t.icon size={24} />
+                </div>
+                <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">{t.steps.length} Passos</span>
+                    {completedTutorials.includes(t.id) && (
+                        <span className="text-[10px] font-bold text-green-500 flex items-center gap-1 mt-1">
+                            <Icons.Check size={10} /> Concluído
+                        </span>
+                    )}
+                </div>
+            </div>
+            <div>
+                <h3 className="text-lg font-bold mb-1">{t.title}</h3>
+                <p className="text-xs opacity-50 leading-relaxed">{t.description}</p>
+            </div>
+            <Button 
+                theme={theme} 
+                onClick={() => startTutorial(t.id)} 
+                className="mt-2" 
+                variant={completedTutorials.includes(t.id) ? "secondary" : "primary"}
+                disabled={t.locked}
+            >
+                {completedTutorials.includes(t.id) ? "Refazer Tutorial" : "Iniciar Tutorial"}
+            </Button>
+        </div>
+    );
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1089,48 +1136,29 @@ export default function Tutorial({ theme, systemContext, notify }: any) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {tutorials.map((t) => (
-                    <div 
-                        key={t.id} 
-                        className={`${theme.card} border ${t.locked ? 'border-white/5 opacity-50' : theme.border} p-6 rounded-2xl flex flex-col gap-4 hover:border-amber-500/50 transition-colors group relative overflow-hidden`}
-                    >
-                        {t.locked && (
-                            <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center z-10">
-                                <div className="bg-slate-800 p-2 rounded-full shadow-xl">
-                                    <Icons.Lock size={20} className="text-white/40" />
-                                </div>
-                            </div>
-                        )}
-                        
-                        <div className="flex items-start justify-between">
-                            <div className={`p-3 ${completedTutorials.includes(t.id) ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'} rounded-xl group-hover:scale-110 transition-transform`}>
-                                <t.icon size={24} />
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">{t.steps.length} Passos</span>
-                                {completedTutorials.includes(t.id) && (
-                                    <span className="text-[10px] font-bold text-green-500 flex items-center gap-1 mt-1">
-                                        <Icons.Check size={10} /> Concluído
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold mb-1">{t.title}</h3>
-                            <p className="text-xs opacity-50 leading-relaxed">{t.description}</p>
-                        </div>
-                        <Button 
-                            theme={theme} 
-                            onClick={() => startTutorial(t.id)} 
-                            className="mt-2" 
-                            variant={completedTutorials.includes(t.id) ? "secondary" : "primary"}
-                            disabled={t.locked}
-                        >
-                            {completedTutorials.includes(t.id) ? "Refazer Tutorial" : "Iniciar Tutorial"}
-                        </Button>
-                    </div>
-                ))}
+            <div className="mb-10">
+                <h3 className="text-xl font-black mb-4 flex items-center gap-2">
+                    <Icons.List className="text-amber-500" />
+                    Módulos Básicos
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {tutorials.filter(t => !t.isAdvanced).map(renderTutorialCard)}
+                </div>
+            </div>
+
+            <div className="mb-10">
+                <h3 className="text-xl font-black mb-4 flex items-center gap-2">
+                    <Icons.Zap className="text-purple-500" />
+                    Módulos Avançados
+                    {user?.username !== 'Breno' && (
+                        <span className="ml-2 text-[10px] font-bold bg-white/10 text-white/50 px-2 py-1 rounded-full uppercase tracking-wider">
+                            Em Desenvolvimento
+                        </span>
+                    )}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {tutorials.filter(t => t.isAdvanced).map(renderTutorialCard)}
+                </div>
             </div>
 
             <div className="p-6 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center gap-4">

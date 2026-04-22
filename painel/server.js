@@ -49,7 +49,7 @@ async function fetchWithRetry(url, options = {}, retries = 3, backoff = 1000) {
 async function updateUserSubscriptionStatus(userId, status, mpId, date, systemContext) {
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
-    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+    let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
     if (dbSecret) {
         systemUrl += `?auth=${dbSecret}`;
     }
@@ -154,7 +154,7 @@ async function startServer() {
             // Check if device is trusted for this user (only for login type)
             if (type === 'login' && uid && deviceId) {
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                const trustedUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
                 
                 try {
                     const trustRes = await fetchWithRetry(trustedUrl);
@@ -293,7 +293,7 @@ async function startServer() {
         // Register device as trusted for 12 hours
         if (uid && deviceId) {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const trustedUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             
             try {
                 await fetchWithRetry(trustedUrl, {
@@ -340,7 +340,7 @@ async function startServer() {
                     
                     if (updateSuccess) {
                         const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                        let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                         if (dbSecret) systemUrl += `?auth=${dbSecret}`;
                         const sysRes = await fetchWithRetry(systemUrl);
                         const sysData = await sysRes.json() || {};
@@ -377,7 +377,7 @@ async function startServer() {
             if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
             try {
@@ -429,13 +429,13 @@ async function startServer() {
             if (!systemContext || !userId) return res.status(400).json({ error: 'System context and userId are required' });
 
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             const userRes = await fetchWithRetry(userUrl);
             const userData = await userRes.json();
             
             if (!userData || userData.role !== 'admin') return res.status(403).json({ error: 'Unauthorized: Admin access required' });
 
-            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) systemUrl += `?auth=${dbSecret}`;
             const sysRes = await fetchWithRetry(systemUrl);
             const sysData = await sysRes.json() || {};
@@ -559,7 +559,7 @@ async function startServer() {
             if (subscriptions.data.length > 0) {
                 const sub = subscriptions.data[0];
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates = {};
@@ -584,7 +584,7 @@ async function startServer() {
                 res.json({ success: true, status: 'active', expiresAt: newExpiresAt });
             } else {
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `https://boradevan-546c3-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
                 const updates = {};
                 if (systemContext === 'Mistura') updates.isRecurring_Mistura = false;

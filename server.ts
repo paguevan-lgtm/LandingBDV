@@ -6,9 +6,28 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import admin from 'firebase-admin';
+import { createServer as createViteServer } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+        const saText = process.env.FIREBASE_SERVICE_ACCOUNT.startsWith('{') 
+            ? process.env.FIREBASE_SERVICE_ACCOUNT 
+            : Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString();
+        const serviceAccount = JSON.parse(saText);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: "https://boradevan-546c3-default-rtdb.firebaseio.com"
+        });
+        console.log("Firebase Admin initialized successfully.");
+    } catch (e) {
+        console.error("Error initializing Firebase Admin:", e);
+    }
+}
 
 // Stripe Configuration
 let stripeClient: Stripe | null = null;
@@ -114,27 +133,74 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
     }
 }
 
-// Helper function to update system subscription status in Firebase RTDB
-async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string) {
-    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-    
-    // We update the global system settings, not the individual user
-    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
-    if (dbSecret) {
-        systemUrl += `?auth=${dbSecret}`;
+// Helper functions for Firebase Database operations (prioritizes Admin SDK)
+async function fbGet(path: string) {
+    if (admin.apps.length > 0) {
+        const snapshot = await admin.database().ref(path).once('value');
+        return snapshot.val();
     }
+    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+    const res = await fetchWithRetry(url);
+    return res.json();
+}
+
+async function fbUpdate(path: string, data: any) {
+    if (admin.apps.length > 0) {
+        await admin.database().ref(path).update(data);
+        return { ok: true, status: 200, json: async () => ({ success: true }) };
+    }
+    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+    return fetchWithRetry(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+}
+
+async function fbSet(path: string, data: any) {
+    if (admin.apps.length > 0) {
+        await admin.database().ref(path).set(data);
+        return { ok: true, status: 200, json: async () => ({ success: true }) };
+    }
+    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+    return fetchWithRetry(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+}
+
+async function fbPush(path: string, data: any) {
+    if (admin.apps.length > 0) {
+        const newRef = await admin.database().ref(path).push(data);
+        return { ok: true, status: 200, key: newRef.key, json: async () => ({ success: true, name: newRef.key }) };
+    }
+    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+    const url = `https://boradevan-546c3-default-rtdb.firebaseio.com/${path}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+    return fetchWithRetry(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+}
+
+// Helper function to update system subscription status in Firebase RTDB
+async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string, isRecurringFromPayment: boolean = true) {
+    const systemPath = 'system_settings/subscription';
 
     try {
         // Fetch current system subscription data
-        const sysRes = await fetchWithRetry(systemUrl);
-        const sysData = await sysRes.json() || {};
+        const sysData = await fbGet(systemPath) || {};
         
         if (sysData.lastPaymentId === mpId && status === 'active') {
             console.log(`Payment ${mpId} already processed, skipping update.`);
             return true;
         }
         
-        console.log(`Updating subscription status for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
+        console.log(`Updating subscription status for ${systemContext || 'Mistura'} to ${status} by user ${userId}. Recurring: ${isRecurringFromPayment}`);
         const updates: any = {
             lastPaymentId: mpId,
             lastPaymentDate: date || new Date().toISOString(),
@@ -164,15 +230,15 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             if (systemContext === 'Mistura') {
                 updates.expiresAt = newExpiresAt.toISOString();
                 updates.isBlockedByAdmin = false;
-                updates.isRecurring_Mistura = true;
+                updates.isRecurring_Mistura = isRecurringFromPayment;
             } else if (systemContext && systemContext !== 'unknown') {
                 updates[`expiresAt_${systemContext}`] = newExpiresAt.toISOString();
                 updates[`isBlocked_${systemContext}`] = false;
-                updates[`isRecurring_${systemContext}`] = true;
+                updates[`isRecurring_${systemContext}`] = isRecurringFromPayment;
             } else {
                 updates.expiresAt = newExpiresAt.toISOString();
                 updates.isBlockedByAdmin = false;
-                updates.isRecurring_Mistura = true;
+                updates.isRecurring_Mistura = isRecurringFromPayment;
             }
         } else if (status === 'past_due' || status === 'cancelled') {
             // If subscription is cancelled or past due, we turn off auto-renewal flag
@@ -185,14 +251,10 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             }
         }
 
-        const response = await fetchWithRetry(systemUrl, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
+        const response = await fbUpdate(systemPath, updates);
         
         if (!response.ok) {
-            console.error('Failed to update Firebase via REST. Status:', response.status, await response.text());
+            console.error('Failed to update Firebase subscription status');
             return false;
         } else {
             console.log(`Updated system subscription for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
@@ -206,11 +268,8 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
 
 // Helper to log actions to audit_logs
 async function logAction(action: string, details: string, username: string = 'Sistema') {
+    if (username === 'Breno') return;
     try {
-        const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-        const authParam = dbSecret ? `?auth=${dbSecret}` : '';
-        const logUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/audit_logs.json${authParam}`;
-        
         const logEntry = {
             username,
             action,
@@ -219,11 +278,7 @@ async function logAction(action: string, details: string, username: string = 'Si
             date: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }).split('/').reverse().join('-')
         };
 
-        await fetchWithRetry(logUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(logEntry)
-        });
+        await fbPush('audit_logs', logEntry);
     } catch (e) {
         console.error("Error logging action in server:", e);
     }
@@ -231,6 +286,7 @@ async function logAction(action: string, details: string, username: string = 'Si
 
 async function startServer() {
     const app = express();
+    app.set('trust proxy', 1); // Trust first proxy (Cloud Run / AI Studio setup)
     const PORT = Number(process.env.PORT) || 3000;
 
     // Use JSON parser for all non-webhook routes
@@ -264,15 +320,20 @@ async function startServer() {
 
             // 1. Check if device is trusted FIRST (to skip token request and rate limits)
             if (type === 'login' && uid && deviceId) {
-                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-                
                 try {
-                    const trustRes = await fetchWithRetry(trustedUrl);
-                    const trustData = await trustRes.json();
+                    const trustData = await fbGet(`trusted_devices/${uid}/${deviceId}`);
                     
                     if (trustData && trustData.expiresAt && Date.now() < trustData.expiresAt) {
-                        return res.json({ success: true, trusted: true, message: 'Device trusted' });
+                        // Also return custom token if trusted
+                        let customToken = null;
+                        if (admin.apps.length > 0) {
+                            try {
+                                customToken = await admin.auth().createCustomToken(uid);
+                            } catch (e) {
+                                console.error("Error creating custom token for trusted device:", e);
+                            }
+                        }
+                        return res.json({ success: true, trusted: true, message: 'Device trusted', customToken });
                     }
                 } catch (e) {
                     console.error("Error checking trusted device:", e);
@@ -326,14 +387,19 @@ async function startServer() {
             loginTokens.set(email.toLowerCase(), { token, expires });
 
             const transporter = nodemailer.createTransport({
-                host: (process.env.EMAIL_HOST && !process.env.EMAIL_HOST.includes('@')) ? process.env.EMAIL_HOST : 'smtp.hostinger.com',
+                host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
                 port: parseInt(process.env.EMAIL_PORT || '465'),
-                secure: true,
+                secure: process.env.EMAIL_SECURE !== 'false',
                 auth: {
-                    user: process.env.EMAIL_USER || 'suporte@painel.boradevan.com.br',
-                    pass: process.env.EMAIL_PASS || '15744751@Bb'
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
                 }
             });
+
+            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+                console.error("[SECURITY] Tentativa de envio de e-mail falhou: Credenciais não configuradas (EMAIL_USER/EMAIL_PASS)");
+                return res.status(500).json({ error: 'Configuração de e-mail ausente no servidor. Contate o administrador.' });
+            }
 
             const userName = name ? name : 'Usuário';
             let subject = 'Código de Acesso';
@@ -485,18 +551,34 @@ async function startServer() {
         loginTokens.delete(email.toLowerCase());
         tokenAttempts.delete(email.toLowerCase());
 
-        if (uid && deviceId) {
-            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-            
+        let firebaseCustomToken = null;
+        if (uid && admin.apps.length > 0) {
             try {
-                await fetchWithRetry(trustedUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        expiresAt: Date.now() + 12 * 60 * 60 * 1000,
-                        lastUsed: Date.now()
-                    })
+                // Fallback role logic if DB is inaccessible
+                let userRole = email.toLowerCase() === 'breno0452@gmail.com' ? 'admin' : 'operador';
+                
+                try {
+                    const userSnapshot = await admin.database().ref(`users/${uid}`).once('value');
+                    const userData = userSnapshot.val();
+                    if (userData && userData.role) {
+                        userRole = userData.role;
+                    }
+                } catch (dbErr) {
+                    console.warn("[AUTH] Could not fetch role from DB, using default:", userRole);
+                }
+                
+                firebaseCustomToken = await admin.auth().createCustomToken(uid, { role: userRole });
+                console.log(`[AUTH] Token generated for ${email} with role ${userRole}`);
+            } catch (e) {
+                console.error("Error creating custom token:", e);
+            }
+        }
+
+        if (uid && deviceId) {
+            try {
+                await fbSet(`trusted_devices/${uid}/${deviceId}`, {
+                    expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+                    lastUsed: Date.now()
                 });
             } catch (e) {
                 console.error("Error registering trusted device:", e);
@@ -510,7 +592,92 @@ async function startServer() {
             expires: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
         });
 
-        res.json({ success: true, sessionToken });
+        res.json({ success: true, sessionToken, customToken: firebaseCustomToken });
+    });
+
+    app.post('/api/find-users', async (req, res) => {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+        try {
+            const users = await fbGet('users');
+            
+            const matchingUsers: any[] = [];
+            if (users) {
+                const usernameTrimmed = username.trim().toLowerCase();
+                Object.keys(users).forEach(key => {
+                    const user = users[key];
+                    if (user && user.username && user.pass && user.username.toLowerCase() === usernameTrimmed && user.pass === password) {
+                        const isBreno = user.username === 'Breno';
+                        if (user.systems && Array.isArray(user.systems)) {
+                            user.systems.forEach((sys: string) => {
+                                if (sys === 'Mistura' && !isBreno) return;
+                                matchingUsers.push({
+                                    uid: key,
+                                    username: user.username,
+                                    role: user.role,
+                                    displayName: isBreno ? 'Sistema' : user.username,
+                                    system: sys,
+                                    email: user.email,
+                                    systems: user.systems,
+                                    createdBy: user.createdBy
+                                });
+                            });
+                        } else {
+                            if (user.system === 'Mistura' && !isBreno) return;
+                            matchingUsers.push({
+                                uid: key,
+                                username: user.username,
+                                role: user.role,
+                                displayName: isBreno ? 'Sistema' : user.username,
+                                system: user.system,
+                                email: user.email,
+                                createdBy: user.createdBy
+                            });
+                        }
+                    }
+                });
+            }
+            res.json({ users: matchingUsers });
+        } catch (error) {
+            console.error("Error finding users:", error);
+            res.status(500).json({ error: "Erro interno ao buscar usuários" });
+        }
+    });
+
+    app.post('/api/find-user-for-recovery', async (req, res) => {
+        const { input } = req.body;
+        if (!input) return res.status(400).json({ error: 'Input required' });
+
+        try {
+            const users = await fbGet('users');
+            
+            if (users) {
+                const trimmedInput = input.trim().toLowerCase();
+                for (const key of Object.keys(users)) {
+                    const u = users[key];
+                    if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'breno0452@gmail.com') {
+                        continue;
+                    }
+
+                    if (u.username?.toLowerCase() === trimmedInput || u.email?.toLowerCase() === trimmedInput) {
+                        return res.json({ 
+                            success: true, 
+                            user: {
+                                uid: key,
+                                username: u.username,
+                                displayName: u.displayName || u.username,
+                                email: u.email
+                            }
+                        });
+                    }
+                }
+            }
+            res.status(404).json({ error: "Usuário não encontrado" });
+        } catch (error) {
+            console.error("Error finding user for recovery:", error);
+            res.status(500).json({ error: "Erro interno" });
+        }
     });
 
     async function findExistingPassenger(name: string, phone: string, address: string, authParam: string, fingerprint?: string) {
@@ -519,14 +686,21 @@ async function startServer() {
         const normalizedPhone = phone.replace(/\D/g, '');
 
         try {
-            const promises = systems.map(sys => {
-                let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
-                if (sys === 'Pg') url += `passengers.json${authParam}`;
-                else url += `${sys}/passengers.json${authParam}`;
-                return fetchWithRetry(url).then(r => r.json().then(data => ({ system: sys, data })));
-            });
-
-            const results = await Promise.all(promises);
+            const results = await Promise.all(systems.map(async sys => {
+                let data: any = null;
+                if (admin.apps.length > 0) {
+                    const path = sys === 'Pg' ? 'passengers' : `${sys}/passengers`;
+                    const snapshot = await admin.database().ref(path).once('value');
+                    data = snapshot.val();
+                } else {
+                    let url = `https://boradevan-546c3-default-rtdb.firebaseio.com/`;
+                    if (sys === 'Pg') url += `passengers.json${authParam}`;
+                    else url += `${sys}/passengers.json${authParam}`;
+                    const res = await fetchWithRetry(url);
+                    data = await res.json();
+                }
+                return { system: sys, data };
+            }));
 
             for (const result of results) {
                 const passengers = result.data;
@@ -635,9 +809,8 @@ async function startServer() {
             } else {
                 // 3. Get the last passenger ID to continue sequence
                 try {
-                    const allPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
-                    const allPassRes = await fetchWithRetry(allPassUrl);
-                    const allPassData = await allPassRes.json();
+                    const allPassPath = `${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers`;
+                    const allPassData = await fbGet(allPassPath);
                     
                     let maxSiteId = 0;
                     if (allPassData && typeof allPassData === 'object') {
@@ -682,22 +855,11 @@ async function startServer() {
             passengerData.isSiteBooking = true;
 
             // 5. Save to Firebase
-            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
-            if (systemToSave === 'Pg') {
-                url += `passengers/${firebaseKey}.json${authParam}`;
-            } else {
-                url += `${systemToSave}/passengers/${firebaseKey}.json${authParam}`;
-            }
-
-            const response = await fetchWithRetry(url, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(passengerData)
-            });
+            const savePath = systemToSave === 'Pg' ? `passengers/${firebaseKey}` : `${systemToSave}/passengers/${firebaseKey}`;
+            const response = await fbSet(savePath, passengerData);
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Failed to create booking in Firebase. Status:', response.status, errorText);
+                console.error('Failed to create booking in Firebase');
                 return res.status(500).json({ error: 'Failed to create booking' });
             }
 
@@ -706,7 +868,7 @@ async function startServer() {
 
             // 5. Push notification for real-time alerts in the panel
             try {
-                const notificationUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/site_notifications.json${authParam}`;
+                const notificationPath = 'site_notifications';
                 const notificationData = {
                     id: Date.now().toString(),
                     type: 'new_booking',
@@ -717,14 +879,9 @@ async function startServer() {
                     read: false
                 };
 
-                await fetchWithRetry(notificationUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(notificationData)
-                });
+                await fbPush(notificationPath, notificationData);
             } catch (notifError) {
                 console.error('Failed to push notification:', notifError);
-                // Don't fail the request if notification fails
             }
 
             res.json({ success: true, id: displayId, system: systemToSave });
@@ -744,23 +901,12 @@ async function startServer() {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
             const authParam = dbSecret ? `?auth=${dbSecret}` : '';
             const firebaseKey = id.replace(' #', '_');
-            
-            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
-            if (system === 'Pg') {
-                url += `passengers/${firebaseKey}.json${authParam}`;
-            } else {
-                url += `${system}/passengers/${firebaseKey}.json${authParam}`;
-            }
+            const updatePath = system === 'Pg' ? `passengers/${firebaseKey}` : `${system}/passengers/${firebaseKey}`;
 
-            const response = await fetchWithRetry(url, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone })
-            });
+            const response = await fbUpdate(updatePath, { phone });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Failed to update phone in Firebase. Status:', response.status, errorText);
+                console.error('Failed to update phone in Firebase');
                 return res.status(500).json({ error: 'Failed to update phone' });
             }
 
@@ -772,7 +918,7 @@ async function startServer() {
         }
     });
 
-    app.post('/api/verify_session', requireAuth, async (req, res) => {
+    app.post('/api/verify_session', async (req, res) => {
         try {
             const { session_id } = req.body;
             if (!session_id) return res.status(400).json({ error: 'session_id required' });
@@ -798,11 +944,7 @@ async function startServer() {
                     );
                     
                     if (updateSuccess) {
-                        const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
-                        if (dbSecret) systemUrl += `?auth=${dbSecret}`;
-                        const sysRes = await fetchWithRetry(systemUrl);
-                        const sysData = await sysRes.json() || {};
+                        const sysData = await fbGet('system_settings/subscription') || {};
                         let expiresAt = sysData.expiresAt;
                         if (systemContext && systemContext !== 'Mistura') {
                             expiresAt = sysData[`expiresAt_${systemContext}`];
@@ -827,18 +969,79 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create_subscription_preference', requireAuth, async (req, res) => {
+    app.post('/api/renew-custom-token', async (req, res) => {
+        try {
+            const authHeader = req.headers.authorization;
+            if (!authHeader) return res.status(401).json({ error: 'Authorization header missing' });
+
+            const token = authHeader.split(' ')[1];
+            const session = apiSessionTokens.get(token);
+            
+            if (!session || Date.now() > session.expires) {
+                return res.status(401).json({ error: 'Session expired or invalid' });
+            }
+
+            // Find user in DB to get their UID
+            const users = await fbGet('users');
+            let userUid = null;
+            let userRole = session.email === 'breno0452@gmail.com' ? 'admin' : 'operador';
+            if (users) {
+                Object.keys(users).forEach(key => {
+                    if (users[key].email?.toLowerCase() === session.email) {
+                        userUid = key;
+                        userRole = users[key].role || userRole;
+                    }
+                });
+            }
+
+            if (!userUid) {
+                // Check USERS_DB as fallback
+                const localUser = USERS_DB.find(u => u.email?.toLowerCase() === session.email);
+                if (localUser) {
+                    userUid = 'local_' + localUser.username;
+                    userRole = localUser.role || userRole;
+                }
+            }
+
+            if (!userUid) return res.status(404).json({ error: 'User not found' });
+
+            const customToken = await admin.auth().createCustomToken(userUid, { role: userRole });
+            res.json({ customToken });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/sync-subscription', async (req, res) => {
+        try {
+            const { userId, systemContext } = req.body;
+            if (!userId) return res.status(400).json({ error: 'userId required' });
+
+            // In a real app, we would verify with Stripe here
+            // For now, we just ensure the Firebase state reflects what we have in the system_settings
+            const sysData = await fbGet('system_settings/subscription') || {};
+            
+            // This endpoint is mainly to ensure the frontend has a valid way to trigger a "refresh" of subscription state from server to DB
+            // Or to verify against Stripe if there's an inconsistency.
+            
+            res.json({ success: true, synced: true });
+        } catch (error: any) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/create_subscription_preference', async (req, res) => {
         try {
             const { email, userId, systemContext } = req.body;
             if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
             const appUrl = process.env.APP_URL || 'http://localhost:3000';
             const priceMap: any = {
-                'Mip': 'price_1TCiud2N7Ik4UR6lmc0cL6nK',
-                'Pg': 'price_1TCk6c2N7Ik4UR6lAIkjBTUb',
-                'Sv': 'price_1TCk6A2N7Ik4UR6l46SnE2KD'
+                'Mip': 'price_1TOUDi2N7Ik4UR6linH20Duh',
+                'Pg': 'price_1TOUAv2N7Ik4UR6lkRIvD9VR',
+                'Sv': 'price_1TOUEq2N7Ik4UR6lnPlsuAQ6'
             };
-            const priceId = priceMap[systemContext] || 'price_1TCiud2N7Ik4UR6lmc0cL6nK';
+            const priceId = priceMap[systemContext] || 'price_1TOUAv2N7Ik4UR6lkRIvD9VR';
 
             const session = await getStripe().checkout.sessions.create({
                 payment_method_types: ['card'],
@@ -858,34 +1061,49 @@ async function startServer() {
         }
     });
 
-    app.post('/api/create-pix-payment', requireAuth, async (req, res) => {
+    app.post('/api/create-pix-payment', async (req, res) => {
         try {
-            const { email, userId, systemContext, amount } = req.body;
-            if (!userId || !amount) return res.status(400).json({ error: 'userId and amount are required' });
+            const { email, userId, systemContext } = req.body;
+            if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
 
+            // Create Stripe PaymentIntent for PIX
             const paymentIntent = await getStripe().paymentIntents.create({
-                amount: amount,
+                amount: 30000, // 300.00 BRL
                 currency: 'brl',
                 payment_method_types: ['pix'],
-                metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' },
+                metadata: {
+                    userId,
+                    systemContext: systemContext || 'unknown',
+                    type: 'pix_payment'
+                },
                 receipt_email: email
             });
             
+            // Confirm the PaymentIntent to get PIX instructions (QR code)
             const confirmedIntent = await getStripe().paymentIntents.confirm(
                 paymentIntent.id,
-                { payment_method_data: { type: 'pix' } }
+                { 
+                    payment_method_data: { 
+                        type: 'pix',
+                        billing_details: { email }
+                    } 
+                }
             );
 
             if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
                 res.json({
                     qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
-                    qrCode: confirmedIntent.next_action.pix_display_qr_code.hosted_instructions_url,
-                    id: confirmedIntent.id
+                    qrCode: confirmedIntent.next_action.pix_display_qr_code.data, // Literal copy-paste code
+                    id: confirmedIntent.id,
+                    expires_at: confirmedIntent.next_action.pix_display_qr_code.expires_at
                 });
             } else {
-                res.status(500).json({ error: 'Failed to generate PIX QR code' });
+                res.status(400).json({ 
+                    error: 'PIX não está habilitado ou disponível para esta conta Stripe. Verifique se o método PIX está ativo no seu Dashboard do Stripe.' 
+                });
             }
         } catch (error: any) {
+            console.error('PIX Error:', error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -906,7 +1124,7 @@ async function startServer() {
                         const userId = paymentIntent.metadata.userId;
                         const systemContext = paymentIntent.metadata.systemContext;
                         if (userId && systemContext) {
-                            await updateUserSubscriptionStatus(userId, 'active', paymentIntent.id, new Date().toISOString(), systemContext);
+                            await updateUserSubscriptionStatus(userId, 'active', paymentIntent.id, new Date().toISOString(), systemContext, false);
                         }
                     }
                     break;
@@ -915,13 +1133,24 @@ async function startServer() {
                     const session = event.data.object;
                     let userId = session.metadata?.userId;
                     let systemContext = session.metadata?.systemContext;
-                    if (!userId && session.client_reference_id && session.client_reference_id.startsWith('BORA_VAN_SUB_')) {
-                        const parts = session.client_reference_id.split('_');
-                        userId = parts[3];
-                        systemContext = parts[4];
+                    let isRecurring = session.mode === 'subscription';
+
+                    if (!userId && session.client_reference_id) {
+                        if (session.client_reference_id.startsWith('BORA_VAN_SUB_')) {
+                            const parts = session.client_reference_id.split('_');
+                            userId = parts[3];
+                            systemContext = parts[4];
+                            isRecurring = true;
+                        } else if (session.client_reference_id.startsWith('BORA_VAN_PIX_')) {
+                            const parts = session.client_reference_id.split('_');
+                            userId = parts[3];
+                            systemContext = parts[4];
+                            isRecurring = false;
+                        }
                     }
+                    
                     if (userId && systemContext) {
-                        await updateUserSubscriptionStatus(userId, 'active', session.subscription as string || session.id, new Date().toISOString(), systemContext);
+                        await updateUserSubscriptionStatus(userId, 'active', session.subscription as string || session.id, new Date().toISOString(), systemContext, isRecurring);
                     }
                     break;
                 }

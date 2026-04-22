@@ -3,6 +3,7 @@ import React from 'react';
 import { Icons } from './Shared';
 import { getAvatarUrl } from '../utils';
 import { motion } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 import {
     DndContext,
     closestCenter,
@@ -75,6 +76,33 @@ const SortableMenuItem = ({ item, isMobile, view, setView, setMenuOpen, theme }:
     );
 };
 
+const Logo = ({ theme, systemContext }: any) => (
+    <div className="relative w-12 h-12 flex items-center justify-center group cursor-pointer">
+        {/* Camadas de fundo com efeito de vidro e brilho */}
+        <div className="absolute inset-0 bg-brand-purple/20 rounded-2xl rotate-6 scale-90 blur-sm group-hover:rotate-12 transition-all duration-700"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-purple via-brand-pink to-brand-purple rounded-2xl shadow-xl shadow-brand-purple/30 transform group-hover:-rotate-6 transition-all duration-500"></div>
+        
+        {/* Brilho interno */}
+        <div className="absolute inset-[2px] bg-gradient-to-tl from-white/10 to-transparent rounded-[14px] z-10"></div>
+
+        {/* Conteúdo Central: Letra B Estilizada */}
+        <div className="relative z-20 flex flex-col items-center justify-center">
+            <span className="text-white font-black text-2xl italic leading-none tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] select-none">B</span>
+            {/* Linha de movimento */}
+            <div className="w-6 h-1 bg-white/40 rounded-full -mt-0.5 blur-[0.5px] transform -skew-x-12"></div>
+        </div>
+
+        {/* Badge do Van: Representando o "Bora de Van" */}
+        <div className="absolute -bottom-1.5 -right-1.5 bg-white text-brand-pink rounded-xl p-1.5 shadow-2xl border-2 border-brand-pink/10 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300 z-30">
+            <Icons.Van size={16} strokeWidth={3} />
+        </div>
+        
+        {/* Efeito de "Velocidade" */}
+        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-white/20 rounded-full blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-white/10 rounded-full blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity delay-75"></div>
+    </div>
+);
+
 export const Sidebar = ({ 
     theme, 
     view, 
@@ -93,7 +121,7 @@ export const Sidebar = ({
     pendingOpsCount,
     db
 }: any) => {
-
+    const { logout, stopImpersonating } = useAuth();
     const [activeId, setActiveId] = React.useState<string | null>(null);
     
     const sensors = useSensors(
@@ -136,16 +164,19 @@ export const Sidebar = ({
     const renderMenuContent = (isMobile: boolean) => (
         <div onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') e.stopPropagation(); }} className="flex flex-col h-full">
             <div className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-amber-600 rounded-xl flex items-center justify-center text-white">
-                        <Icons.Van size={24}/>
-                    </div>
+                <div className="flex items-center gap-4">
+                    <Logo theme={theme} systemContext={systemContext} />
                     <div className="flex flex-col">
-                        <h1 className="text-xl font-bold">Bora de Van</h1>
-                        <div className="text-xs font-bold uppercase tracking-widest opacity-50">{systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext}</div>
+                        <h1 className="text-xl font-black tracking-tight leading-tight">Bora de <span className="text-brand-pink">Van</span></h1>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">
+                                {systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext} • Painel
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {isMobile && <button onClick={() => setMenuOpen(false)}><Icons.X /></button>}
+                {isMobile && <button onClick={() => setMenuOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><Icons.X /></button>}
             </div>
 
             <div id="sidebar-scroll-container" className="flex-1 overflow-y-auto px-4 py-2 pb-4 space-y-1">
@@ -195,6 +226,20 @@ export const Sidebar = ({
             </div>
 
             <div className="p-4 border-t border-white/5 mt-auto">
+                {user?.isImpersonated && (
+                    <button 
+                        onClick={() => stopImpersonating()}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all mb-4 group"
+                    >
+                        <div className="p-2 bg-amber-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                            <Icons.Zap size={18} />
+                        </div>
+                        <div className="flex-1 text-left">
+                            <div className="text-xs font-bold">Impersonando</div>
+                            <div className="text-[10px] opacity-70">Clique para voltar ao Breno</div>
+                        </div>
+                    </button>
+                )}
                 {/* Offline Status Indicator */}
                 <div className="px-4 py-2 mb-2 rounded-xl bg-white/5 border border-white/10">
                     <div className="flex items-center justify-between mb-1">

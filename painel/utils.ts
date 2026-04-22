@@ -261,22 +261,23 @@ export const handlePrint = async (targetId: string, filename: string, title: str
         const itemCount = element.children.length;
         let columns = 1;
         let itemsToSkip = 0;
+        const ITEMS_PER_COL = 10;
 
         if (options.forceCols) {
             columns = options.forceCols;
         } else if (options.mode === 'confirmados') {
-            columns = itemCount > 12 ? 2 : 1;
+            columns = Math.ceil(itemCount / ITEMS_PER_COL);
         } else if (options.mode === 'lousa') {
-            // Se tiver mais de 24 itens (3 colunas ou mais), ignoramos a primeira coluna (12 itens)
-            // pois os dados são considerados antigos, conforme solicitado.
-            if (itemCount > 24) {
-                itemsToSkip = 12;
-                columns = Math.ceil((itemCount - 12) / 12);
+            if (itemCount > ITEMS_PER_COL * 2) {
+                itemsToSkip = ITEMS_PER_COL;
+                columns = Math.ceil((itemCount - ITEMS_PER_COL) / ITEMS_PER_COL);
             } else {
-                columns = Math.ceil(itemCount / 12);
+                columns = Math.ceil(itemCount / ITEMS_PER_COL);
             }
-            if (columns < 1) columns = 1;
+        } else {
+            columns = Math.ceil(itemCount / ITEMS_PER_COL);
         }
+        if (columns < 1) columns = 1;
 
         wrapper = document.createElement('div');
         wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background-color:#1e293b;color:white;padding:40px;z-index:99999;line-height:1.2;';
@@ -311,13 +312,9 @@ export const handlePrint = async (targetId: string, filename: string, title: str
         clone.querySelectorAll('.show-on-print').forEach(el => { 
             el.classList.remove('hidden'); 
             const display = el.getAttribute('data-print-display') || 'flex';
-            // Force inline styles to override any class-based hiding
             (el as any).style.display = display;
             (el as any).style.visibility = 'visible';
             (el as any).style.opacity = '1';
-            
-            // Also ensure parent doesn't hide it if possible (though we can't easily traverse up in clone without affecting others)
-            // But we can make sure the element itself is as visible as possible
         });
 
         clone.querySelectorAll('[data-print-size]').forEach(el => {
@@ -333,13 +330,10 @@ export const handlePrint = async (targetId: string, filename: string, title: str
             el.classList.remove('line-through');
             (el as any).style.textDecoration = 'none';
             
-            // Ensure the element can contain an absolute child
             if (!el.classList.contains('absolute') && !el.classList.contains('fixed') && !el.classList.contains('relative')) {
                 el.classList.add('relative');
             }
             
-            // Inject a real DOM element for the strikethrough line
-            // This is 100% reliable in html2canvas compared to text-decoration or pseudo-elements
             const line = document.createElement('span');
             const offset = el.getAttribute('data-print-line-offset') || '20px';
             line.style.cssText = `position: absolute; left: 0; right: 0; top: calc(50% + ${offset}); height: 2px; background-color: currentColor; transform: translateY(-50%); pointer-events: none; z-index: 10;`;
@@ -383,14 +377,14 @@ export const handlePrint = async (targetId: string, filename: string, title: str
 
         // Render clone to wrapper
         const contentContainer = document.createElement('div');
+        const colWidth = 450;
+        wrapper.style.width = `${columns * colWidth + (columns > 1 ? (columns - 1) * 40 : 0) + 80}px`; 
+        
         if (columns > 1) {
-            wrapper.style.width = `${columns * 600 + 80}px`; 
             contentContainer.style.columnCount = columns.toString();
             contentContainer.style.columnGap = '40px';
-        } else {
-            // Forçar largura de desktop (1000px) para evitar desalinhamento em telas pequenas
-            wrapper.style.width = '1000px';
         }
+        
         contentContainer.appendChild(clone);
         wrapper.appendChild(contentContainer);
         document.body.appendChild(wrapper);

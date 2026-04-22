@@ -24,7 +24,7 @@ export default function Error503() {
                 <div className="w-64 h-64 md:w-80 md:h-80 mx-auto flex items-center justify-center relative">
                     {/* The Van */}
                     <img 
-                      src="/BDV.png" 
+                      src="/BDV.webp" 
                       alt="Van em Manutenção" 
                       className="w-full h-full object-contain filter invert opacity-80"
                       referrerPolicy="no-referrer"

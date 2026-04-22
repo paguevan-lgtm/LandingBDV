@@ -24,7 +24,7 @@ export default function Error401() {
              >
                 <div className="w-48 h-48 md:w-64 md:h-64 mx-auto flex items-center justify-center bg-slate-900/50 rounded-full p-8 border border-slate-800">
                     <img 
-                      src="/BDV.png" 
+                      src="/BDV.webp" 
                       alt="Login Obrigatório" 
                       className="w-full h-full object-contain opacity-40 grayscale"
                       referrerPolicy="no-referrer"

@@ -111,9 +111,7 @@ export interface StaticUser {
     system?: string;
 }
 
-export const USERS_DB: StaticUser[] = [
-    { username: 'Gilson', pass: '123456', role: 'admin', systems: ['SV', 'MIP', 'PG'], createdBy: 'Breno' },
-];
+export const USERS_DB: StaticUser[] = [];
 
 export const DEFAULT_FOLGAS = {
     'SEGUNDA': [],

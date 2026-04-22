@@ -29,6 +29,7 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
     const [token, setToken] = useState('');
     const [userEmail, setUserEmail] = useState('');
     const [currentUserUid, setCurrentUserUid] = useState('');
+    const [customToken, setCustomToken] = useState<string | null>(null);
     const [resendTimer, setResendTimer] = useState(0);
     const [isBlocked, setIsBlocked] = useState(false);
 
@@ -152,7 +153,8 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     
                     if (result && result.trusted) {
                         // Device is trusted, skip token input
-                        proceedToLogin(user.system || selectedSystem || undefined);
+                        if (result.customToken) setCustomToken(result.customToken);
+                        proceedToLogin(user.system || selectedSystem || undefined, result.customToken);
                     } else {
                         setShowTokenInput(true);
                     }
@@ -239,9 +241,13 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     localStorage.setItem('api_session_token', data.sessionToken);
                 }
                 
+                if (data.customToken) {
+                    setCustomToken(data.customToken);
+                }
+                
                 setLoading(false);
                 setShowTokenInput(false);
-                proceedToLogin(selectedSystem || undefined);
+                proceedToLogin(selectedSystem || undefined, data.customToken);
             } else {
                 const text = await response.text();
                 console.error("Non-JSON response:", text);
@@ -261,24 +267,24 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
             let foundUser = null;
             let targetEmail = '';
 
-            // Search in Firebase
+            // Search in Firebase via Proxy API
             if (db) {
-                const snapshot = await db.ref('users').once('value');
-                const users = snapshot.val();
-                if (users) {
-                    for (const key of Object.keys(users)) {
-                        const u = users[key];
-                        // Exclude Breno, Sistema and specific email
-                        if (u.username?.toLowerCase() === 'breno' || u.username?.toLowerCase() === 'sistema' || u.email?.toLowerCase() === 'breno0452@gmail.com') {
-                            continue;
-                        }
-
-                        if (u.username?.toLowerCase() === trimmedInput.toLowerCase() || u.email?.toLowerCase() === trimmedInput.toLowerCase()) {
-                            foundUser = { ...u, uid: key };
-                            targetEmail = u.email;
-                            break;
+                try {
+                    const response = await fetch('/api/find-user-for-recovery', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ input: trimmedInput })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.user) {
+                            foundUser = data.user;
+                            targetEmail = data.user.email;
                         }
                     }
+                } catch (apiErr) {
+                    console.error("Erro API find-user-for-recovery:", apiErr);
                 }
             }
 
@@ -469,24 +475,27 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
         );
     };
 
-    const proceedToLogin = (system?: string) => {
+    const proceedToLogin = (system?: string, tokenFromApi?: string) => {
+        const tokenToUse = tokenFromApi || customToken || undefined;
         if (requireLocationOnLogin) {
             setGeoStatus('');
             setLoading(false);
             setShowGeoPrompt(true);
             // We store the system to use it when geo is done
             if (system) setSelectedSystem(system);
+            if (tokenToUse) setCustomToken(tokenToUse);
         } else {
-            startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, system);
+            startEntrySequence({ latitude: 0, longitude: 0, accuracy: 0 }, system, tokenToUse);
         }
     };
 
-    const startEntrySequence = (coords: any, system?: string) => {
+    const startEntrySequence = (coords: any, system?: string, tokenFromApi?: string) => {
+        const tokenToUse = tokenFromApi || customToken || undefined;
         setGeoStatus('Motor ligado. Iniciando...');
         setIsZooming(true); 
 
         setTimeout(async () => {
-            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined);
+            const success = await login(username.trim(), password, coords, system || selectedSystem || undefined, tokenToUse);
             if (!success) {
                 setIsZooming(false);
                 setLoading(false);
@@ -610,11 +619,11 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
                 >
-                    <h1 className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase italic">Bora de Van</h1>
+                    <h1 className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase italic">Bora de <span className="text-brand-pink">Van</span></h1>
                     <div className="flex items-center justify-center gap-3 mt-2">
-                        <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-amber-500"></div>
-                        <p className="text-[10px] font-bold tracking-[0.4em] uppercase text-amber-500">Premium Fleet</p>
-                        <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-amber-500"></div>
+                        <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-brand-purple"></div>
+                        <p className="text-[10px] font-bold tracking-[0.4em] uppercase text-brand-pink">Premium Fleet</p>
+                        <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-brand-purple"></div>
                     </div>
                 </motion.div>
             </div>
@@ -737,7 +746,8 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                                                 
                                                 if (result && result.trusted) {
                                                     // Device is trusted, skip token input
-                                                    proceedToLogin(u.system);
+                                                    if (result.customToken) setCustomToken(result.customToken);
+                                                    proceedToLogin(u.system, result.customToken);
                                                 } else {
                                                     setShowTokenInput(true);
                                                 }
