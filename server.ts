@@ -7,7 +7,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import { createServer as createViteServer } from 'vite';
+// import { createServer as createViteServer } from 'vite'; -> Removed to prevent top-level import issues in production
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -995,12 +995,7 @@ async function startServer() {
             }
 
             if (!userUid) {
-                // Check USERS_DB as fallback
-                const localUser = USERS_DB.find(u => u.email?.toLowerCase() === session.email);
-                if (localUser) {
-                    userUid = 'local_' + localUser.username;
-                    userRole = localUser.role || userRole;
-                }
+                // FALLBACK: Removed USERS_DB check as we want to use only the Firebase DB for security
             }
 
             if (!userUid) return res.status(404).json({ error: 'User not found' });
@@ -1171,7 +1166,11 @@ async function startServer() {
     });
 
     // Vite Middleware (Development)
-    if (process.env.NODE_ENV !== 'production') {
+    // To run in development with Vite, set NODE_ENV=development
+    const isDevelopment = process.env.NODE_ENV === 'development';
+
+    if (isDevelopment) {
+        console.log("Starting in DEVELOPMENT mode with Vite middleware...");
         const { createServer: createViteServer } = await import('vite');
         const hmrConfig = false; // Always disable HMR in this environment to avoid port conflicts
 
@@ -1218,4 +1217,7 @@ async function startServer() {
     });
 }
 
-startServer();
+startServer().catch(err => {
+    console.error("FATAL: Failed to start server:", err);
+    process.exit(1);
+});

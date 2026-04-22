@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "NODE_ENV=development tsx server.ts",
     "build": "vite build && (cd painel && vite build) && esbuild server.ts --bundle --platform=node --format=esm --outfile=server.js --external:vite --external:express --external:cors --external:stripe --external:nodemailer --external:url --external:path",
     "start": "node server.js",
     "preview": "vite preview",
