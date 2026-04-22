@@ -606,18 +606,14 @@ const AppContent = () => {
     const globalTouchRef = useRef({ x: 0, y: 0 });
 
     // --- LOGIC EXTRACTED HELPERS ---
-    const notify = (msg: string, type: 'success' | 'error' | 'info' | 'update' | 'delete' | 'warning' | 'loading' = 'success', image: string | null = null) => {
+    const notify = (msg: string, type: 'success' | 'error' | 'info' | 'update' | 'delete' | 'warning' = 'success', image: string | null = null) => {
         // Map types to visual styles
         const visualType = (type === 'update' || type === 'delete') ? (type === 'update' ? 'success' : 'error') : type;
         
         if (popupsEnabled) {
             setNotification({ message: msg, type: visualType as any, visible: true, image });
             if (timerRef.current) clearTimeout(timerRef.current);
-            
-            // Don't auto-hide if it's a loading notification
-            if (type !== 'loading') {
-                timerRef.current = setTimeout(() => setNotification(prev => ({ ...prev, visible: false })), 3000);
-            }
+            timerRef.current = setTimeout(() => setNotification(prev => ({ ...prev, visible: false })), 3000);
         }
         
         // Play sound based on type if enabled
@@ -651,13 +647,6 @@ const AppContent = () => {
         }
     };
 
-    const dismissAllAdminNotifications = () => {
-        if (!user?.username || !adminNotifications.length) return;
-        adminNotifications.forEach(n => {
-            db.ref(`admin_notifications/${n.realId}/dismissedBy/${user.username}`).set(true);
-        });
-    };
-
     const showAlert = (title: string, message: string, type: 'warning' | 'danger' | 'info' = 'warning') => {
         setAlertState({ isOpen: true, title, message, type });
     };
@@ -669,16 +658,6 @@ const AppContent = () => {
     // Listener de Assinatura Global
     useEffect(() => {
         if (!db || !user) return;
-
-        // Tenta sincronizar com o Stripe ao entrar (apenas para admins Reais)
-        if (user.role === 'admin' && !user.isImpersonated) {
-            fetch('/api/sync-subscription', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.uid, systemContext })
-            }).catch(e => console.error("Erro ao sincronizar assinatura:", e));
-        }
-
         const subRef = db.ref('system_settings/subscription');
         const unsub = subRef.on('value', (snap) => {
             const data = snap.val();
@@ -794,7 +773,7 @@ const AppContent = () => {
     };
 
     const logAction = useCallback(async (action: string, details: string) => {
-        if (!user || user.username === 'Breno' || user.isImpersonated || !db) return;
+        if (!user || user.username === 'Breno' || !db) return;
         
         const logEntry = {
             username: user.username,
@@ -2615,7 +2594,7 @@ const AppContent = () => {
         const payload = {
             id: formData.id || nextId,
             isExtra: true,
-            extraType: formData.type || 'Cobrança Manual',
+            extraType: formData.type || 'Frete',
             driverName: formData.driverName || '',
             extraPhone: formData.phone || '',
             value: Number(formData.value) || 0,
@@ -2624,8 +2603,7 @@ const AppContent = () => {
             notes: formData.notes || '',
             paymentStatus: 'Pendente',
             status: 'Finalizada',
-            pCount: 0,
-            createdBy: user?.displayName || user?.username || 'Sistema'
+            pCount: 0
         };
 
         dbOp(formData.id ? 'update' : 'create', 'trips', payload);
@@ -3254,7 +3232,7 @@ const AppContent = () => {
         if (t.isExtra) {
             setFormData({
                 id: t.id,
-                type: t.extraType || 'Cobrança Manual',
+                type: t.extraType || 'Frete',
                 driverName: t.driverName,
                 phone: t.extraPhone,
                 value: t.value,
@@ -3577,7 +3555,7 @@ const AppContent = () => {
 
         if (trip.isExtra) {
             if (!trip.extraPhone) return notify("Motorista sem telefone", "error");
-            const msg = `Olá ${trip.driverName}, referente ao ${trip.extraType || 'Cobrança Manual'} do dia ${formatDisplayDate(trip.date)} às ${trip.time}. Valor: R$ ${Number(trip.value).toFixed(2).replace('.', ',')}. Status: ${trip.isPaid ? 'PAGO' : 'PENDENTE'}.${pixInfo}`;
+            const msg = `Olá ${trip.driverName}, referente ao ${trip.extraType || 'Frete'} do dia ${formatDisplayDate(trip.date)} às ${trip.time}. Valor: R$ ${Number(trip.value).toFixed(2).replace('.', ',')}. Status: ${trip.isPaid ? 'PAGO' : 'PENDENTE'}.${pixInfo}`;
             window.open(`https://wa.me/55${trip.extraPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
             return;
         }
@@ -3922,7 +3900,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 } else if(view==='billing' || view==='financeiro') {
                                     const now = new Date();
                                     const timeToUse = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
-                                    setFormData({ date: getTodayDate(), time: timeToUse, type: 'Cobrança Manual' });
+                                    setFormData({ date: getTodayDate(), time: timeToUse, type: 'Frete' });
                                     setModal('extraCharge');
                                 } else if(view==='lostFound') { setFormData({date: getTodayDate(), status: 'Pendente'}); setModal('lostFound'); } else if(view==='drivers') { setFormData({status: 'Ativo'}); setModal('driver'); } else { setSuggestedTrip(null); setEditingTripId(null); setModal('trip'); } 
                             }} className={`${theme.primary} p-2.5 rounded-xl shadow-lg active:scale-95`}><Icons.Plus/></button>
@@ -4093,12 +4071,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                  </div>
 
             <PersistentNotifications notifications={persistentNotifications} onClose={removePersistentNotification} />
-            <AdminNotificationsModal 
-                notifications={adminNotifications} 
-                onClose={removePersistentNotification} 
-                onDismissAll={dismissAllAdminNotifications}
-                theme={theme} 
-            />
+            <AdminNotificationsModal notifications={adminNotifications} onClose={removePersistentNotification} theme={theme} />
             
             <audio ref={reminderAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
             <audio ref={siteNotificationAudioRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto" />
