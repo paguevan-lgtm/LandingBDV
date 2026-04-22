@@ -435,7 +435,7 @@ export const WeatherWidget = ({ theme, location }: any) => {
     );
 };
 
-export const AdminNotificationsModal = ({ notifications, onClose, onDismissAll, theme }: any) => {
+export const AdminNotificationsModal = ({ notifications, onClose, theme }: any) => {
     const t = theme || THEMES.default;
     
     if (!notifications || notifications.length === 0) return null;
@@ -451,23 +451,14 @@ export const AdminNotificationsModal = ({ notifications, onClose, onDismissAll, 
                 >
                     <div className="absolute -top-12 -right-12 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full"></div>
                     
-                    <div className="relative z-10 flex-shrink-0 mb-6 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-[20px] flex items-center justify-center bg-blue-500/20 text-blue-500 shadow-lg shadow-blue-500/10">
-                                <Icons.Bell size={28}/>
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-black tracking-tight">Avisos do Sistema</h3>
-                                <p className="text-xs opacity-50 font-bold uppercase tracking-widest">Notificações Administrativas</p>
-                            </div>
+                    <div className="relative z-10 flex-shrink-0 mb-6 flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-[20px] flex items-center justify-center bg-blue-500/20 text-blue-500 shadow-lg shadow-blue-500/10">
+                            <Icons.Bell size={28}/>
                         </div>
-                        <button 
-                            onClick={onDismissAll}
-                            className="p-3 hover:bg-white/10 rounded-full transition-colors group"
-                            title="Fechar Todas"
-                        >
-                            <Icons.X size={24} className="opacity-50 group-hover:opacity-100" />
-                        </button>
+                        <div>
+                            <h3 className="text-2xl font-black tracking-tight">Avisos do Sistema</h3>
+                            <p className="text-xs opacity-50 font-bold uppercase tracking-widest">Notificações Administrativas</p>
+                        </div>
                     </div>
 
                     <div className="relative z-10 flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
@@ -541,12 +532,10 @@ export const Toast = ({ message, type, visible, image }: any) => {
                             background: type === 'success' ? 'rgba(16, 185, 129, 0.85)' : 
                                         type === 'error' ? 'rgba(239, 68, 68, 0.85)' : 
                                         type === 'warning' ? 'rgba(245, 158, 11, 0.85)' :
-                                        type === 'loading' ? 'rgba(100, 116, 139, 0.85)' :
                                         'rgba(59, 130, 246, 0.85)',
                             boxShadow: type === 'success' ? '0 20px 40px -10px rgba(16, 185, 129, 0.3)' :
                                        type === 'error' ? '0 20px 40px -10px rgba(239, 68, 68, 0.3)' :
                                        type === 'warning' ? '0 20px 40px -10px rgba(245, 158, 11, 0.3)' :
-                                       type === 'loading' ? '0 20px 40px -10px rgba(100, 116, 139, 0.3)' :
                                        '0 20px 40px -10px rgba(59, 130, 246, 0.3)'
                         }}
                     >
@@ -559,7 +548,6 @@ export const Toast = ({ message, type, visible, image }: any) => {
                                     {type === 'error' && <Icons.X size={22}/>}
                                     {type === 'warning' && <Icons.Bell size={22}/>}
                                     {type === 'info' && <Icons.Bell size={22}/>}
-                                    {type === 'loading' && <LoadingSpinner size={22} className="text-white" />}
                                 </>
                             )}
                         </div>
@@ -574,10 +562,8 @@ export const Toast = ({ message, type, visible, image }: any) => {
     );
 };
 
-export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, onClose, confirmText, type='danger', theme }: any) => {
+export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, type='danger', theme }: any) => {
     const t = theme || THEMES.default;
-    const handleCancel = onCancel || onClose;
-    
     return (
         <AnimatePresence>
             {isOpen && (
@@ -598,7 +584,7 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, onCl
                             <p className="text-sm opacity-60 mb-8 leading-relaxed font-medium">{message}</p>
                             <div className="flex gap-3">
                                 <button 
-                                    onClick={handleCancel} 
+                                    onClick={onCancel} 
                                     className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 font-black text-sm transition-all active:scale-95 border border-white/5"
                                 >
                                     Cancelar
@@ -607,7 +593,7 @@ export const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, onCl
                                     onClick={onConfirm} 
                                     className={`flex-1 py-4 rounded-2xl font-black text-sm text-white shadow-xl transition-all active:scale-95 ${type === 'danger' ? 'bg-red-600 hover:bg-red-500 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20'}`}
                                 >
-                                    {confirmText || 'Confirmar'}
+                                    Confirmar
                                 </button>
                             </div>
                         </div>
