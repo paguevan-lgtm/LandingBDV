@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { MapPin, Loader2, CheckCircle2, AlertTriangle, User, ShieldCheck, Car } from 'lucide-react';
-import { motion } from 'motion/react';
+import { MapPin, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { getDeviceFingerprint, setPoisonPill, getHardwareInfo } from '../lib/security';
 
 // Helper functions for device info
@@ -66,6 +65,7 @@ export default function MotoristaLogin() {
         reason: 'IP-based location'
       };
       
+      console.log("Localização por IP obtida:", loc);
       setLocationData(loc);
       setLocationStatus('success');
       localStorage.setItem('motorista_location', JSON.stringify(loc));
@@ -91,12 +91,14 @@ export default function MotoristaLogin() {
       const snapshot = await db.ref('drivers').once('value');
       const driversData = snapshot.val();
       const drivers = driversData ? Object.values(driversData) : [];
+      console.log('Fetched drivers:', drivers);
       
+      const sanitizedInputCpf = cpf.replace(/\D/g, '');
       const driver = drivers.find((d: any) => {
+        console.log('Checking driver object:', d);
         const sanitizedStoredCpf = (d.cpf || '').replace(/\D/g, '');
-        const storedPassword = d.password || sanitizedStoredCpf.substring(0, 6);
-        
-        return d.name === name && storedPassword === cpf;
+        console.log('Comparing:', d.name, 'with', name, '| CPF:', sanitizedStoredCpf, 'with', sanitizedInputCpf);
+        return d.name === name && sanitizedStoredCpf.substring(0, 6) === sanitizedInputCpf;
       }) as any;
       
       if (driver) {
@@ -176,52 +178,26 @@ export default function MotoristaLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
-      {/* Background Glows */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-
-      <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-[2.5rem] w-full max-w-md border border-slate-800 shadow-2xl relative z-10">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 rotate-3">
-            <Car size={40} className="text-white" />
-          </div>
-          <h2 className="text-3xl font-display font-extrabold text-white">Bora de <span className="text-blue-500">Van</span></h2>
-          <p className="text-slate-400 text-sm font-medium">Acesso Exclusivo para Motoristas</p>
-        </div>
-
-        {error && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 mb-6 text-xs bg-red-500/10 p-4 rounded-2xl border border-red-500/20 flex items-center gap-3"
-          >
-            <AlertTriangle size={18} className="shrink-0" />
-            {error}
-          </motion.div>
-        )}
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+      <div className="bg-slate-900 p-8 rounded-2xl w-full max-w-md border border-slate-800 shadow-xl">
+        <h2 className="text-2xl font-bold text-white mb-6">Login Motorista</h2>
+        {error && <p className="text-red-400 mb-4 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">{error}</p>}
         
-        <div className="space-y-4 mb-8">
-          <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
-            <input 
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
-              placeholder="Nome Completo"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="relative">
-            <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
-            <input 
-              type="password"
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
-              placeholder="Senha (ou 6 dígitos do CPF)"
-              value={cpf}
-              onChange={(e) => setCpf(e.target.value)}
-            />
-          </div>
-        </div>
+        <input 
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white mb-4 focus:border-blue-500 outline-none transition-colors"
+          placeholder="Nome do Motorista"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input 
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white mb-6 focus:border-blue-500 outline-none transition-colors"
+          placeholder="6 primeiros dígitos do CPF"
+          value={cpf}
+          onChange={(e) => {
+            const val = e.target.value.replace(/\D/g, '');
+            setCpf(val.substring(0, 6));
+          }}
+        />
 
         {requireLocation && (
           <div className="mb-6">
