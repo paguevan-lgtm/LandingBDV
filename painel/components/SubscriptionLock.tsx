@@ -174,8 +174,6 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
     const [subscriptionEmail, setSubscriptionEmail] = useState('');
     const [savedSubscriptionEmail, setSavedSubscriptionEmail] = useState('');
     const [emailError, setEmailError] = useState('');
-    const [pendingPaymentMethod, setPendingPaymentMethod] = useState<'card' | 'pix' | null>(null);
-    const [pixData, setPixData] = useState<any>(null);
 
     // Sync subscription status on mount
     useEffect(() => {
@@ -366,15 +364,6 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
         if (savedSubscriptionEmail && !subscriptionEmail) {
             setSubscriptionEmail(savedSubscriptionEmail);
         }
-        setPendingPaymentMethod('card');
-        setShowEmailModal(true);
-    };
-
-    const handleCreatePixClick = () => {
-        if (savedSubscriptionEmail && !subscriptionEmail) {
-            setSubscriptionEmail(savedSubscriptionEmail);
-        }
-        setPendingPaymentMethod('pix');
         setShowEmailModal(true);
     };
 
@@ -383,51 +372,9 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
             setEmailError('Por favor, insira um e-mail válido.');
             return;
         }
-        const method = pendingPaymentMethod;
         setEmailError('');
         setShowEmailModal(false);
-        setPendingPaymentMethod(null);
-        
-        if (method === 'pix') {
-            await handleCreatePixPayment(subscriptionEmail);
-        } else {
-            await handleCreateSubscription(subscriptionEmail);
-        }
-    };
-
-    const handleCreatePixPayment = async (email: string) => {
-        setLoading(true);
-        try {
-            const response = await fetch('/api/create-pix-payment', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('api_session_token')}`
-                },
-                body: JSON.stringify({ email, userId: user.username, systemContext })
-            });
-            
-            if (!response.ok) {
-                const text = await response.text();
-                console.error('Server error response:', text);
-                throw new Error('Erro no servidor ao criar pagamento PIX.');
-            }
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error);
-            
-            if (data.qrCodeBase64) {
-                setPixData(data);
-                setSelectedMethod('pix');
-            } else if (data.url) {
-                window.location.href = data.url;
-            }
-        } catch (error: any) {
-            console.error("Erro ao criar PIX:", error);
-            openModal("Erro", "Erro ao gerar PIX: " + error.message);
-        } finally {
-            setLoading(false);
-        }
+        await handleCreateSubscription(subscriptionEmail);
     };
 
     const handleCreateSubscription = async (email: string) => {
@@ -786,7 +733,7 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
                             )}
                             <Button 
                                 theme={{ primary: 'bg-emerald-600 hover:bg-emerald-500 text-white' }} 
-                                onClick={handleCreatePixClick} 
+                                onClick={() => setSelectedMethod('pix')} 
                                 className="w-full py-3"
                                 icon={Icons.QrCode}
                             >
@@ -817,14 +764,7 @@ export const SubscriptionLock: React.FC<SubscriptionLockProps> = ({ user, system
                     </div>
                 ) : (
                     selectedMethod === 'pix' ? (
-                        <div className="animate-in fade-in zoom-in duration-300">
-                             <PixPayment 
-                                pixData={pixData} 
-                                userId={user.username} 
-                                systemContext={systemContext} 
-                                email={subscriptionEmail} 
-                            />
-                        </div>
+                        <PixPayment amount={30000} userId={user.uid} systemContext={systemContext} email={subscriptionEmail} />
                     ) : null
                 )}
             </div>

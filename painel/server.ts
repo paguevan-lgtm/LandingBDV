@@ -633,47 +633,45 @@ async function startServer() {
 
     app.post('/api/create-pix-payment', async (req, res) => {
         try {
-            const { email, userId, systemContext } = req.body;
-            if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
+            const { email, userId, systemContext, amount } = req.body;
+            
+            if (!userId || !amount) {
+                return res.status(400).json({ error: 'userId and amount are required' });
+            }
 
             // Create Stripe PaymentIntent for PIX
+            console.log('Creating PIX PaymentIntent for amount:', amount);
             const paymentIntent = await getStripe().paymentIntents.create({
-                amount: 30000, // 300.00 BRL
+                amount: amount, // amount in cents
                 currency: 'brl',
                 payment_method_types: ['pix'],
                 metadata: {
                     userId,
                     systemContext: systemContext || 'unknown',
-                    type: 'pix_payment'
+                    type: 'pix_payment' // To distinguish from subscription
                 },
                 receipt_email: email
             });
             
-            // Confirm the PaymentIntent to get PIX instructions (QR code)
+            // Confirm the PaymentIntent
             const confirmedIntent = await getStripe().paymentIntents.confirm(
                 paymentIntent.id,
-                { 
-                    payment_method_data: { 
-                        type: 'pix',
-                        billing_details: { email }
-                    } 
-                }
+                { payment_method_data: { type: 'pix' } }
             );
+
+            console.log('PaymentIntent confirmed:', JSON.stringify(confirmedIntent, null, 2));
 
             if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
                 res.json({
                     qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
-                    qrCode: confirmedIntent.next_action.pix_display_qr_code.data, // Literal copy-paste code
-                    id: confirmedIntent.id,
-                    expires_at: confirmedIntent.next_action.pix_display_qr_code.expires_at
+                    qrCode: confirmedIntent.next_action.pix_display_qr_code.hosted_instructions_url,
+                    id: confirmedIntent.id
                 });
             } else {
-                res.status(400).json({ 
-                    error: 'PIX não está habilitado ou disponível para esta conta Stripe. Verifique se o método PIX está ativo no seu Dashboard do Stripe.' 
-                });
+                res.status(500).json({ error: 'Failed to generate PIX QR code' });
             }
         } catch (error: any) {
-            console.error('PIX Error:', error);
+            console.error('Error creating PIX PaymentIntent:', error);
             res.status(500).json({ error: error.message });
         }
     });

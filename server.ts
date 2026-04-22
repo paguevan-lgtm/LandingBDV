@@ -1,5 +1,4 @@
 import express from 'express';
-import 'dotenv/config';
 import cors from 'cors';
 import Stripe from 'stripe';
 import path from 'path';
@@ -7,7 +6,6 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,7 +115,7 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
 }
 
 // Helper function to update system subscription status in Firebase RTDB
-async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string, isRecurringFromPayment: boolean = true) {
+async function updateUserSubscriptionStatus(userId: string, status: string, mpId: string, date: string | undefined, systemContext?: string) {
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
     // We update the global system settings, not the individual user
@@ -136,7 +134,7 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             return true;
         }
         
-        console.log(`Updating subscription status for ${systemContext || 'Mistura'} to ${status} by user ${userId}. Recurring: ${isRecurringFromPayment}`);
+        console.log(`Updating subscription status for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
         const updates: any = {
             lastPaymentId: mpId,
             lastPaymentDate: date || new Date().toISOString(),
@@ -166,15 +164,15 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             if (systemContext === 'Mistura') {
                 updates.expiresAt = newExpiresAt.toISOString();
                 updates.isBlockedByAdmin = false;
-                updates.isRecurring_Mistura = isRecurringFromPayment;
+                updates.isRecurring_Mistura = true;
             } else if (systemContext && systemContext !== 'unknown') {
                 updates[`expiresAt_${systemContext}`] = newExpiresAt.toISOString();
                 updates[`isBlocked_${systemContext}`] = false;
-                updates[`isRecurring_${systemContext}`] = isRecurringFromPayment;
+                updates[`isRecurring_${systemContext}`] = true;
             } else {
                 updates.expiresAt = newExpiresAt.toISOString();
                 updates.isBlockedByAdmin = false;
-                updates.isRecurring_Mistura = isRecurringFromPayment;
+                updates.isRecurring_Mistura = true;
             }
         } else if (status === 'past_due' || status === 'cancelled') {
             // If subscription is cancelled or past due, we turn off auto-renewal flag
@@ -213,11 +211,8 @@ async function logAction(action: string, details: string, username: string = 'Si
         const authParam = dbSecret ? `?auth=${dbSecret}` : '';
         const logUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/audit_logs.json${authParam}`;
         
-        // Hide Breno from logs
-        const safeUsername = (username === 'Breno') ? 'Sistema' : username;
-        
         const logEntry = {
-            username: safeUsername,
+            username,
             action,
             details,
             timestamp: Date.now(),
@@ -234,88 +229,9 @@ async function logAction(action: string, details: string, username: string = 'Si
     }
 }
 
-// --- Cron Job: Prancheta Auto-Riscar ---
-const getWeekNumber = (date: Date) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-};
-
-let lastPranchetaAutoRun = '';
-
-async function checkPranchetaAutoRiscar() {
-    try {
-        const now = new Date();
-        const brTimeStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
-        const brDate = new Date(brTimeStr);
-        
-        const day = brDate.getDay(); // 5 = Friday
-        const hours = brDate.getHours();
-        const minutes = brDate.getMinutes();
-        const todayStr = brDate.toISOString().split('T')[0];
-
-        if (day === 5 && hours === 19 && minutes === 55 && lastPranchetaAutoRun !== todayStr) {
-            console.log(`[Cron] Triggered Prancheta Auto-Riscar at ${brTimeStr}`);
-            lastPranchetaAutoRun = todayStr;
-
-            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const baseUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
-            const authParam = dbSecret ? `?auth=${dbSecret}` : '';
-
-            const weekNum = getWeekNumber(brDate);
-            const weekId = `${brDate.getFullYear()}-W${weekNum}`;
-
-            const driversUrl = `${baseUrl}drivers_table_list.json${authParam}`;
-            const driversRes = await fetchWithRetry(driversUrl);
-            const driversList = await driversRes.json();
-
-            if (!Array.isArray(driversList)) {
-                console.error("[Cron] drivers_table_list is not an array");
-                return;
-            }
-
-            const pranchetaUrl = `${baseUrl}prancheta/${weekId}.json${authParam}`;
-            const pranchetaRes = await fetchWithRetry(pranchetaUrl);
-            const pranchetaData = await pranchetaRes.json() || {};
-
-            let updatedCount = 0;
-            const newList = driversList.map((driver: any) => {
-                if (driver && driver.vaga) {
-                    const payment = pranchetaData[driver.vaga];
-                    if (!payment || !payment.paid) {
-                        if (!driver.riscado) {
-                            updatedCount++;
-                            return { ...driver, riscado: true };
-                        }
-                    }
-                }
-                return driver;
-            });
-
-            if (updatedCount > 0) {
-                await fetchWithRetry(driversUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newList)
-                });
-
-                await logAction('Auto-Riscar Prancheta', `Filtro automático de sexta-feira 19:55 - ${updatedCount} vagas riscadas`);
-                console.log(`[Cron] Prancheta Auto-Riscar completed: ${updatedCount} riscados`);
-            }
-        }
-    } catch (error) {
-        console.error("[Cron] Error in checkPranchetaAutoRiscar:", error);
-    }
-}
-
-// Run check every 30 seconds
-setInterval(checkPranchetaAutoRiscar, 30000);
-
 async function startServer() {
     const app = express();
-    const PORT = 3000;
+    const PORT = Number(process.env.PORT) || 3000;
 
     // Use JSON parser for all non-webhook routes
     app.use((req, res, next) => {
@@ -944,142 +860,32 @@ async function startServer() {
 
     app.post('/api/create-pix-payment', async (req, res) => {
         try {
-            const { email, userId, systemContext } = req.body;
-            if (!userId || !email) return res.status(400).json({ error: 'userId and email are required' });
+            const { email, userId, systemContext, amount } = req.body;
+            if (!userId || !amount) return res.status(400).json({ error: 'userId and amount are required' });
 
-            // Create Stripe PaymentIntent for PIX
             const paymentIntent = await getStripe().paymentIntents.create({
-                amount: 30000, // 300.00 BRL
+                amount: amount,
                 currency: 'brl',
                 payment_method_types: ['pix'],
-                metadata: {
-                    userId,
-                    systemContext: systemContext || 'unknown',
-                    type: 'pix_payment'
-                },
+                metadata: { userId, systemContext: systemContext || 'unknown', type: 'pix_payment' },
                 receipt_email: email
             });
             
-            // Confirm the PaymentIntent to get PIX instructions (QR code)
             const confirmedIntent = await getStripe().paymentIntents.confirm(
                 paymentIntent.id,
-                { 
-                    payment_method_data: { 
-                        type: 'pix',
-                        billing_details: { email }
-                    } 
-                }
+                { payment_method_data: { type: 'pix' } }
             );
 
             if (confirmedIntent.next_action && confirmedIntent.next_action.pix_display_qr_code) {
                 res.json({
                     qrCodeBase64: confirmedIntent.next_action.pix_display_qr_code.image_url_png,
-                    qrCode: confirmedIntent.next_action.pix_display_qr_code.data, // Literal copy-paste code
-                    id: confirmedIntent.id,
-                    expires_at: confirmedIntent.next_action.pix_display_qr_code.expires_at
+                    qrCode: confirmedIntent.next_action.pix_display_qr_code.hosted_instructions_url,
+                    id: confirmedIntent.id
                 });
             } else {
-                res.status(400).json({ 
-                    error: 'PIX não está habilitado ou disponível para esta conta Stripe. Verifique se o método PIX está ativo no seu Dashboard do Stripe.' 
-                });
+                res.status(500).json({ error: 'Failed to generate PIX QR code' });
             }
         } catch (error: any) {
-            console.error('PIX Error:', error);
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/cancel-subscription', async (req, res) => {
-        try {
-            const { systemContext, userId } = req.body;
-            if (!systemContext || !userId) return res.status(400).json({ error: 'System context and userId are required' });
-
-            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-            const userRes = await fetchWithRetry(userUrl);
-            const userData = await userRes.json();
-            
-            if (!userData || userData.role !== 'admin') {
-                return res.status(403).json({ error: 'Unauthorized: Admin access required' });
-            }
-
-            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-            const sysRes = await fetchWithRetry(systemUrl);
-            const sysData = await sysRes.json() || {};
-            
-            const subscriptionId = systemContext === 'Mistura' ? sysData.lastPaymentId : (sysData[`lastPaymentId_${systemContext}`] || sysData.lastPaymentId);
-            if (!subscriptionId) return res.status(404).json({ error: 'Subscription ID not found' });
-
-            try {
-                await getStripe().subscriptions.cancel(subscriptionId);
-            } catch (stripeError: any) {
-                console.warn(`Stripe cancellation failed: ${stripeError.message}`);
-                if (stripeError.type !== 'StripeInvalidRequestError' && 
-                    !stripeError.message.includes('already canceled') && 
-                    !stripeError.message.includes('No such subscription')) {
-                    throw stripeError;
-                }
-            }
-
-            await updateUserSubscriptionStatus(userId, 'cancelled', subscriptionId, new Date().toISOString(), systemContext);
-            res.json({ success: true });
-        } catch (error: any) {
-            console.error('Error cancelling subscription:', error);
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/api/sync-subscription', async (req, res) => {
-        try {
-            const { userId, systemContext } = req.body;
-            if (!userId || !systemContext) return res.status(400).json({ error: 'userId and systemContext are required' });
-
-            const subscriptions = await getStripe().subscriptions.search({
-                query: `status:'active' AND metadata['userId']:'${userId}' AND metadata['systemContext']:'${systemContext}'`,
-                limit: 1
-            });
-
-            if (subscriptions.data.length > 0) {
-                const sub = subscriptions.data[0];
-                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-                
-                const updates: any = {};
-                const newExpiresAt = new Date((sub as any).current_period_end * 1000).toISOString();
-
-                if (systemContext === 'Mistura') {
-                    updates.expiresAt = newExpiresAt;
-                    updates.isRecurring_Mistura = true;
-                    updates.isBlockedByAdmin = false;
-                } else {
-                    updates[`expiresAt_${systemContext}`] = newExpiresAt;
-                    updates[`isRecurring_${systemContext}`] = true;
-                    updates[`isBlocked_${systemContext}`] = false;
-                }
-
-                await fetchWithRetry(systemUrl, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updates)
-                });
-
-                res.json({ success: true, status: 'active', expiresAt: newExpiresAt });
-            } else {
-                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
-                const updates: any = {};
-                if (systemContext === 'Mistura') updates.isRecurring_Mistura = false;
-                else updates[`isRecurring_${systemContext}`] = false;
-
-                await fetchWithRetry(systemUrl, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updates)
-                });
-                res.json({ success: false, status: 'not_found' });
-            }
-        } catch (error: any) {
-            console.error('Error syncing subscription:', error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -1100,7 +906,7 @@ async function startServer() {
                         const userId = paymentIntent.metadata.userId;
                         const systemContext = paymentIntent.metadata.systemContext;
                         if (userId && systemContext) {
-                            await updateUserSubscriptionStatus(userId, 'active', paymentIntent.id, new Date().toISOString(), systemContext, false);
+                            await updateUserSubscriptionStatus(userId, 'active', paymentIntent.id, new Date().toISOString(), systemContext);
                         }
                     }
                     break;
@@ -1109,24 +915,13 @@ async function startServer() {
                     const session = event.data.object;
                     let userId = session.metadata?.userId;
                     let systemContext = session.metadata?.systemContext;
-                    let isRecurring = session.mode === 'subscription';
-
-                    if (!userId && session.client_reference_id) {
-                        if (session.client_reference_id.startsWith('BORA_VAN_SUB_')) {
-                            const parts = session.client_reference_id.split('_');
-                            userId = parts[3];
-                            systemContext = parts[4];
-                            isRecurring = true;
-                        } else if (session.client_reference_id.startsWith('BORA_VAN_PIX_')) {
-                            const parts = session.client_reference_id.split('_');
-                            userId = parts[3];
-                            systemContext = parts[4];
-                            isRecurring = false;
-                        }
+                    if (!userId && session.client_reference_id && session.client_reference_id.startsWith('BORA_VAN_SUB_')) {
+                        const parts = session.client_reference_id.split('_');
+                        userId = parts[3];
+                        systemContext = parts[4];
                     }
-                    
                     if (userId && systemContext) {
-                        await updateUserSubscriptionStatus(userId, 'active', session.subscription as string || session.id, new Date().toISOString(), systemContext, isRecurring);
+                        await updateUserSubscriptionStatus(userId, 'active', session.subscription as string || session.id, new Date().toISOString(), systemContext);
                     }
                     break;
                 }
@@ -1174,33 +969,6 @@ async function startServer() {
 
         app.use('/painel', vitePainel.middlewares);
         app.use(viteRoot.middlewares);
-
-        // History Fallback for SPAs in Development
-        app.get(['/painel', '/painel/*'], async (req, res, next) => {
-            if (req.originalUrl.includes('.') || req.originalUrl.includes('/api/')) return next();
-            try {
-                const url = req.originalUrl;
-                let template = await fs.readFile(path.resolve(__dirname, 'painel/index.html'), 'utf-8');
-                template = await vitePainel.transformIndexHtml(url, template);
-                res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-            } catch (e) {
-                console.error('[Vite] Fallback Error (Painel):', e);
-                next(e);
-            }
-        });
-
-        app.get('*', async (req, res, next) => {
-            if (req.originalUrl.includes('.') || req.originalUrl.includes('/api/')) return next();
-            try {
-                const url = req.originalUrl;
-                let template = await fs.readFile(path.resolve(__dirname, 'index.html'), 'utf-8');
-                template = await viteRoot.transformIndexHtml(url, template);
-                res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-            } catch (e) {
-                console.error('[Vite] Fallback Error (Root):', e);
-                next(e);
-            }
-        });
     } else {
         // Production Static Serving
         // Painel
@@ -1217,11 +985,7 @@ async function startServer() {
     }
 
     app.listen(PORT, '0.0.0.0', () => {
-        console.log('=========================================');
-        console.log(`SERVER STARTED ON PORT ${PORT}`);
-        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`App URL: ${process.env.APP_URL || 'Not set'}`);
-        console.log('=========================================');
+        console.log(`Server running on http://localhost:${PORT}`);
     });
 }
 
