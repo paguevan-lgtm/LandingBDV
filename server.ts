@@ -1220,6 +1220,11 @@ async function startServer() {
         console.log(`[BUILD_PATHS] Painel: ${painelDist}`);
         console.log(`[BUILD_PATHS] Root: ${rootDist}`);
 
+        // Redirect /painel to /painel/
+        app.get('/painel', (req, res) => {
+            res.redirect(301, '/painel/');
+        });
+
         // Painel
         app.use('/painel', express.static(painelDist));
         app.get('/painel/*', (req, res) => {

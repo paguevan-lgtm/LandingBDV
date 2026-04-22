@@ -15,6 +15,18 @@
     "Sv": {
        "passengers": { ".read": "true", ".write": "true" }
     },
+    "site_analytics": {
+       ".read": "auth != null",
+       ".write": "true"
+    },
+    "audit_logs": {
+       ".read": "auth != null",
+       ".write": "true"
+    },
+    "trusted_devices": {
+       ".read": "true",
+       ".write": "true"
+    },
     "site_notifications": {
        ".write": "true"
     }
