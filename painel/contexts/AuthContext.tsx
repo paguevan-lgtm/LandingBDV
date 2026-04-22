@@ -17,7 +17,6 @@ interface User {
     sessionId?: string;
     ip?: string;
     deviceId?: string;
-    isImpersonated?: boolean;
 }
 
 // Tipagem do Contexto
@@ -26,8 +25,6 @@ interface AuthContextType {
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (u: string, p: string, coords: any, system?: string) => Promise<boolean>;
-    impersonate: (targetUser: any) => Promise<void>;
-    stopImpersonating: () => void;
     findUsersByCredentials: (u: string, p: string) => Promise<User[]>;
     logout: (reason?: string) => void;
     updateActivity: () => void;
@@ -96,7 +93,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     // 3. Função de Logout
     const logout = (reason?: string) => {
         localStorage.removeItem('nexflow_session');
-        localStorage.removeItem('nexflow_impersonator_session');
         setUser(null);
         if (reason) setLogoutReason(reason);
     };
@@ -219,75 +215,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     };
 
     // 2. Função de Login (DB First, Fallback to Constant)
-    const impersonate = async (targetUser: any) => {
-        if (!user || user.username !== 'Breno') return;
-
-        try {
-            // Save current Breno session to restore later
-            const currentSession = localStorage.getItem('nexflow_session');
-            if (currentSession) {
-                localStorage.setItem('nexflow_impersonator_session', currentSession);
-            }
-
-            const deviceId = await getDeviceFingerprint();
-            const uaInfo = parseUserAgent(navigator.userAgent);
-            const gpuInfo = getHardwareInfo();
-            const currentDeviceInfo = { ...uaInfo, gpu: gpuInfo };
-            
-            let currentIp = '0.0.0.0';
-            try {
-                const ipRes = await fetch('https://api.ipify.org?format=json');
-                if (ipRes.ok) {
-                    const ipData = await ipRes.json();
-                    currentIp = ipData.ip;
-                }
-            } catch (e) {}
-
-            const userData: User = {
-                uid: targetUser.id || targetUser.uid,
-                username: targetUser.username,
-                role: targetUser.role,
-                displayName: targetUser.username === 'Breno' ? 'Sistema' : targetUser.username,
-                system: targetUser.system || (targetUser.systems && targetUser.systems[0]) || 'Pg',
-                systems: targetUser.systems,
-                createdBy: targetUser.createdBy,
-                email: targetUser.username === 'Breno' ? 'breno0452@gmail.com' : targetUser.email,
-                sessionId: db ? db.ref('audit_logs').push().key || Date.now().toString() : Date.now().toString(),
-                ip: currentIp,
-                deviceId,
-                isImpersonated: true
-            };
-
-            const now = Date.now();
-            localStorage.setItem('nexflow_session', JSON.stringify({ 
-                user: userData, 
-                loginTime: now,
-                lastActivity: now
-            }));
-
-            setUser(userData);
-        } catch (error) {
-            console.error("Impersonation error:", error);
-        }
-    };
-
-    const stopImpersonating = () => {
-        const originalSession = localStorage.getItem('nexflow_impersonator_session');
-        if (originalSession) {
-            localStorage.setItem('nexflow_session', originalSession);
-            localStorage.removeItem('nexflow_impersonator_session');
-            try {
-                const parsed = JSON.parse(originalSession);
-                setUser(parsed.user);
-            } catch (e) {
-                console.error("Error restoring original session:", e);
-                logout();
-            }
-        } else {
-            logout();
-        }
-    };
-
     const login = async (u: string, p: string, coords: any, system?: string): Promise<boolean> => {
         const usernameTrimmed = u.trim();
         try {
@@ -688,8 +615,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             isAuthenticated: !!user, 
             isLoading, 
             login, 
-            impersonate,
-            stopImpersonating,
             findUsersByCredentials,
             logout, 
             updateActivity, 
