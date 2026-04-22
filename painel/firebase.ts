@@ -3,14 +3,14 @@
 const firebase = (window as any).firebase;
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDn_xnhOl9oxHrY5CMDCujVtt8edh8dexQ",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "boradevan-546c3.firebaseapp.com",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://boradevan-546c3-default-rtdb.firebaseio.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "boradevan-546c3",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "boradevan-546c3.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1013849550765",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1013849550765:web:9e41ed68858fb02e80fb24",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-M52ZYDNDMG"
+  apiKey: "AIzaSyBTF5M7HcFIvF_TbFqpG7zMjh29AXP1zzM",
+  authDomain: "lotacao-753a1.firebaseapp.com",
+  databaseURL: "https://lotacao-753a1-default-rtdb.firebaseio.com",
+  projectId: "lotacao-753a1",
+  storageBucket: "lotacao-753a1.firebasestorage.app",
+  messagingSenderId: "755549088369",
+  appId: "1:755549088369:web:6182fc39adbd73ea4789d0",
+  measurementId: "G-3KWB2PQMCN"
 };
 
 let db: any;

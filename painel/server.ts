@@ -47,7 +47,7 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
     // We update the global system settings, not the individual user
-    let systemUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `system_settings/subscription.json`;
+    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
     if (dbSecret) {
         systemUrl += `?auth=${dbSecret}`;
     }
@@ -162,7 +162,7 @@ async function checkPranchetaAutoRiscar() {
             lastPranchetaAutoRun = todayStr;
 
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const baseUrl = process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`;
+            const baseUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
             const authParam = dbSecret ? `?auth=${dbSecret}` : '';
 
             // 1. Get current week ID
@@ -264,7 +264,7 @@ async function startServer() {
             // Check if device is trusted for this user (only for login type)
             if (type === 'login' && uid && deviceId) {
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                const trustedUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
                 
                 try {
                     const trustRes = await fetchWithRetry(trustedUrl);
@@ -286,12 +286,12 @@ async function startServer() {
             loginTokens.set(email.toLowerCase(), { token, expires });
 
             const transporter = nodemailer.createTransport({
-                host: process.env.EMAIL_HOST,
+                host: process.env.EMAIL_HOST || 'SMTP.HOSTINGER.COM',
                 port: parseInt(process.env.EMAIL_PORT || '465'),
                 secure: process.env.EMAIL_SECURE === 'true' || process.env.EMAIL_SECURE === 'ssl' || true,
                 auth: {
-                    user: process.env.EMAIL_USER,
-                    pass: process.env.EMAIL_PASS
+                    user: process.env.EMAIL_USER || 'suporte@painel.boradevan.com.br',
+                    pass: process.env.EMAIL_PASS || '15744751@Bb'
                 }
             });
 
@@ -406,7 +406,7 @@ async function startServer() {
         // Register device as trusted for 12 hours
         if (uid && deviceId) {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const trustedUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             
             try {
                 await fetchWithRetry(trustedUrl, {
@@ -455,7 +455,7 @@ async function startServer() {
                     if (updateSuccess) {
                         // Fetch the updated expiration date to send back
                         const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                        let systemUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `system_settings/subscription.json`;
+                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                         if (dbSecret) systemUrl += `?auth=${dbSecret}`;
                         const sysRes = await fetchWithRetry(systemUrl);
                         const sysData = await sysRes.json() || {};
@@ -499,7 +499,7 @@ async function startServer() {
 
             // Save the subscription email to Firebase
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            let systemUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `system_settings/subscription.json`;
+            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }
@@ -578,7 +578,7 @@ async function startServer() {
 
             // Check if user is admin
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const userUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             const userRes = await fetchWithRetry(userUrl);
             const userData = await userRes.json();
             
@@ -587,7 +587,7 @@ async function startServer() {
             }
 
             // Fetch current system subscription data to get the subscription ID
-            let systemUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `system_settings/subscription.json`;
+            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }
@@ -805,7 +805,7 @@ async function startServer() {
                 
                 // Update Firebase
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `system_settings/subscription.json`;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};
@@ -831,7 +831,7 @@ async function startServer() {
             } else {
                 // No active subscription found, ensure auto-renewal is off
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = (process.env.FIREBASE_DATABASE_URL || `https://boradevan-546c3-default-rtdb.firebaseio.com/`) + `system_settings/subscription.json`;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};
