@@ -387,14 +387,19 @@ async function startServer() {
             loginTokens.set(email.toLowerCase(), { token, expires });
 
             const transporter = nodemailer.createTransport({
-                host: (process.env.EMAIL_HOST && !process.env.EMAIL_HOST.includes('@')) ? process.env.EMAIL_HOST : 'smtp.hostinger.com',
+                host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
                 port: parseInt(process.env.EMAIL_PORT || '465'),
-                secure: true,
+                secure: process.env.EMAIL_SECURE !== 'false',
                 auth: {
-                    user: process.env.EMAIL_USER || 'suporte@painel.boradevan.com.br',
-                    pass: process.env.EMAIL_PASS || '15744751@Bb'
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS
                 }
             });
+
+            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+                console.error("[SECURITY] Tentativa de envio de e-mail falhou: Credenciais não configuradas (EMAIL_USER/EMAIL_PASS)");
+                return res.status(500).json({ error: 'Configuração de e-mail ausente no servidor. Contate o administrador.' });
+            }
 
             const userName = name ? name : 'Usuário';
             let subject = 'Código de Acesso';
