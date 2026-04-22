@@ -303,24 +303,14 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                          <div className="font-bold text-lg flex items-center gap-2 flex-wrap min-w-0">
                                                              <span className="truncate">{trip.driverName}</span>
                                                              <div className="flex gap-1 shrink-0">
-                                                                 {trip.extraType === 'Carro Extra' ? (
-                                                                     <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase shrink-0">Carro Extra</span>
-                                                                 ) : (trip.extraType === 'Cobrança Manual' || !trip.extraType) ? (
-                                                                     <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 uppercase shrink-0">Cobrança Manual</span>
-                                                                 ) : (
-                                                                     <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase shrink-0">{trip.extraType}</span>
-                                                                 )}
+                                                                 <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 uppercase shrink-0">Extra</span>
+                                                                 <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 uppercase shrink-0">{trip.extraType || 'Frete'}</span>
                                                              </div>
                                                          </div>
                                                          <div className="text-sm opacity-60 flex items-center gap-2">
                                                              <Icons.Calendar size={12} className="opacity-50 shrink-0"/>
                                                              <span className="truncate">{formatDisplayDate(trip.date)} às {trip.time}</span>
                                                          </div>
-                                                         {trip.createdBy && (
-                                                             <div className="text-[10px] opacity-40 font-bold uppercase tracking-wider mt-1">
-                                                                 Criado por: {trip.createdBy}
-                                                             </div>
-                                                         )}
                                                          <div className="text-sm opacity-60 italic max-w-[200px] truncate mt-1">
                                                              {trip.notes || 'Sem observação'}
                                                          </div>

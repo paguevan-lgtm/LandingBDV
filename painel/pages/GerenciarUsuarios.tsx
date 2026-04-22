@@ -4,10 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Icons, Button, Input, IconButton, Toast } from '../components/Shared';
 import { getAvatarUrl, generateUniqueId } from '../utils';
 import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
 
 export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, user: currentUser, requestConfirm, systemContext }: any) {
-    const { impersonate } = useAuth();
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
     const [isEditing, setIsEditing] = useState<string|null>(null);
     const [formUser, setFormUser] = useState<any>({ username: '', email: '', pass: '', role: 'operador', systems: [systemContext || 'Pg'] });
@@ -337,23 +335,13 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                     </div>
 
                                     {currentUser.username === 'Breno' && (
-                                        <>
-                                            <button 
-                                                onClick={() => toggleSystemBlock(u.username)}
-                                                className={`p-3 rounded-2xl border transition-all active:scale-90 ${subsData[u.username]?.isBlockedByAdmin ? 'bg-red-500 text-white border-red-600 shadow-lg shadow-red-500/20' : 'bg-white/5 text-green-400 border-white/10 hover:bg-green-500/10 hover:border-green-500/20'}`}
-                                                title={subsData[u.username]?.isBlockedByAdmin ? "Desbloquear Sistema" : "Bloquear Sistema"}
-                                            >
-                                                {subsData[u.username]?.isBlockedByAdmin ? <Icons.Lock size={18}/> : <Icons.Unlock size={18}/>}
-                                            </button>
-
-                                            <button 
-                                                onClick={() => impersonate(u)}
-                                                className="p-3 bg-white/5 border border-white/10 rounded-2xl text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/20 transition-all active:scale-90"
-                                                title="Entrar na conta (Invisível)"
-                                            >
-                                                <Icons.Zap size={18}/>
-                                            </button>
-                                        </>
+                                        <button 
+                                            onClick={() => toggleSystemBlock(u.username)}
+                                            className={`p-3 rounded-2xl border transition-all active:scale-90 ${subsData[u.username]?.isBlockedByAdmin ? 'bg-red-500 text-white border-red-600 shadow-lg shadow-red-500/20' : 'bg-white/5 text-green-400 border-white/10 hover:bg-green-500/10 hover:border-green-500/20'}`}
+                                            title={subsData[u.username]?.isBlockedByAdmin ? "Desbloquear Sistema" : "Bloquear Sistema"}
+                                        >
+                                            {subsData[u.username]?.isBlockedByAdmin ? <Icons.Lock size={18}/> : <Icons.Unlock size={18}/>}
+                                        </button>
                                     )}
                                     
                                     {(currentUser.username === 'Breno' || u.createdBy === currentUser.username) && (

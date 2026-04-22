@@ -610,11 +610,11 @@ export const LoginScreen = ({ onBack, theme: appTheme }: { onBack?: () => void, 
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
                 >
-                    <h1 className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase italic">Bora de <span className="text-brand-pink">Van</span></h1>
+                    <h1 className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase italic">Bora de Van</h1>
                     <div className="flex items-center justify-center gap-3 mt-2">
-                        <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-brand-purple"></div>
-                        <p className="text-[10px] font-bold tracking-[0.4em] uppercase text-brand-pink">Premium Fleet</p>
-                        <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-brand-purple"></div>
+                        <div className="h-[1px] w-12 bg-gradient-to-r from-transparent to-amber-500"></div>
+                        <p className="text-[10px] font-bold tracking-[0.4em] uppercase text-amber-500">Premium Fleet</p>
+                        <div className="h-[1px] w-12 bg-gradient-to-l from-transparent to-amber-500"></div>
                     </div>
                 </motion.div>
             </div>

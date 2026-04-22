@@ -289,6 +289,32 @@ export default function Viagens({ data, theme, searchTerm, searchType = 'all', s
                                 </div>
                             </div>
 
+                            {/* Passenger List with Copy Button */}
+                            {tripPassengers.length > 0 && (
+                                <div className="mb-4 space-y-2">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 pl-1">Passageiros</h4>
+                                    <div className="grid grid-cols-1 gap-1.5">
+                                        {tripPassengers.map((p: any) => (
+                                            <div key={p.id} className="flex items-center justify-between bg-white/5 p-2 rounded-lg group/pass">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center shrink-0">
+                                                        <Icons.User size={12} className="opacity-50" />
+                                                    </div>
+                                                    <span className="text-xs font-bold truncate opacity-80">{p.name}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); copyPassengerData(p); }}
+                                                    className="p-1.5 hover:bg-white/10 rounded-md text-white/30 hover:text-white transition-all opacity-0 group-hover/pass:opacity-100"
+                                                    title="Copiar Dados"
+                                                >
+                                                    <Icons.Copy size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-3 gap-2 mb-4">
                                 <Button 
                                     id="tut-btn-trip-finish" 

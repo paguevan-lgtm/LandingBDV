@@ -277,11 +277,9 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
 
     const onPrint = async (targetId: string, filename: string, title: string, options: any = {}) => {
         try {
-            notify("Gerando imagem...", "loading");
             // Use user.username if available, otherwise fallback to 'Usuário'
             const currentUserName = user?.displayName || user?.username || 'Usuário';
             await handlePrint(targetId, filename, title, { ...options, userName: currentUserName });
-            notify("Imagem gerada com sucesso!", "success");
         } catch (error: any) {
             notify(error.message, 'error');
         }
@@ -367,7 +365,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                             <div className="px-4 font-mono font-bold text-sm">{formatDisplayDate(analysisDate)}</div>
                             <button onClick={() => setAnalysisDate(dateAddDays(analysisDate, 1))} className="p-2 hover:bg-white/10 rounded-md"><Icons.ChevronRight size={18}/></button>
                             <button onClick={() => setAnalysisDate(currentOpDate)} className="ml-2 text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20">{currentOpDate === getTodayDate() ? 'Hoje' : 'Amanhã (Op)'}</button>
-                            <button id="tut-btn-screenshot" onClick={() => onPrint('print-tabela-list', 'Tabela_Geral', tableTab === 'mip6' ? 'TABELA 6:00' : tableTab === 'mip18' ? 'TABELA 18:00' : 'TABELA GERAL', { date: analysisDate })} className="ml-4 p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors" title="Salvar como Imagem"><Icons.Screenshot size={18}/></button>
+                            <button id="tut-btn-screenshot" onClick={() => onPrint('print-tabela-list', 'Tabela_Geral', tableTab === 'mip6' ? 'TABELA 6:00' : tableTab === 'mip18' ? 'TABELA 18:00' : 'TABELA GERAL', { forceCols: 2, date: analysisDate })} className="ml-4 p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors" title="Salvar como Imagem (2 Colunas)"><Icons.Screenshot size={18}/></button>
                         </div>
                     </div>
                     <div id="print-tabela-list" className="space-y-2">
