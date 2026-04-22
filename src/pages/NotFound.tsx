@@ -31,7 +31,7 @@ export default function NotFound() {
              >
                 <div className="w-48 h-48 md:w-64 md:h-64 mx-auto flex items-center justify-center">
                     <img 
-                      src="/BDV.png" 
+                      src="/BDV.webp" 
                       alt="Van Perdida" 
                       className="w-full h-full object-contain grayscale opacity-60 filter blur-[1px]"
                       referrerPolicy="no-referrer"

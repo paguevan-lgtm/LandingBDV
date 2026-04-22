@@ -27,7 +27,7 @@ export default function Error403() {
              >
                 <div className="w-48 h-48 md:w-64 md:h-64 mx-auto flex items-center justify-center bg-slate-900/50 rounded-full p-8 border border-red-900/30">
                     <img 
-                      src="/BDV.png" 
+                      src="/BDV.webp" 
                       alt="Acesso Restrito" 
                       className="w-full h-full object-contain opacity-30 grayscale"
                       referrerPolicy="no-referrer"
