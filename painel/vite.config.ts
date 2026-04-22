@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
+        target: 'es2015',
         chunkSizeWarningLimit: 1000,
         rollupOptions: {
           output: {

@@ -9,6 +9,9 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
     },
+    build: {
+      target: 'es2015'
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

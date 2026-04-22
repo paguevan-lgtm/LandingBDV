@@ -1220,6 +1220,8 @@ async function startServer() {
             if (!fs.existsSync(painelDist)) console.error(`[CRITICAL] Pasta /painel/dist não encontrada em: ${painelDist}`);
         }).catch(err => console.error("Erro ao verificar pastas:", err));
 
+        const fs = require('fs');
+
         // Painel: Case-insensitive redirect and handling
         app.get(['/painel', '/Painel', '/PAINEL'], (req, res) => {
             res.redirect(301, '/painel/');
@@ -1230,17 +1232,18 @@ async function startServer() {
         // Handle Painel sub-routes (SPA)
         app.get('/painel/*', (req, res) => {
             const indexPath = path.join(painelDist, 'index.html');
-            res.sendFile(indexPath, (err) => {
-                if (err) {
-                    console.error("[ERROR] Failed to send painel index.html", err);
-                    res.status(404).send("Painel não encontrado. Verifique se a pasta 'painel/dist' existe.");
-                }
-            });
+            if (!fs.existsSync(indexPath)) {
+                return res.status(404).send("Erro: Arquivo 'painel/dist/index.html' não encontrado. Recrie o build.");
+            }
+            res.sendFile(indexPath);
         });
 
         // Motorista: Ensure the root SPA handles this specifically
         app.get('/motorista*', (req, res) => {
             const indexPath = path.join(rootDist, 'index.html');
+            if (!fs.existsSync(indexPath)) {
+                return res.status(404).send("Erro: Arquivo 'dist/index.html' não encontrado. Recrie o build.");
+            }
             res.sendFile(indexPath);
         });
 
@@ -1248,21 +1251,20 @@ async function startServer() {
         app.use(express.static(rootDist));
         
         app.get('*', (req, res) => {
-            // Guard: Don't serve index.html for missing static files (prevents SyntaxErrors in browser)
+            // Guard: Don't serve index.html for missing static files
             if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2)$/)) {
                 return res.status(404).end();
             }
 
             const indexPath = path.join(rootDist, 'index.html');
-            res.sendFile(indexPath, (err) => {
-                if (err) {
-                    if (req.url.startsWith('/api/')) {
-                        return res.status(404).json({ error: 'API route not found' });
-                    }
-                    console.error("[ERROR] Failed to send root index.html", err);
-                    res.status(404).send("Site principal não encontrado (dist).");
+            if (fs.existsSync(indexPath)) {
+                res.sendFile(indexPath);
+            } else {
+                if (req.url.startsWith('/api/')) {
+                    return res.status(404).json({ error: 'API route not found' });
                 }
-            });
+                res.status(404).send("Site principal não encontrado (dist). Recrie o build.");
+            }
         });
     }
 
