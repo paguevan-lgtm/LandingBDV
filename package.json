@@ -2,10 +2,9 @@
   "name": "bora-de-van",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx server.ts",
-    "build": "vite build && (cd painel && vite build) && esbuild server.ts --bundle --platform=node --format=esm --outfile=server.js --external:vite --external:express --external:cors --external:stripe --external:nodemailer --external:url --external:path --external:firebase-admin --external:express-rate-limit --external:crypto",
+    "build": "vite build && (cd painel && vite build) && esbuild server.ts --bundle --platform=node --format=cjs --outfile=server.js --external:vite --external:express --external:cors --external:stripe --external:nodemailer --external:url --external:path --external:firebase-admin --external:express-rate-limit --external:crypto",
     "start": "node server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist painel/dist",

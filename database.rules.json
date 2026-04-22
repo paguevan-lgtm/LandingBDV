@@ -1,34 +1,6 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
-    "passengers": {
-       ".read": "true",
-       ".write": "true" 
-    },
-    "Pg": {
-       "passengers": { ".read": "true", ".write": "true" }
-    },
-    "Mip": {
-       "passengers": { ".read": "true", ".write": "true" }
-    },
-    "Sv": {
-       "passengers": { ".read": "true", ".write": "true" }
-    },
-    "site_analytics": {
-       ".read": "auth != null",
-       ".write": "true"
-    },
-    "audit_logs": {
-       ".read": "auth != null",
-       ".write": "true"
-    },
-    "trusted_devices": {
-       ".read": "true",
-       ".write": "true"
-    },
-    "site_notifications": {
-       ".write": "true"
-    }
+    ".read": "true",
+    ".write": "true"
   }
 }

@@ -2,24 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import Stripe from 'stripe';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
 // import { createServer as createViteServer } from 'vite'; -> Removed to prevent top-level import issues in production
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Global Uncaught Exception Handlers
 process.on('uncaughtException', (err) => {
     console.error('[UNCAUGHT_EXCEPTION] FATAL ERROR:', err);
-    // In production, we don't want to exit immediately if possible, but for diagnostic we log it
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[UNHANDLED_REJECTION] Promise:', promise, 'Reason:', reason);
+    console.error('[UNHANDLED_REJECTION] Reason:', reason);
 });
 
 // Initialize Firebase Admin
@@ -1217,38 +1212,55 @@ async function startServer() {
         const painelDist = path.resolve(__dirname, 'painel/dist');
         const rootDist = path.resolve(__dirname, 'dist');
 
-        console.log(`[BUILD_PATHS] Painel: ${painelDist}`);
-        console.log(`[BUILD_PATHS] Root: ${rootDist}`);
+        console.log(`[INIT] Servidor iniciado. Diretório atual: ${process.cwd()}`);
+        console.log(`[INIT] Verificando pastas de build...`);
+        
+        import('fs').then(fs => {
+            if (!fs.existsSync(rootDist)) console.error(`[CRITICAL] Pasta /dist não encontrada em: ${rootDist}`);
+            if (!fs.existsSync(painelDist)) console.error(`[CRITICAL] Pasta /painel/dist não encontrada em: ${painelDist}`);
+        }).catch(err => console.error("Erro ao verificar pastas:", err));
 
-        // Redirect /painel to /painel/
-        app.get('/painel', (req, res) => {
+        // Painel: Case-insensitive redirect and handling
+        app.get(['/painel', '/Painel', '/PAINEL'], (req, res) => {
             res.redirect(301, '/painel/');
         });
 
-        // Painel
         app.use('/painel', express.static(painelDist));
+        
+        // Handle Painel sub-routes (SPA)
         app.get('/painel/*', (req, res) => {
             const indexPath = path.join(painelDist, 'index.html');
             res.sendFile(indexPath, (err) => {
                 if (err) {
                     console.error("[ERROR] Failed to send painel index.html", err);
-                    res.status(404).send("Painel não encontrado. Execute 'npm run build' no servidor.");
+                    res.status(404).send("Painel não encontrado. Verifique se a pasta 'painel/dist' existe.");
                 }
             });
         });
 
-        // Root
+        // Motorista: Ensure the root SPA handles this specifically
+        app.get('/motorista*', (req, res) => {
+            const indexPath = path.join(rootDist, 'index.html');
+            res.sendFile(indexPath);
+        });
+
+        // Root SPA
         app.use(express.static(rootDist));
+        
         app.get('*', (req, res) => {
+            // Guard: Don't serve index.html for missing static files (prevents SyntaxErrors in browser)
+            if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2)$/)) {
+                return res.status(404).end();
+            }
+
             const indexPath = path.join(rootDist, 'index.html');
             res.sendFile(indexPath, (err) => {
                 if (err) {
-                    // Se estiver em uma rota de API que não existe, não mande o index
                     if (req.url.startsWith('/api/')) {
                         return res.status(404).json({ error: 'API route not found' });
                     }
                     console.error("[ERROR] Failed to send root index.html", err);
-                    res.status(404).send("Página inicial não encontrada. Execute 'npm run build' no servidor.");
+                    res.status(404).send("Site principal não encontrado (dist).");
                 }
             });
         });
