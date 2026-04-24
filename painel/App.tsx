@@ -2133,7 +2133,7 @@ const AppContent = () => {
         if(user) localStorage.setItem(`tour_seen_${user.username}`, 'true');
     };
     
-    const saveApiKey = (k: string) => { setGeminiKey(k); localStorage.setItem('nexflow_gemini_key', k); notify("API Key salva!", "success"); };
+    const saveApiKey = (k: string) => { localStorage.setItem('nexflow_gemini_key', k); notify("API Key salva localmente (fallback)!", "success"); };
     const blockIp = () => { if(!ipToBlock) return notify('Digite um IP', 'error'); dbOp('create', 'blocked_ips', { ip: ipToBlock, reason: ipReason || 'Manual', blockedBy: user.username }); setIpToBlock(''); setIpReason(''); notify('IP Bloqueado!', "delete"); };
     const saveIpLabel = (ip: string, label: string) => { if(!ip) return; const safeIp = ip.replace(/\./g, '_'); db.ref(`ip_labels/${safeIp}`).set(label); };
     
@@ -4052,7 +4052,6 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 restartTour={restartTour} 
                                 setAiModal={setAiModal} 
                                 geminiKey={geminiKey} 
-                                setGeminiKey={setGeminiKey} 
                                 saveApiKey={saveApiKey} 
                                 ipToBlock={ipToBlock} 
                                 setIpToBlock={setIpToBlock} 

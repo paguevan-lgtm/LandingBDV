@@ -37,6 +37,10 @@ const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
+    keyGenerator: (req) => {
+        return (req.headers['x-forwarded-for'] as string) || (req.headers['forwarded'] as string) || req.ip || 'unknown';
+    },
+    validate: { xForwardedForHeader: false },
     message: { error: 'Muitas requisições. Tente novamente mais tarde.' },
     handler: (req, res, next, options) => {
         console.warn(`[RATE LIMIT] IP bloqueado globalmente: ${req.ip}`);
@@ -47,6 +51,10 @@ const globalLimiter = rateLimit({
 const formLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10, // Limit each IP to 10 form submissions per windowMs
+    keyGenerator: (req) => {
+        return (req.headers['x-forwarded-for'] as string) || (req.headers['forwarded'] as string) || req.ip || 'unknown';
+    },
+    validate: { xForwardedForHeader: false },
     message: { error: 'Limite de envios atingido. Tente novamente em 15 minutos.' },
     handler: (req, res, next, options) => {
         console.warn(`[RATE LIMIT] IP bloqueado no formulário: ${req.ip}`);
@@ -231,6 +239,7 @@ async function logAction(action: string, details: string, username: string = 'Si
 
 async function startServer() {
     const app = express();
+    app.set('trust proxy', 1);
     const PORT = Number(process.env.PORT) || 3000;
 
     // Use JSON parser for all non-webhook routes

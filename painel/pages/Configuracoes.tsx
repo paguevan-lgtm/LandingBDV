@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../components/SubscriptionLock';
 import { db } from '../firebase';
 
-export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, setGeminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, deviceLabels, saveDeviceLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled }: any) {
+export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, deviceLabels, saveDeviceLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled }: any) {
     const { logout } = useAuth();
     const { triggerEarlyRenewal } = useSubscription();
     
