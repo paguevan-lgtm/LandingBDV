@@ -914,6 +914,136 @@ async function startServer() {
         }
     });
 
+    app.post('/api/sync-subscription', async (req, res) => {
+        try {
+            const { userId, systemContext } = req.body;
+            if (!userId || !systemContext) {
+                return res.status(400).json({ error: 'userId and systemContext are required' });
+            }
+
+            // Search for active subscriptions for this user and system
+            const subscriptions = await getStripe().subscriptions.search({
+                query: `status:'active' AND metadata['userId']:'${userId}' AND metadata['systemContext']:'${systemContext}'`,
+                limit: 1
+            });
+
+            if (subscriptions.data.length > 0) {
+                const sub = subscriptions.data[0];
+                
+                // Update Firebase
+                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                if (dbSecret) systemUrl += `?auth=${dbSecret}`;
+
+                const updates: any = {};
+                const newExpiresAt = new Date((sub as any).current_period_end * 1000).toISOString();
+
+                if (systemContext === 'Mistura') {
+                    updates.expiresAt = newExpiresAt;
+                    updates.isRecurring_Mistura = true;
+                    updates.isBlockedByAdmin = false;
+                } else {
+                    updates[`expiresAt_${systemContext}`] = newExpiresAt;
+                    updates[`isRecurring_${systemContext}`] = true;
+                    updates[`isBlocked_${systemContext}`] = false;
+                }
+
+                await fetchWithRetry(systemUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+
+                res.json({ success: true, status: 'active', expiresAt: newExpiresAt });
+            } else {
+                // No active subscription found, ensure auto-renewal is off
+                const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                if (dbSecret) systemUrl += `?auth=${dbSecret}`;
+
+                const updates: any = {};
+                if (systemContext === 'Mistura') {
+                    updates.isRecurring_Mistura = false;
+                } else {
+                    updates[`isRecurring_${systemContext}`] = false;
+                }
+
+                await fetchWithRetry(systemUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+
+                res.json({ success: false, status: 'not_found' });
+            }
+        } catch (error: any) {
+            console.error('Error syncing subscription:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/cancel-subscription', async (req, res) => {
+        try {
+            const { systemContext, userId } = req.body;
+            if (!systemContext || !userId) {
+                return res.status(400).json({ error: 'System context and userId are required' });
+            }
+
+            // Check if user is admin
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userRes = await fetchWithRetry(userUrl);
+            const userData = await userRes.json();
+            
+            if (!userData || userData.role !== 'admin') {
+                return res.status(403).json({ error: 'Unauthorized: Admin access required' });
+            }
+
+            // Fetch current system subscription data to get the subscription ID
+            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            if (dbSecret) {
+                systemUrl += `?auth=${dbSecret}`;
+            }
+
+            const sysRes = await fetchWithRetry(systemUrl);
+            const sysData = await sysRes.json() || {};
+            
+            // Try to find the subscription ID for the specific system
+            const subscriptionId = systemContext === 'Mistura' ? sysData.lastPaymentId : (sysData[`lastPaymentId_${systemContext}`] || sysData.lastPaymentId);
+
+            if (!subscriptionId) {
+                return res.status(404).json({ error: 'Subscription ID not found' });
+            }
+
+            // Cancel on Stripe
+            try {
+                await getStripe().subscriptions.cancel(subscriptionId);
+            } catch (stripeError: any) {
+                console.warn(`Stripe cancellation failed for ${subscriptionId}: ${stripeError.message}. Proceeding to update Firebase.`);
+                // If the error is that the subscription is already cancelled or not found, we can proceed.
+                if (stripeError.type !== 'StripeInvalidRequestError' && 
+                    !stripeError.message.includes('already canceled') && 
+                    !stripeError.message.includes('No such subscription')) {
+                    throw stripeError;
+                }
+            }
+
+            // Update Firebase
+            await updateUserSubscriptionStatus(
+                userId,
+                'cancelled',
+                subscriptionId,
+                new Date().toISOString(),
+                systemContext
+            );
+
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error('Error cancelling subscription:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, res) => {
         let event;
         try {
