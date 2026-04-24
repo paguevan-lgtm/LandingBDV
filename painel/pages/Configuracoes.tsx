@@ -1145,14 +1145,15 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Icons.Stars className={theme.accent}/> Inteligência Artificial</h3>
                             <p className="text-xs opacity-60 mb-4">Habilite o Cadastro Mágico e automações de voz com sua chave Gemini.</p>
                             <div className="space-y-3">
-                                <input 
-                                    type="password" 
-                                    className={`w-full ${theme.inner} border ${theme.divider} rounded-xl px-4 py-3 text-sm outline-none focus:border-opacity-50 transition-colors`} 
-                                    placeholder="API Key do Google Gemini" 
-                                    value={geminiKey} 
-                                    onChange={(e:any)=>setGeminiKey(e.target.value)} 
-                                />
-                                <Button theme={theme} onClick={()=>saveApiKey(geminiKey)} variant="primary" className="w-full">Salvar Chave API</Button>
+                                {geminiKey ? (
+                                    <div className="flex items-center gap-2 text-green-500 font-medium text-sm">
+                                        <Icons.CheckCircle size={16} /> Chave API configurada por ambiente (GEMINI_KEY).
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-red-400 font-medium text-sm">
+                                        <Icons.AlertCircle size={16} /> Chave API não configurada no ambiente.
+                                    </div>
+                                )}
                             </div>
                         </div>
 

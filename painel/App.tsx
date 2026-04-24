@@ -138,7 +138,7 @@ const AppContent = () => {
     const [viewedPranchetaData, setViewedPranchetaData] = useState<any>({});
     const [duePranchetaData, setDuePranchetaData] = useState<any>({});
     const [themeKey, setThemeKey] = useState('default');
-    const [geminiKey, setGeminiKey] = useState(localStorage.getItem('nexflow_gemini_key') || '');
+    const geminiKey = process.env.GEMINI_KEY || process.env.GEMINI_API_KEY || '';
     const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('nexflow_sound_enabled') !== 'false');
     const [popupsEnabled, setPopupsEnabled] = useState(() => localStorage.getItem('nexflow_popups_enabled') !== 'false');
     const [siteNotificationsEnabled, setSiteNotificationsEnabled] = useState(() => localStorage.getItem('nexflow_site_notifs_enabled') !== 'false');
