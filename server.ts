@@ -262,6 +262,19 @@ async function startServer() {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
+    // Helper: Proxy for Exchange Rate to avoid CORS
+    app.get('/api/exchange-rate', async (req, res) => {
+        try {
+            const response = await fetchWithRetry('https://economia.awesomeapi.com.br/last/USD-BRL');
+            const data = await response.json();
+            res.json(data);
+        } catch (error) {
+            console.error('Error fetching exchange rate:', error);
+            // Default response if external API is down
+            res.json({ USDBRL: { bid: "5.25" } });
+        }
+    });
+
     // API Routes
     app.post('/api/send-login-token', async (req, res) => {
         try {

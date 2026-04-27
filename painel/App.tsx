@@ -5,7 +5,7 @@ import { THEMES, INITIAL_SP_LIST, BAIRROS, BAIRROS_MIP, DEFAULT_FOLGAS } from '.
 import { Icons, Toast, PersistentNotifications, AdminNotificationsModal, ConfirmModal, AlertModal, AdminAuthModal, CommandPalette, QuickCalculator } from './components/Shared';
 import { TourGuide } from './components/Tour';
 import { LoginScreen } from './pages/Login';
-import { getTodayDate, getOperationalDate, getLousaDate, generateUniqueId, callGemini, getAvatarUrl, getBairroIdx, formatDisplayDate, parseDisplayDate, dateAddDays, addMinutes, getWeekNumber, calculateSimilarity } from './utils';
+import { getTodayDate, getOperationalDate, getLousaDate, generateUniqueId, callGemini, getAvatarUrl, getBairroIdx, formatDisplayDate, parseDisplayDate, dateAddDays, addMinutes, getWeekNumber, calculateSimilarity, getUsdBrlRate } from './utils';
 
 // Context Auth
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -91,6 +91,17 @@ const AppContent = () => {
     const [analysisDate, setAnalysisDate] = useState(getOperationalDate());
     
     const [madrugadaData, setMadrugadaData] = useState<any>({}); 
+    const [usdBrlRate, setUsdBrlRate] = useState(5.25); // Initial fallback
+
+    useEffect(() => {
+        const fetchRate = async () => {
+            const rate = await getUsdBrlRate();
+            if (rate > 0) setUsdBrlRate(rate);
+        };
+        fetchRate();
+        const interval = setInterval(fetchRate, 1000 * 60 * 30); // 30 min
+        return () => clearInterval(interval);
+    }, []);
     const [madrugadaList, setMadrugadaList] = useState<string[]>([]); 
     const [tempVagaMadrugada, setTempVagaMadrugada] = useState(''); 
     
@@ -222,6 +233,52 @@ const AppContent = () => {
     }, [isOnline, isDbConnected]);
 
     const theme = useMemo(() => THEMES[themeKey] || THEMES.default, [themeKey]);
+    
+    // Metric Tracking Helper
+    const trackApiMetric = useCallback((type: 'aiStudio' | 'magicRegistration', usdCost: number) => {
+        if (!db) return;
+        const now = new Date();
+        const monthKey = now.toISOString().slice(0, 7); // YYYY-MM
+        const rate = usdBrlRate || 5.25;
+        const brlCost = usdCost * rate;
+
+        db.ref(`api_metrics_v3/${monthKey}`).transaction((curr: any) => {
+            const metrics = curr || { 
+                totalAiStudioCostBrl: 0, 
+                totalMagicRegistrationCostBrl: 0, 
+                totalMagicRequests: 0, 
+                lastUsdRate: rate,
+                userUsage: {} 
+            };
+            
+            if (type === 'aiStudio') {
+                metrics.totalAiStudioCostBrl = (metrics.totalAiStudioCostBrl || 0) + brlCost;
+            } else {
+                metrics.totalMagicRegistrationCostBrl = (metrics.totalMagicRegistrationCostBrl || 0) + brlCost;
+                metrics.totalMagicRequests = (metrics.totalMagicRequests || 0) + 1;
+                
+                const username = user?.username || 'Anônimo';
+                if (!metrics.userUsage) metrics.userUsage = {};
+                if (!metrics.userUsage[username]) {
+                    metrics.userUsage[username] = { requests: 0, costBrl: 0 };
+                }
+                metrics.userUsage[username].requests += 1;
+                metrics.userUsage[username].costBrl += brlCost;
+            }
+            
+            metrics.lastUpdate = Date.now();
+            metrics.lastUsdRate = rate;
+            return metrics;
+        });
+    }, [db, usdBrlRate, user?.username]);
+
+    // Increment AI Studio Cost for Breno (Dev track)
+    useEffect(() => {
+        if (user?.username === 'Breno' && db) {
+            // Small fixed cost for reloading/editing in AI Studio ($0.0000005)
+            trackApiMetric('aiStudio', 0.0000005);
+        }
+    }, [user?.username, trackApiMetric]);
 
     useEffect(() => {
         if (theme && theme.palette && theme.palette.length > 0) {
@@ -2880,6 +2937,9 @@ const AppContent = () => {
             const prompt = `Extraia um ARRAY JSON de: "${aiInput}". Cada objeto deve ter os campos: name, phone, neighborhood (de: ${bairros}), address, reference, passengerCount (int, pad 1), luggageCount (int, pad 0), payment ("Dinheiro", "Pix", "Cartão"), time (HH:mm). Se faltar use null.`;
             
             const res = await callGemini(prompt, geminiKey);
+            
+            // Increment API Metrics ($0.0000125 per request)
+            trackApiMetric('magicRegistration', 0.0000125);
             
             if (!res) throw new Error("A IA não retornou nada. Verifique sua chave API.");
 

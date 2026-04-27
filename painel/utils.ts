@@ -555,6 +555,17 @@ export const getHardwareInfo = () => {
     } catch(e) { return 'Unknown GPU'; }
 }
 
+export const getUsdBrlRate = async () => {
+    try {
+        const res = await fetch('/api/exchange-rate');
+        const data = await res.json();
+        return parseFloat(data.USDBRL.bid);
+    } catch (e) {
+        console.error("Erro ao buscar cotação via proxy:", e);
+        return 5.25; // Fallback
+    }
+};
+
 export const calculateSimilarity = (str1: string, str2: string) => {
     if (!str1 || !str2) return 0;
     const s1 = str1.toLowerCase().trim();

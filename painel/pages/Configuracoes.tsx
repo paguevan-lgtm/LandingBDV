@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
@@ -55,6 +55,35 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     });
 
     const [requireLocationOnLogin, setRequireLocationOnLogin] = useState(false);
+    const [viewedMonth, setViewedMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [monthlyMetrics, setMonthlyMetrics] = useState<any>(null);
+
+    // Generate month options
+    const monthOptions = useMemo(() => {
+        const options = [];
+        const d = new Date();
+        for (let i = 0; i < 6; i++) {
+            const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+            options.push(m.toISOString().slice(0, 7));
+        }
+        return options;
+    }, []);
+
+    // Fetch Monthly Metrics
+    useEffect(() => {
+        if (!isSuperAdmin || !db) return;
+        const ref = db.ref(`api_metrics_v3/${viewedMonth}`);
+        const handleValue = (snap: any) => {
+             setMonthlyMetrics(snap.val() || null);
+        };
+        ref.on('value', handleValue);
+        return () => ref.off('value', handleValue);
+    }, [isSuperAdmin, viewedMonth]);
+
+
+
+
+
 
     // Fetch requireLocationOnLogin
     useEffect(() => {
@@ -1156,6 +1185,109 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                 )}
                             </div>
                         </div>
+
+                        {/* MÉTRICAS DE API (SOMENTE BRENO) - V3 MENSAL */}
+                        {isSuperAdmin && (
+                            <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg col-span-1 md:col-span-2`}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                                    <h3 className="font-bold text-lg flex items-center gap-2">
+                                        <Icons.Activity className="text-purple-400"/> Monitoramento de Custos (Admin)
+                                    </h3>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold opacity-50 uppercase">Mês:</span>
+                                        <select 
+                                            value={viewedMonth}
+                                            onChange={(e) => setViewedMonth(e.target.value)}
+                                            className={`text-xs px-2 py-1.5 rounded-lg border ${theme.border} ${theme.inner} ${theme.text} outline-none focus:ring-1 focus:ring-purple-500`}
+                                        >
+                                            {monthOptions.map(m => {
+                                                const [y, mm] = m.split('-');
+                                                const date = new Date(parseInt(y), parseInt(mm) - 1, 1);
+                                                const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                                return <option key={m} value={m}>{label.charAt(0).toUpperCase() + label.slice(1)}</option>
+                                            })}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                    <div className={`p-4 rounded-xl border ${theme.divider} ${theme.inner} relative overflow-hidden group`}>
+                                        <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <Icons.Edit size={32} />
+                                        </div>
+                                        <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Custo: Edição AI Studio</p>
+                                        <p className="text-2xl font-black text-amber-500">R$ {(monthlyMetrics?.totalAiStudioCostBrl || 0).toFixed(8)}</p>
+                                        <p className="text-[9px] opacity-40 mt-1">Estimado baseado em recarregamentos</p>
+                                    </div>
+                                    
+                                    <div className={`p-4 rounded-xl border ${theme.divider} ${theme.inner} relative overflow-hidden group`}>
+                                        <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                                            <Icons.Stars size={32} />
+                                        </div>
+                                        <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Custo: Cadastro Mágico</p>
+                                        <p className="text-2xl font-black text-purple-400">R$ {(monthlyMetrics?.totalMagicRegistrationCostBrl || 0).toFixed(8)}</p>
+                                        <p className="text-[9px] opacity-40 mt-1">{monthlyMetrics?.totalMagicRequests || 0} requisições totais</p>
+                                    </div>
+
+                                    <div className={`p-4 rounded-xl border ${theme.divider} ${theme.inner} flex flex-col justify-center`}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="text-[10px] uppercase font-bold opacity-50">Câmbio USD/BRL</p>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                        </div>
+                                        <p className="text-xl font-bold">R$ {(monthlyMetrics?.lastUsdRate || 5.25).toFixed(2)}</p>
+                                        <p className="text-[9px] opacity-40 mt-1">Última taxa registrada no mês</p>
+                                    </div>
+                                </div>
+
+                                {monthlyMetrics?.userUsage && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-black uppercase tracking-widest opacity-40 flex items-center gap-2">
+                                            <Icons.Users size={12}/> Ranking de Uso (Cadastro Mágico)
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {Object.entries(monthlyMetrics.userUsage).sort((a: any, b: any) => b[1].requests - a[1].requests).map(([uname, usage]: any) => (
+                                                <div key={uname} className={`flex items-center justify-between p-3 rounded-xl border ${theme.divider} ${theme.inner} hover:border-purple-500/30 transition-colors`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative">
+                                                            <img src={getAvatarUrl(uname)} className="w-8 h-8 rounded-full border border-white/10 shadow-md" alt={uname} />
+                                                            <div className="absolute -bottom-1 -right-1 bg-purple-500 text-[8px] font-bold px-1 rounded-full shadow-sm">
+                                                                {usage.requests}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold truncate max-w-[100px]">{uname}</p>
+                                                            <p className="text-[10px] opacity-50 uppercase font-black">{usage.requests} req</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-black text-green-400">R$ {usage.costBrl.toFixed(6)}</p>
+                                                        <div className={`h-1 w-full bg-white/5 rounded-full mt-1 overflow-hidden`}>
+                                                            <div 
+                                                                className="h-full bg-purple-500" 
+                                                                style={{ width: `${Math.min(100, (usage.requests / (monthlyMetrics.totalMagicRequests || 1)) * 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {!monthlyMetrics && (
+                                    <div className="py-12 text-center text-xs opacity-40">
+                                        <Icons.Clock size={32} className="mx-auto mb-2 opacity-20" />
+                                        Nenhum dado registrado para este período.
+                                    </div>
+                                )}
+                                
+                                <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-[9px] opacity-30 font-bold uppercase tracking-widest">
+                                    <span>Métricas V3 (Real-time)</span>
+                                    <span>Atualizado: {monthlyMetrics?.lastUpdate ? new Date(monthlyMetrics.lastUpdate).toLocaleString('pt-BR') : 'N/A'}</span>
+                                </div>
+                            </div>
+                        )}
 
                         {/* FERRAMENTAS */}
                         <div className="space-y-6">
