@@ -263,15 +263,42 @@ async function startServer() {
     });
 
     // Helper: Proxy for Exchange Rate to avoid CORS
+    let cachedUsdBrlRate = "5.25";
+    let lastRateFetch = 0;
+    
     app.get('/api/exchange-rate', async (req, res) => {
+        const now = Date.now();
+        // Cache for 30 minutes (1800000 ms) 
+        if (now - lastRateFetch < 1800000) {
+            return res.json({ USDBRL: { bid: cachedUsdBrlRate } });
+        }
+        
         try {
-            const response = await fetchWithRetry('https://economia.awesomeapi.com.br/last/USD-BRL');
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+            
+            const response = await fetch('https://open.er-api.com/v6/latest/USD', {
+                signal: controller.signal as any
+            });
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`Exchange API returned status: ${response.status}`);
+            }
+
             const data = await response.json();
-            res.json(data);
+            if (!data || !data.rates || !data.rates.BRL) {
+                throw new Error('Invalid JSON format from Exchange API');
+            }
+
+            cachedUsdBrlRate = data.rates.BRL;
+            lastRateFetch = now;
+            
+            res.json({ USDBRL: { bid: cachedUsdBrlRate } });
         } catch (error) {
             console.error('Error fetching exchange rate:', error);
-            // Default response if external API is down
-            res.json({ USDBRL: { bid: "5.25" } });
+            // Default response if external API is down, use last known cache
+            res.json({ USDBRL: { bid: cachedUsdBrlRate } });
         }
     });
 

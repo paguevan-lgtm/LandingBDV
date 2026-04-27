@@ -272,13 +272,7 @@ const AppContent = () => {
         });
     }, [db, usdBrlRate, user?.username]);
 
-    // Increment AI Studio Cost for Breno (Dev track)
-    useEffect(() => {
-        if (user?.username === 'Breno' && db) {
-            // Small fixed cost for reloading/editing in AI Studio ($0.0000005)
-            trackApiMetric('aiStudio', 0.0000005);
-        }
-    }, [user?.username, trackApiMetric]);
+    // Removed AI Studio metric counting based on user request
 
     useEffect(() => {
         if (theme && theme.palette && theme.palette.length > 0) {

@@ -1195,32 +1195,44 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                     </h3>
                                     
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold opacity-50 uppercase">Mês:</span>
-                                        <select 
-                                            value={viewedMonth}
-                                            onChange={(e) => setViewedMonth(e.target.value)}
-                                            className={`text-xs px-2 py-1.5 rounded-lg border ${theme.border} ${theme.inner} ${theme.text} outline-none focus:ring-1 focus:ring-purple-500`}
+                                        <Button 
+                                            theme={theme} 
+                                            variant="secondary" 
+                                            onClick={() => {
+                                                const [y, m] = viewedMonth.split('-');
+                                                const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+                                                date.setMonth(date.getMonth() - 1);
+                                                setViewedMonth(date.toISOString().slice(0, 7));
+                                            }} 
+                                            className="p-2"
                                         >
-                                            {monthOptions.map(m => {
-                                                const [y, mm] = m.split('-');
-                                                const date = new Date(parseInt(y), parseInt(mm) - 1, 1);
-                                                const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                                                return <option key={m} value={m}>{label.charAt(0).toUpperCase() + label.slice(1)}</option>
-                                            })}
-                                        </select>
+                                            <Icons.ChevronLeft size={16} />
+                                        </Button>
+                                        <div className={`px-4 py-2 rounded-lg border ${theme.border} ${theme.inner} font-bold text-sm tracking-wide capitalize min-w-[150px] text-center`}>
+                                            {(() => {
+                                                const [y, m] = viewedMonth.split('-');
+                                                const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+                                                return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                            })()}
+                                        </div>
+                                        <Button 
+                                            theme={theme} 
+                                            variant="secondary" 
+                                            onClick={() => {
+                                                const [y, m] = viewedMonth.split('-');
+                                                const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+                                                date.setMonth(date.getMonth() + 1);
+                                                setViewedMonth(date.toISOString().slice(0, 7));
+                                            }}
+                                            className="p-2"
+                                            disabled={viewedMonth === new Date().toISOString().slice(0, 7)}
+                                        >
+                                            <Icons.ChevronRight size={16} />
+                                        </Button>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                                    <div className={`p-4 rounded-xl border ${theme.divider} ${theme.inner} relative overflow-hidden group`}>
-                                        <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                                            <Icons.Edit size={32} />
-                                        </div>
-                                        <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Custo: Edição AI Studio</p>
-                                        <p className="text-2xl font-black text-amber-500">R$ {(monthlyMetrics?.totalAiStudioCostBrl || 0).toFixed(8)}</p>
-                                        <p className="text-[9px] opacity-40 mt-1">Estimado baseado em recarregamentos</p>
-                                    </div>
-                                    
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                                     <div className={`p-4 rounded-xl border ${theme.divider} ${theme.inner} relative overflow-hidden group`}>
                                         <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
                                             <Icons.Stars size={32} />
