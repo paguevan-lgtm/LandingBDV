@@ -431,11 +431,15 @@ const AppContent = () => {
             }
 
             const isPaid = t.paymentStatus === 'Pago';
-            if (isPaid) paid += val;
-            else pending += val;
+            const isCancelled = t.status === 'Cancelada';
+
+            if (!isCancelled) {
+                if (isPaid) paid += val;
+                else pending += val;
+            }
 
             if (!groups[t.date]) groups[t.date] = { date: t.date, totalValue: 0, trips: [] };
-            groups[t.date].totalValue += val;
+            if (!isCancelled) groups[t.date].totalValue += val;
             groups[t.date].trips.push({ ...t, value: val, isPaid });
         });
 

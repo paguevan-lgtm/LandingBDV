@@ -21,7 +21,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
     // --- Lógica do Caixa Diário ---
     const today = getTodayDate();
     // Viagens PAGAS hoje (independente de quando viajaram)
-    const dailyTrips = (data.trips || []).filter((t:any) => t.paymentStatus === 'Pago' && t.receivedAt && t.receivedAt.startsWith(today));
+    const dailyTrips = (data.trips || []).filter((t:any) => t.paymentStatus === 'Pago' && t.receivedAt && t.receivedAt.startsWith(today) && t.status !== 'Cancelada');
     
     // Viagens que VIAJARAM hoje (independente de estarem pagas ou não)
     const tripsTraveledToday = (data.trips || []).filter((t:any) => t.date === today && t.status !== 'Cancelada');
