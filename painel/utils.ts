@@ -200,20 +200,51 @@ export const generateTripListText = (passengers: any[], driverName: string, time
     return `VIAGEM ${formatTime(time)} - ${driverName}\n\n` + sorted.map(p=> `• ${p.name} - ${p.neighborhood}\n  ${p.address} (${p.reference || ''})`).join('\n\n');
 };
 
-export const callGemini = async (prompt: string, apiKey: string) => {
+// Global state for Gemini model choice
+let robustModeExpiration: number | null = null;
+const ROBUST_MODE_DURATION = 60 * 60 * 1000; // 1 hour
+
+export const callGemini = async (prompt: string, apiKey: string, retries = 2) => {
     if (!apiKey) throw new Error("Chave API Gemini não configurada!");
     
-    // Fix: Using GoogleGenAI SDK instead of direct fetch
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-        }
-    });
+    const now = Date.now();
+    // Check if we are still in the 1-hour "robust mode" window
+    const isInRobustMode = robustModeExpiration !== null && now < robustModeExpiration;
     
-    return response.text || "";
+    // Tier 1: gemini-1.5-flash-8b-latest (Extremely economical and fast for extraction)
+    // Tier 2: gemini-3-flash-preview (Robust fallback)
+    const modelName = isInRobustMode ? 'gemini-3-flash-preview' : 'gemini-1.5-flash-8b-latest';
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+            }
+        });
+        
+        return response.text || "";
+    } catch (error: any) {
+        const isUnavailable = error.message?.includes('503') || 
+                            error.message?.includes('high demand') || 
+                            error.message?.includes('UNAVAILABLE') ||
+                            error.message?.includes('overloaded');
+
+        if (isUnavailable) {
+            // Trigger robust mode for 1 hour
+            robustModeExpiration = Date.now() + ROBUST_MODE_DURATION;
+            console.warn(`Gemini API (${modelName}) busy. Switching to robust model (gemini-3-flash-preview) for the next 1 hour.`);
+            
+            if (retries > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Immediate retry using the robust model (since robustModeExpiration was just set)
+                return callGemini(prompt, apiKey, retries - 1);
+            }
+        }
+        throw error;
+    }
 };
 
 export const compressImage = (file: File): Promise<string> => {
@@ -559,7 +590,10 @@ export const getUsdBrlRate = async () => {
     try {
         const res = await fetch('/api/exchange-rate');
         const data = await res.json();
-        return parseFloat(data.USDBRL.bid);
+        if (data?.USDBRL?.bid) {
+            return parseFloat(data.USDBRL.bid);
+        }
+        return 5.25;
     } catch (e) {
         console.error("Erro ao buscar cotação via proxy:", e);
         return 5.25; // Fallback
