@@ -211,9 +211,9 @@ export const callGemini = async (prompt: string, apiKey: string, retries = 2) =>
     // Check if we are still in the 1-hour "robust mode" window
     const isInRobustMode = robustModeExpiration !== null && now < robustModeExpiration;
     
-    // Tier 1: gemini-flash-lite-preview (Fastest and most economical)
-    // Tier 2: gemini-flash-preview (Robust fallback)
-    const modelName = isInRobustMode ? 'gemini-flash-preview' : 'gemini-flash-lite-preview';
+    // Tier 1: gemini-3.1-flash-lite-preview (Fastest and most economical)
+    // Tier 2: gemini-3-flash-preview (Robust fallback)
+    const modelName = isInRobustMode ? 'gemini-3-flash-preview' : 'gemini-3.1-flash-lite-preview';
     
     try {
         const ai = new GoogleGenAI({ apiKey });
