@@ -288,9 +288,19 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                             
                             <div className="space-y-3">
                                 {group.trips.map((trip:any) => (
-                                    <div id="tut-billing-item" key={trip.id} className={`${theme.card} p-4 rounded-xl border ${theme.border} flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden`}>
+                                    <div id="tut-billing-item" key={trip.id} className={`${theme.card} p-4 rounded-xl border ${theme.border} flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden ${trip.status === 'Cancelada' ? 'opacity-75 grayscale' : ''}`}>
+                                        
+                                        {trip.status === 'Cancelada' && (
+                                            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px] pointer-events-none">
+                                                <div className="absolute left-4 right-4 h-[2px] bg-red-500/70 top-1/2 transform -translate-y-1/2 pointer-events-none"></div>
+                                                <div className="bg-red-500 text-white font-black px-4 py-1.5 rounded-lg uppercase tracking-widest text-sm shadow-xl z-30">
+                                                    Viagem Cancelada
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Indicador Lateral de Status */}
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${trip.isPaid ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${trip.status === 'Cancelada' ? 'bg-red-900' : (trip.isPaid ? 'bg-green-500' : 'bg-red-500')}`}></div>
                                                                      <div className="flex items-center gap-4 w-full md:w-auto min-w-0">
                                             <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold bg-white/5 border border-white/10 shrink-0 ${(!trip.isExtra && !trip.isMadrugada && trip.time && trip.time.length > 3) ? 'text-xs' : 'text-lg'}`}>
                                                 {trip.isExtra ? <Icons.Car size={24}/> : (trip.isMadrugada ? <Icons.Moon size={24}/> : (
