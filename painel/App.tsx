@@ -407,9 +407,9 @@ const AppContent = () => {
             if (user && user.role === 'operador') {
                 const isOwner = t.createdBy === user.username;
                 const isPaidByMe = t.paymentStatus === 'Pago' && t.receivedBy === user.username;
-                const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
-                // Deixa de mostrar viagens do Sistema na cobrança individual do operador
-                if (!isOwner && !isPaidByMe && !isStefanyToday) return false;
+                const isStefanyLegacy = t.date === '2026-04-29' && user.username === 'Stefany' && (!t.createdBy || t.createdBy === 'Sistema');
+                // Se a viagem tem um dono definido (createdBy), respeita isso acima de tudo
+                if (!isOwner && !isPaidByMe && !isStefanyLegacy) return false;
             }
 
             const d = new Date(t.date + 'T12:00:00');
@@ -3277,6 +3277,9 @@ const AppContent = () => {
 
         const sp = spList.find((s:any) => s.name === suggestedTrip.driver.name);
         
+        // Propriedades fundamentais
+        const isMadrugada = !!formData.isMadrugada;
+        
         const payload: any = {
             id: tripId,
             driverId: suggestedTrip.driver.realId || suggestedTrip.driver.id,
@@ -3284,7 +3287,7 @@ const AppContent = () => {
             date: finalDate,
             time: finalTime,
             status: 'Em andamento',
-            isMadrugada: !!formData.isMadrugada, 
+            isMadrugada: isMadrugada, 
             isTemp: false,
             passengerIds: passengerIdsToSave,
             passengersSnapshot: passengersSnapshotToSave,
@@ -3292,16 +3295,20 @@ const AppContent = () => {
             lastEditedBy: user.username
         };
 
-        if (!editingTripId) {
+        if (isMadrugada) {
+            const operators = (data.users || []).filter((u: any) => u.role === 'operador' && u.username !== 'Breno');
+            const fallback = operators.find((u: any) => u.username === user.username) ? user.username : (operators[0]?.username || user.username);
+            // Se o responsibleUser for 'Sistema' ou estiver vazio, usa o fallback. 
+            // Senão, usa o que foi selecionado no modal.
+            payload.createdBy = (formData.responsibleUser && formData.responsibleUser !== 'Sistema') ? formData.responsibleUser : fallback;
+        } else if (!editingTripId) {
             payload.createdBy = user.username;
         } else {
             const existingTrip = data.trips.find((t:any) => t.id === editingTripId);
             if (existingTrip) {
-                // Se a viagem era do sistema (temp) e agora tem passageiros, o débito vai para quem editou
                 if (existingTrip.createdBy === 'Sistema' && passengerIdsToSave.length > 0) {
                     payload.createdBy = user.username;
                 } else {
-                    // Mantém o creator original para o débito continuar com ele
                     payload.createdBy = existingTrip.createdBy || user.username;
                 }
             }
@@ -3381,7 +3388,8 @@ const AppContent = () => {
             driverName: t.driverName,
             time: t.time, 
             date: t.date, 
-            isMadrugada: !!t.isMadrugada 
+            isMadrugada: !!t.isMadrugada,
+            responsibleUser: t.createdBy || user.username
         }); 
         
         setEditingTripId(t.id);
@@ -3429,9 +3437,9 @@ const AppContent = () => {
             passengerIds: t.passengerIds || [],
             passengersSnapshot: null,
             pCountSnapshot: null,
-            isMadrugada: !!t.isMadrugada, // FIX: Force boolean
+            isMadrugada: !!t.isMadrugada, 
             isTemp: false,
-            createdBy: user.username,
+            createdBy: (!!t.isMadrugada ? t.createdBy : user.username) || user.username,
             lastEditedBy: user.username
         };
         
@@ -3652,7 +3660,8 @@ const AppContent = () => {
                 isMadrugada: true, 
                 driverId: driver ? driver.id : '', 
                 time: '', // Vazio para forçar a escolha no modal
-                date: date 
+                date: date,
+                responsibleUser: user.username
             });
             setSuggestedTrip(null); // Nulo para abrir o formulário de configuração, não o resumo
             setEditingTripId(null);
@@ -4363,6 +4372,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                 vagaToBlock={vagaToBlock} tempJustification={tempJustification} setTempJustification={setTempJustification} confirmMadrugadaBlock={confirmMadrugadaBlock}
                 showNewsModal={showNewsModal} latestNews={latestNews} markNewsAsSeen={markNewsAsSeen}
                 systemContext={systemContext}
+                user={user}
             />
             
             {runTour && (

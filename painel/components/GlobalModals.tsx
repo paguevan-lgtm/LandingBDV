@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { Icons, Input, Button } from './Shared';
 import { getTodayDate, capitalize } from '../utils';
 import { BAIRROS, BAIRROS_MIP } from '../constants';
+import { getAvatarUrl } from '../utils';
 
 export const GlobalModals = ({
     modal,
@@ -47,10 +48,12 @@ export const GlobalModals = ({
     markNewsAsSeen,
     systemContext,
     aiPassengerQueue,
-    aiPassengerIndex
+    aiPassengerIndex,
+    user
 }: any) => {
 
     const bairrosList = systemContext === 'Mip' ? BAIRROS_MIP : BAIRROS;
+    const operators = (data.users || []).filter((u: any) => u.role === 'operador' && u.username !== 'Breno');
 
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -256,10 +259,46 @@ export const GlobalModals = ({
                         <>
                             {!suggestedTrip ? (
                                 <div className="space-y-6">
-                                    <div id="btn-trip-madrugada" className={`p-4 rounded-xl flex items-center gap-3 cursor-pointer transition-colors border ${formData.isMadrugada ? 'bg-indigo-500/20 border-indigo-500' : 'bg-white/5 border-white/10 hover:bg-white/10'}`} onClick={() => setFormData((prev:any) => ({...prev, isMadrugada: !prev.isMadrugada, driverId: ''}))}>
+                                    <div id="btn-trip-madrugada" className={`p-4 rounded-xl flex items-center gap-3 cursor-pointer transition-colors border ${formData.isMadrugada ? 'bg-indigo-500/20 border-indigo-500' : 'bg-white/5 border-white/10 hover:bg-white/10'}`} onClick={() => setFormData((prev:any) => ({...prev, isMadrugada: !prev.isMadrugada, driverId: '', responsibleUser: !prev.isMadrugada ? user.username : undefined}))}>
                                         <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${formData.isMadrugada ? 'bg-indigo-500 border-indigo-500' : 'border-white/30'}`}>{formData.isMadrugada && <Icons.Check size={14} className="text-white"/>}</div>
                                         <div><div className={`font-bold text-sm ${formData.isMadrugada ? 'text-indigo-300' : 'text-white'}`}>Viagem da Madrugada</div><div className="text-xs opacity-50">Filtra motoristas da tabela de madrugada</div></div>
                                     </div>
+
+                                    {formData.isMadrugada && (
+                                        <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-3 anim-fade">
+                                            <label className="text-xs font-bold text-indigo-300 ml-1 block mb-2">Quem é o responsável por receber desta viagem?</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {operators.map((u: any) => {
+                                                    const isSelected = (formData.responsibleUser || (operators.find((op:any) => op.username === user.username) ? user.username : (operators[0]?.username || ''))) === u.username;
+                                                    return (
+                                                        <div 
+                                                            key={u.username}
+                                                            onClick={() => setFormData({...formData, responsibleUser: u.username})}
+                                                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${isSelected ? 'bg-indigo-500/30 border-indigo-500 ring-1 ring-indigo-500' : 'bg-black/20 border-white/10 hover:bg-white/5'}`}
+                                                        >
+                                                            <div className="relative">
+                                                                <img 
+                                                                    src={u.photoURL || getAvatarUrl(u.username)} 
+                                                                    alt={u.username} 
+                                                                    className="w-8 h-8 rounded-full object-cover border border-white/20" 
+                                                                    referrerPolicy="no-referrer" 
+                                                                />
+                                                                {isSelected && (
+                                                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full flex items-center justify-center border border-white/20">
+                                                                        <Icons.Check size={8} className="text-white" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <span className={`text-xs font-medium truncate ${isSelected ? 'text-white' : 'text-white/70'}`}>
+                                                                {u.username}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Motorista</label><select id="select-trip-driver" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.driverId||''} onChange={(e:any)=>setFormData({...formData, driverId:e.target.value})}>
                                         <option value="" className="bg-slate-900">Selecione...</option>
                                         {data.drivers.filter((d:any) => { if (formData.isMadrugada) { const sp = spList.find((s:any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); return sp && madrugadaList.includes(sp.vaga); } return d.status==='Ativo'; }).map((d:any) => { let label = `${d.name} (${d.capacity} lug)`; if (formData.isMadrugada) { const sp = spList.find((s:any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); if (sp) label = `[Vaga ${sp.vaga}] ${label}`; } return <option key={d.id} value={d.id} className="bg-slate-900">{label}</option>; })}

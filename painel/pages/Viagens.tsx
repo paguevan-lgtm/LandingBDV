@@ -56,8 +56,8 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                 const isOwner = t.createdBy === user.username;
                 const wasEditedByMe = t.lastEditedBy === user.username;
                 const isSistema = t.createdBy === 'Sistema';
-                const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
-                return isOwner || wasEditedByMe || isSistema || isStefanyToday;
+                const isStefanyLegacy = t.date === '2026-04-29' && user.username === 'Stefany' && (!t.createdBy || t.createdBy === 'Sistema');
+                return isOwner || wasEditedByMe || isSistema || isStefanyLegacy || t.isMadrugada;
             });
         }
 

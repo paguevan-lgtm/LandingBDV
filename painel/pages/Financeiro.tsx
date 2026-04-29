@@ -29,12 +29,12 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
     // Filter by user role/ownership for operators
     if (user && user.role === 'operador') {
         dailyTrips = dailyTrips.filter((t: any) => {
-            const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
-            return t.receivedBy === user.username || isStefanyToday;
+            const isStefanyLegacy = t.date === '2026-04-29' && user.username === 'Stefany' && (!t.createdBy || t.createdBy === 'Sistema');
+            return t.receivedBy === user.username || isStefanyLegacy;
         });
         tripsTraveledToday = tripsTraveledToday.filter((t: any) => {
-            const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
-            return t.createdBy === user.username || t.receivedBy === user.username || isStefanyToday;
+            const isStefanyLegacy = t.date === '2026-04-29' && user.username === 'Stefany' && (!t.createdBy || t.createdBy === 'Sistema');
+            return t.createdBy === user.username || t.receivedBy === user.username || isStefanyLegacy;
         });
     }
 
