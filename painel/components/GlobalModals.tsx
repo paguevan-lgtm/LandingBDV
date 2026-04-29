@@ -299,22 +299,124 @@ export const GlobalModals = ({
                                         </div>
                                     )}
 
-                                    <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Motorista</label><select id="select-trip-driver" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.driverId||''} onChange={(e:any)=>setFormData({...formData, driverId:e.target.value})}>
-                                        <option value="" className="bg-slate-900">Selecione...</option>
-                                        {data.drivers.filter((d:any) => { if (formData.isMadrugada) { const sp = spList.find((s:any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); return sp && madrugadaList.includes(sp.vaga); } return d.status==='Ativo'; }).map((d:any) => { let label = `${d.name} (${d.capacity} lug)`; if (formData.isMadrugada) { const sp = spList.find((s:any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); if (sp) label = `[Vaga ${sp.vaga}] ${label}`; } return <option key={d.id} value={d.id} className="bg-slate-900">{label}</option>; })}
-                                    </select></div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-bold opacity-60 ml-1">Motorista</label>
+                                        <div id="driver-grid-selection" className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar pb-2">
+                                            {data.drivers.filter((d:any) => { 
+                                                if (formData.isMadrugada) { 
+                                                    const driverName = (d.name || '').trim().toLowerCase();
+                                                    const spots = spList.filter((s:any) => (s?.name || '').trim().toLowerCase() === driverName);
+                                                    return spots.some((s:any) => madrugadaList.includes(s.vaga));
+                                                } 
+                                                return d.status==='Ativo'; 
+                                            }).sort((a:any, b:any) => a.name.localeCompare(b.name)).map((d:any) => {
+                                                const isSelected = formData.driverId === d.id;
+                                                let subLabel = `${d.capacity} lug`;
+                                                if (formData.isMadrugada) {
+                                                    const driverName = (d.name || '').trim().toLowerCase();
+                                                    const sp = spList.find((s:any) => (s?.name || '').trim().toLowerCase() === driverName && madrugadaList.includes(s.vaga));
+                                                    if (sp) subLabel = `Vaga ${sp.vaga} • ${subLabel}`;
+                                                }
+
+                                                return (
+                                                    <div 
+                                                        key={d.id}
+                                                        onClick={() => setFormData({...formData, driverId: d.id})}
+                                                        className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-amber-500/20 border-amber-500 ring-1 ring-amber-500' : 'bg-black/20 border-white/10 hover:bg-white/5'}`}
+                                                    >
+                                                        <div className="relative shrink-0">
+                                                            <img 
+                                                                src={getAvatarUrl(d.name)} 
+                                                                alt={d.name} 
+                                                                className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow-sm" 
+                                                                referrerPolicy="no-referrer" 
+                                                            />
+                                                            {isSelected && (
+                                                                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center border-2 border-[#1e293b]">
+                                                                    <Icons.Check size={10} className="text-white" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className={`text-xs font-black truncate ${isSelected ? 'text-white' : 'text-white/80'}`}>
+                                                                {(() => {
+                                                                    const parts = d.name.trim().split(/\s+/);
+                                                                    if (parts.length <= 1) return parts[0] || d.name;
+                                                                    const first = parts[0];
+                                                                    const last = parts[parts.length - 1];
+                                                                    return `${first} ${last[0]}.`;
+                                                                })()}
+                                                            </div>
+                                                            <div className="text-[10px] opacity-50 font-bold truncate tracking-tight">{subLabel}</div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                     {formData.isMadrugada ? (<div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Horário</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})}><option value="" className="bg-slate-900">Selecione...</option><option value="04:00/04:45" className="bg-slate-900">4:00 as 4:45</option><option value="05:00/05:45" className="bg-slate-900">5:00 as 5:45</option><option value="06:00/06:45" className="bg-slate-900">6:00 as 6:45</option></select></div>) : (<Input themeKey={themeKey} id="input-trip-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />)}
                                     <Button themeKey={themeKey} id="btn-generate-route" onClick={simulate} icon={Icons.Zap}>Gerar Rota</Button>
                                 </div>
                             ) : (
                                 <div className="flex flex-col h-full">
                                     <div className="bg-black/10 p-5 rounded-xl border border-white/10 flex-1 flex flex-col">
-                                        <div className="flex flex-col gap-1 mb-4">
+                                        <div className="flex flex-col gap-1.5 mb-4">
                                             <label className="text-xs font-bold opacity-60">Motorista</label>
-                                            <select className="bg-black/20 border border-white/10 text-white rounded-xl px-3 py-2 w-full font-bold outline-none focus:border-white/30 transition-colors" value={suggestedTrip.driver?.id || ''} onChange={(e: any) => { const drId = e.target.value; const dr = data.drivers.find((d: any) => d.id === drId); if (dr) { setFormData((prev: any) => ({ ...prev, driverId: drId })); setSuggestedTrip((prev: any) => ({ ...prev, driver: dr })); } }}>
-                                                <option value="" disabled>Selecione...</option>
-                                                {data.drivers.filter((d: any) => { if (formData.isMadrugada) { const sp = spList.find((s: any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); return sp && madrugadaList.includes(sp.vaga); } return d.status === 'Ativo'; }).map((d: any) => { let label = `${d.name} (${d.capacity} lug)`; if (formData.isMadrugada) { const sp = spList.find((s: any) => s?.name?.toLowerCase() === d?.name?.toLowerCase()); if (sp) label = `[Vaga ${sp.vaga}] ${label}`; } return <option key={d.id} value={d.id} className="bg-slate-900">{label}</option>; })}
-                                            </select>
+                                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                                                {data.drivers.filter((d: any) => { 
+                                                    if (formData.isMadrugada) { 
+                                                        const driverName = (d.name || '').trim().toLowerCase();
+                                                        const spots = spList.filter((s:any) => (s?.name || '').trim().toLowerCase() === driverName);
+                                                        return spots.some((s:any) => madrugadaList.includes(s.vaga));
+                                                    } 
+                                                    return d.status === 'Ativo'; 
+                                                }).sort((a:any, b:any) => a.name.localeCompare(b.name)).map((d: any) => {
+                                                    const isSelected = suggestedTrip.driver?.id === d.id;
+                                                    let subLabel = `${d.capacity} lug`;
+                                                    if (formData.isMadrugada) {
+                                                        const driverName = (d.name || '').trim().toLowerCase();
+                                                        const sp = spList.find((s:any) => (s?.name || '').trim().toLowerCase() === driverName && madrugadaList.includes(s.vaga));
+                                                        if (sp) subLabel = `Vaga ${sp.vaga} • ${subLabel}`;
+                                                    }
+
+                                                    return (
+                                                        <div 
+                                                            key={d.id}
+                                                            onClick={() => {
+                                                                setFormData((prev: any) => ({ ...prev, driverId: d.id }));
+                                                                setSuggestedTrip((prev: any) => ({ ...prev, driver: d }));
+                                                            }}
+                                                            className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border ${isSelected ? 'bg-amber-500/20 border-amber-500 ring-1 ring-amber-500' : 'bg-black/20 border-white/10 hover:bg-white/5'}`}
+                                                        >
+                                                            <div className="relative shrink-0">
+                                                                <img 
+                                                                    src={getAvatarUrl(d.name)} 
+                                                                    alt={d.name} 
+                                                                    className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow-sm" 
+                                                                    referrerPolicy="no-referrer" 
+                                                                />
+                                                                {isSelected && (
+                                                                    <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center border-2 border-[#1e293b]">
+                                                                        <Icons.Check size={10} className="text-white" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className={`text-xs font-black truncate ${isSelected ? 'text-white' : 'text-white/80'}`}>
+                                                                    {(() => {
+                                                                        const parts = d.name.trim().split(/\s+/);
+                                                                        if (parts.length <= 1) return parts[0] || d.name;
+                                                                        const first = parts[0];
+                                                                        const last = parts[parts.length - 1];
+                                                                        return `${first} ${last[0]}.`;
+                                                                    })()}
+                                                                </div>
+                                                                <div className="text-[10px] opacity-50 font-bold truncate tracking-tight">{subLabel}</div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="font-bold text-lg">Resumo</span>

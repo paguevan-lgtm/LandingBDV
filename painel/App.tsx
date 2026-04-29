@@ -3365,7 +3365,7 @@ const AppContent = () => {
         
         // Se não achou por ID (MIP Temp Trip), tenta achar por nome
         if (!dr && t.driverName) {
-            dr = data.drivers.find((d:any) => d.name.toLowerCase().trim() === t.driverName.toLowerCase().trim());
+            dr = data.drivers.find((d:any) => (d.name || '').toLowerCase().trim() === (t.driverName || '').toLowerCase().trim());
         }
 
         let pax = []; let occ = 0;
@@ -3643,7 +3643,7 @@ const AppContent = () => {
         const sp = spList.find((s:any) => s.vaga === vaga);
         if (!sp) return notify("Vaga não encontrada na lista geral", "error");
         
-        const driver = data.drivers.find((d:any) => d.name === sp.name);
+        const driver = data.drivers.find((d:any) => (d.name || '').toLowerCase().trim() === (sp.name || '').toLowerCase().trim());
         
         // BUSCA A VIAGEM PELOS ATRIBUTOS, NÃO PELO ID
         const existingTrip = data.trips.find((t:any) => 
