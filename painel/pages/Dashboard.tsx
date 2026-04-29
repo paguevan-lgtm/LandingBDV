@@ -274,9 +274,10 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
         return { 
             p: Object.entries(pay).map(([l,v])=>({label:l,value:v})), 
             b: Object.entries(b).map(([l,v]:any)=>({label:l,value:v})).sort((a:any,b:any)=>b.value-a.value).slice(0,5),
-            revenue: activeRevenue
+            revenue: activeRevenue,
+            filteredTripsCount: data.trips.length
         };
-    }, [data]);
+    }, [data, user]);
 
     const [showReminderModal, setShowReminderModal] = useState(false);
     const [reminderDate, setReminderDate] = useState(getTodayDate());
@@ -496,7 +497,7 @@ export default function Dashboard({ data, theme, setView, onOpenModal, dbOp, set
                         </div>
                         <div>
                             <div className="text-amber-400 font-black uppercase tracking-widest text-[10px] mb-1 opacity-70">Viagens</div>
-                            <div className="text-4xl font-black tracking-tighter">{data.trips.length}</div>
+                            <div className="text-4xl font-black tracking-tighter">{stats.filteredTripsCount}</div>
                             <div className="flex items-center gap-1.5 mt-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                 <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">Total Realizado</span>

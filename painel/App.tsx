@@ -402,6 +402,15 @@ const AppContent = () => {
         
         const filtered = trips.filter((t: any) => {
             if (!t.date) return false;
+
+            // Filter by user role/ownership
+            if (user && user.role === 'operador') {
+                const isOwner = t.createdBy === user.username;
+                const isPaidByMe = t.paymentStatus === 'Pago' && t.receivedBy === user.username;
+                const isSistema = t.createdBy === 'Sistema';
+                if (!isOwner && !isPaidByMe && !isSistema) return false;
+            }
+
             const d = new Date(t.date + 'T12:00:00');
             return d.getMonth() === month && d.getFullYear() === year;
         });
@@ -995,6 +1004,9 @@ const AppContent = () => {
                 let finalPayload = { ...payload, id: finalId, createdAt: new Date().toISOString() };
                 if (node === 'trips') {
                     finalPayload.pricePerPassenger = pricePerPassenger;
+                    if (user?.username) {
+                        finalPayload.createdBy = user.username;
+                    }
                 }
 
                 await ref.child(finalId).set(finalPayload);
@@ -2096,7 +2108,8 @@ const AppContent = () => {
                             passengerIds: [],
                             status: 'Em andamento',
                             isTemp: true,
-                            vaga: slot.vaga
+                            vaga: slot.vaga,
+                            createdBy: 'Sistema'
                         };
                         db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).child(newTrip.id).set(newTrip);
                     }
@@ -2369,7 +2382,8 @@ const AppContent = () => {
                                         pricePerPassenger: pricePerPassenger,
                                         dayType: mipDayType,
                                         system: 'Mip',
-                                        tripSuffix: suffix
+                                        tripSuffix: suffix,
+                                        createdBy: 'Sistema'
                                     });
                                 }
                             }
@@ -4000,7 +4014,23 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             {view === 'site' && <Site data={data} theme={theme} user={user} systemContext={systemContext} notify={notify} requestConfirm={requestConfirm} />}
                             {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
                             {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
-                            {view === 'trips' && <Viagens data={{...data, pricePerPassenger}} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} setFormData={setFormData} openEditTrip={openEditTrip} updateTripStatus={updateTripStatus} del={del} duplicateTrip={duplicateTrip} notify={notify} systemContext={systemContext} pranchetaValue={pranchetaValue} />}
+                            {view === 'trips' && <Viagens 
+                                user={user}
+                                data={{...data, pricePerPassenger}} 
+                                theme={theme} 
+                                searchTerm={searchTerm} 
+                                searchType={searchType} 
+                                setSearchTerm={setSearchTerm} 
+                                setModal={setModal} 
+                                setFormData={setFormData} 
+                                openEditTrip={openEditTrip} 
+                                updateTripStatus={updateTripStatus} 
+                                del={del} 
+                                duplicateTrip={duplicateTrip} 
+                                notify={notify} 
+                                systemContext={systemContext} 
+                                pranchetaValue={pranchetaValue} 
+                            />}
                             {view === 'appointments' && <Agendamentos 
                                 data={data} 
                                 theme={theme} 
@@ -4052,6 +4082,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             />}
                             
                             {(view === 'financeiro' || view === 'billing') && <Financeiro 
+                                user={user}
                                 data={data} 
                                 spList={spList}
                                 pranchetaData={viewedPranchetaData}
@@ -4096,7 +4127,6 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 setFormData={setFormData} 
                                 setModal={setModal} 
                                 openEditTrip={openEditTrip} 
-                                user={user} 
                                 notify={notify} 
                                 systemContext={systemContext}
                                 pricePerPassenger={pricePerPassenger}

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
 import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime, sendPassWhatsapp } from '../utils';
 
-export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext, isTutorialActive, targetDate, onTargetDateHandled }: any) {
+export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext, isTutorialActive, targetDate, onTargetDateHandled, user }: any) {
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [calendarDate, setCalendarDate] = useState(new Date());
 
@@ -23,6 +23,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
 
     const copyDaySummary = () => {
         const dayTrips = data.trips.filter((t:any) => t.date === selectedDate).sort((a:any,b:any) => (a.time||'').localeCompare(b.time||''));
+        
         if (dayTrips.length === 0) return notify("Nenhuma viagem neste dia para copiar.", "error");
         let summary = `📅 RESUMO DO DIA ${formatDisplayDate(selectedDate)}\n\n`;
         dayTrips.forEach((t:any) => { const pList = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p?.id)); summary += `⏰ ${formatTime(t.time)} - ${t.driverName} (${t.status})\n`; pList.forEach((p:any) => summary += `  - ${p.name} (${p.neighborhood})\n`); summary += `\n`; });

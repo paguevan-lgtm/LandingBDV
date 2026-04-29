@@ -43,12 +43,23 @@ const TempTripTimer = ({ date, time }: any) => {
     return <span>{timeLeft}</span>;
 };
 
-export default function Viagens({ data, theme, searchTerm, searchType = 'all', setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue, isTutorialActive }: any) {
+export default function Viagens({ user, data, theme, searchTerm, searchType = 'all', setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue, isTutorialActive }: any) {
     const [historyDate, setHistoryDate] = useState(new Date());
     const [expandedDays, setExpandedDays] = useState<any>({});
 
     const activeTrips = useMemo(() => {
         let list = data.trips.filter((t:any) => t.status === 'Em andamento' || t.status === 'Ativo' || t.status === 'Aguardando');
+        
+        // Filter by user role/ownership
+        if (user && user.role === 'operador') {
+            list = list.filter((t: any) => {
+                const isOwner = t.createdBy === user.username;
+                const isSistema = t.createdBy === 'Sistema';
+                // Most active trips are shared if they are from the system, but others' manual trips are hidden
+                return isOwner || isSistema;
+            });
+        }
+
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
             list = list.filter((t:any) => {
@@ -58,10 +69,16 @@ export default function Viagens({ data, theme, searchTerm, searchType = 'all', s
             });
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
-    }, [data.trips, searchTerm, searchType]);
+    }, [data.trips, searchTerm, searchType, user]);
 
     const historyTrips = useMemo(() => {
         let list = data.trips.filter((t:any) => t.status !== 'Em andamento' && t.status !== 'Ativo' && t.status !== 'Aguardando');
+        
+        // Filtrar histórico para operadores: apenas o que eles criaram
+        if (user && user.role === 'operador') {
+            list = list.filter((t: any) => t.createdBy === user.username);
+        }
+
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
             list = list.filter((t:any) => {
@@ -71,7 +88,7 @@ export default function Viagens({ data, theme, searchTerm, searchType = 'all', s
             });
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
-    }, [data.trips, searchTerm, searchType]);
+    }, [data.trips, searchTerm, searchType, user]);
 
     const historyGroups = useMemo(() => {
         const targetMonth = historyDate.getMonth();

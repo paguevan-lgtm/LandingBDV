@@ -21,10 +21,16 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
     // --- Lógica do Caixa Diário ---
     const today = getTodayDate();
     // Viagens PAGAS hoje (independente de quando viajaram)
-    const dailyTrips = (data.trips || []).filter((t:any) => t.paymentStatus === 'Pago' && t.receivedAt && t.receivedAt.startsWith(today) && t.status !== 'Cancelada');
+    let dailyTrips = (data.trips || []).filter((t:any) => t.paymentStatus === 'Pago' && t.receivedAt && t.receivedAt.startsWith(today) && t.status !== 'Cancelada');
     
     // Viagens que VIAJARAM hoje (independente de estarem pagas ou não)
-    const tripsTraveledToday = (data.trips || []).filter((t:any) => t.date === today && t.status !== 'Cancelada');
+    let tripsTraveledToday = (data.trips || []).filter((t:any) => t.date === today && t.status !== 'Cancelada');
+
+    // Filter by user role/ownership for operators
+    if (user && user.role === 'operador') {
+        dailyTrips = dailyTrips.filter((t: any) => t.receivedBy === user.username);
+        tripsTraveledToday = tripsTraveledToday.filter((t: any) => t.createdBy === user.username || t.receivedBy === user.username || t.createdBy === 'Sistema');
+    }
 
     const calcTripValue = (t:any) => {
         let value = 0;
@@ -82,7 +88,14 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
 
         // 3. Pranchetas recebidas hoje
         const paidPranchetas = Object.entries(pranchetaData)
-            .filter(([_, data]: [string, any]) => data.paid && data.receivedAt && data.receivedAt.startsWith(today))
+            .filter(([_, d]: [string, any]) => {
+                const isPaidToday = d.paid && d.receivedAt && d.receivedAt.startsWith(today);
+                if (!isPaidToday) return false;
+                if (user && user.role === 'operador') {
+                    return d.receivedBy === user.username;
+                }
+                return true;
+            })
             .map(([vaga, _]) => vaga);
         
         const pranchetaTotal = paidPranchetas.length * (parseFloat(pranchetaValue) || 20);
@@ -464,7 +477,11 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                         {Array.from({ length: 23 }, (_, i) => i.toString().padStart(2, '0')).map(vaga => {
                             const driverInVaga = spList.find((s:any) => s.vaga === vaga);
                             const payment = pranchetaData[vaga];
+                            
+                            // Show global status but identify receiver
                             const isPaid = payment?.paid;
+                            const receivedBySelf = payment?.receivedBy === user.username;
+                            
                             const driverInfo = driverInVaga ? data.drivers.find((d:any) => d.name === driverInVaga.name) : null;
 
                             return (
@@ -478,7 +495,7 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
                                                 {driverInVaga ? driverInVaga.name : <span className="opacity-20 italic">Vazia</span>}
                                             </div>
                                             {isPaid && (
-                                                <div className="text-[10px] text-green-500/70 font-medium">
+                                                <div className={`text-[10px] font-medium ${receivedBySelf ? 'text-green-500' : 'text-amber-500/70'}`}>
                                                     Recebido por {payment.receivedBy === 'Breno' ? 'Sistema' : payment.receivedBy}
                                                 </div>
                                             )}
