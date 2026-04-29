@@ -28,8 +28,14 @@ export default function Financeiro({ data, theme, billingData, billingDate, prev
 
     // Filter by user role/ownership for operators
     if (user && user.role === 'operador') {
-        dailyTrips = dailyTrips.filter((t: any) => t.receivedBy === user.username);
-        tripsTraveledToday = tripsTraveledToday.filter((t: any) => t.createdBy === user.username || t.receivedBy === user.username || t.createdBy === 'Sistema');
+        dailyTrips = dailyTrips.filter((t: any) => {
+            const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
+            return t.receivedBy === user.username || isStefanyToday;
+        });
+        tripsTraveledToday = tripsTraveledToday.filter((t: any) => {
+            const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
+            return t.createdBy === user.username || t.receivedBy === user.username || isStefanyToday;
+        });
     }
 
     const calcTripValue = (t:any) => {

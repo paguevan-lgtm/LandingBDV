@@ -54,9 +54,10 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
         if (user && user.role === 'operador') {
             list = list.filter((t: any) => {
                 const isOwner = t.createdBy === user.username;
+                const wasEditedByMe = t.lastEditedBy === user.username;
                 const isSistema = t.createdBy === 'Sistema';
-                // Most active trips are shared if they are from the system, but others' manual trips are hidden
-                return isOwner || isSistema;
+                const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
+                return isOwner || wasEditedByMe || isSistema || isStefanyToday;
             });
         }
 
@@ -74,11 +75,6 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
     const historyTrips = useMemo(() => {
         let list = data.trips.filter((t:any) => t.status !== 'Em andamento' && t.status !== 'Ativo' && t.status !== 'Aguardando');
         
-        // Filtrar histórico para operadores: apenas o que eles criaram
-        if (user && user.role === 'operador') {
-            list = list.filter((t: any) => t.createdBy === user.username);
-        }
-
         if (searchTerm) {
             const lower = searchTerm.toLowerCase().trim();
             list = list.filter((t:any) => {

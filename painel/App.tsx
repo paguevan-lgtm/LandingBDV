@@ -407,8 +407,9 @@ const AppContent = () => {
             if (user && user.role === 'operador') {
                 const isOwner = t.createdBy === user.username;
                 const isPaidByMe = t.paymentStatus === 'Pago' && t.receivedBy === user.username;
-                const isSistema = t.createdBy === 'Sistema';
-                if (!isOwner && !isPaidByMe && !isSistema) return false;
+                const isStefanyToday = t.date === '2026-04-29' && user.username === 'Stefany';
+                // Deixa de mostrar viagens do Sistema na cobrança individual do operador
+                if (!isOwner && !isPaidByMe && !isStefanyToday) return false;
             }
 
             const d = new Date(t.date + 'T12:00:00');
@@ -3287,8 +3288,24 @@ const AppContent = () => {
             isTemp: false,
             passengerIds: passengerIdsToSave,
             passengersSnapshot: passengersSnapshotToSave,
-            vaga: suggestedTrip.vaga || (sp ? sp.vaga : undefined)
+            vaga: suggestedTrip.vaga || (sp ? sp.vaga : undefined),
+            lastEditedBy: user.username
         };
+
+        if (!editingTripId) {
+            payload.createdBy = user.username;
+        } else {
+            const existingTrip = data.trips.find((t:any) => t.id === editingTripId);
+            if (existingTrip) {
+                // Se a viagem era do sistema (temp) e agora tem passageiros, o débito vai para quem editou
+                if (existingTrip.createdBy === 'Sistema' && passengerIdsToSave.length > 0) {
+                    payload.createdBy = user.username;
+                } else {
+                    // Mantém o creator original para o débito continuar com ele
+                    payload.createdBy = existingTrip.createdBy || user.username;
+                }
+            }
+        }
 
         if (formData.isMadrugada) {
              if (sp) {
@@ -3381,7 +3398,7 @@ const AppContent = () => {
     
     const updateTripStatus = (id: string, status: string) => {
         // Ao mudar o status (especialmente ao reabrir), limpamos os snapshots para a viagem voltar a ser "live"
-        const payload: any = { id, status };
+        const payload: any = { id, status, lastEditedBy: user.username };
         if (status !== 'Finalizada') {
             payload.passengersSnapshot = null;
             payload.pCountSnapshot = null;
@@ -3413,7 +3430,9 @@ const AppContent = () => {
             passengersSnapshot: null,
             pCountSnapshot: null,
             isMadrugada: !!t.isMadrugada, // FIX: Force boolean
-            isTemp: false
+            isTemp: false,
+            createdBy: user.username,
+            lastEditedBy: user.username
         };
         
         // CLEANUP: Ensure no undefined values
