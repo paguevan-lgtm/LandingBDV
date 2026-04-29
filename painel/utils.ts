@@ -179,9 +179,19 @@ export const generateWhatsappMessage = (tripId: string, passengers: any[], drive
         const count = p.passengerCount || 1;
         msg += `• ${count} ${count > 1 ? 'passageiros' : 'passageiro'}\n`;
 
+        if (p.children && p.children.length > 0) {
+            const childrenText = p.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ');
+            msg += `• ${childrenText}\n`;
+        }
+
         if (p.luggageCount > 0) {
             msg += `• ${p.luggageCount} bagagem(ns)${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n`;
         }
+
+        if (p.observation || p.obs) {
+            msg += `• Obs: ${p.observation || p.obs}\n`;
+        }
+
         msg += `\n`;
     });
 
@@ -198,7 +208,17 @@ export const sendPassWhatsapp = (p: any) => {
 
 export const generateTripListText = (passengers: any[], driverName: string, time: string) => {
     const sorted = passengers.sort((a,b)=>getBairroIdx(a.neighborhood)-getBairroIdx(b.neighborhood));
-    return `VIAGEM ${formatTime(time)} - ${driverName}\n\n` + sorted.map(p=> `• ${p.name} - ${p.neighborhood}\n  ${p.address} (${p.reference || ''})`).join('\n\n');
+    return `VIAGEM ${formatTime(time)} - ${driverName}\n\n` + sorted.map(p=> {
+        let text = `• ${p.name} - ${p.neighborhood}\n  ${p.address} (${p.reference || ''})`;
+        if (p.children && p.children.length > 0) {
+            const childrenText = p.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ');
+            text += `\n  ${childrenText}`;
+        }
+        if (p.observation || p.obs) {
+            text += `\n  Obs: ${p.observation || p.obs}`;
+        }
+        return text;
+    }).join('\n\n');
 };
 
 // Global state for Gemini model choice

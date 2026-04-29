@@ -25,6 +25,37 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
 
+const Countdown = ({ startTime }: { startTime: number }) => {
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+    useEffect(() => {
+        const calculate = () => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const remaining = 3600 - elapsed;
+            if (remaining <= 0) {
+                setTimeLeft(0);
+                return;
+            }
+            setTimeLeft(remaining);
+        };
+
+        calculate();
+        const interval = setInterval(calculate, 1000);
+        return () => clearInterval(interval);
+    }, [startTime]);
+
+    if (timeLeft === null || timeLeft <= 0) return null;
+
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+
+    return (
+        <div className="text-[10px] font-mono font-bold text-orange-400 bg-orange-400/10 px-1.5 py-0.5 rounded border border-orange-400/20 hide-on-print w-fit mt-0.5 flex items-center gap-1">
+            <Icons.Clock size={8}/> {minutes}:{seconds.toString().padStart(2, '0')}
+        </div>
+    );
+};
+
 const SortableRow = ({ id, children, disabled, hideGrip }: any) => {
     const {
         attributes,
@@ -463,6 +494,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                             {hasGancho && <span data-print-size="18px" data-print-color="#ef4444" data-print-weight="900" className="text-[10px] uppercase text-red-500 font-black hide-on-print">(GANCHO)</span>}
                                                             {driver.riscado && <span data-print-size="18px" data-print-color="#ef4444" data-print-weight="900" className="text-[10px] uppercase text-red-500 font-black">(RISCOU)</span>}
                                                             {driver.baixou && <span data-print-size="18px" data-print-color="#60a5fa" data-print-weight="900" data-print-opacity="1" className="text-[10px] uppercase text-blue-400 font-black print:opacity-100 opacity-60">(Baixou)</span>}
+                                                            {driver.baixouAt && <Countdown startTime={driver.baixouAt} />}
                                                         </div>
                                                         <button id={`tut-row-edit-${driver.vaga}`} onClick={()=>{setEditName(driver.vaga); setTempName(driver.name); setTempVaga(driver.vaga)}} className="opacity-20 hover:opacity-100 transition-opacity hide-on-print"><Icons.Edit3 size={12}/></button>
                                                         <button onClick={() => removeVaga(driver.id, driver.vaga)} className="ml-2 text-red-500 opacity-50 hover:opacity-100 transition-opacity hide-on-print"><Icons.Trash size={12}/></button>
@@ -688,7 +720,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                             >
                                 <Icons.Plus size={14}/> Pular Horário
                             </button>
-                            <button onClick={() => onPrint('print-lousa-list', 'Lousa', 'LOUSA / FILA', { mode: 'lousa', date: currentOpDate })} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-white relative z-20 opacity-100" title="Salvar como Imagem"><Icons.Screenshot size={16}/></button>
+                            <button onClick={() => onPrint('print-lousa-list', 'Lousa', 'Lousa', { mode: 'lousa', date: currentOpDate })} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-white relative z-20 opacity-100" title="Salvar como Imagem"><Icons.Screenshot size={16}/></button>
                         </div>
                     </div>
                     
@@ -764,14 +796,17 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                     </span>
                                                 </div>
                                                 <div className="flex-1 flex flex-col min-w-0">
-                                                    <span 
-                                                        data-print-decoration={(isRiscado || isExpired || isBaixou) ? "line-through" : "none"}
-                                                        data-print-line-offset={(systemContext === 'Mip' || tableTab.startsWith('mip')) ? "18px" : "11px"}
-                                                        data-print-transform={(systemContext === 'Mip' || tableTab.startsWith('mip')) ? "translateY(-10px)" : "translateY(-7px)"}
-                                                        className={`font-bold text-base whitespace-nowrap overflow-hidden text-ellipsis opacity-100 ${isRiscado || isExpired || isBaixou ? 'line-through text-white/50' : 'text-white'}`}
-                                                    >
-                                                        {driver.name}
-                                                    </span> 
+                                                    <div className="flex items-center gap-2">
+                                                        <span 
+                                                            data-print-decoration={(isRiscado || isExpired || isBaixou) ? "line-through" : "none"}
+                                                            data-print-line-offset={(systemContext === 'Mip' || tableTab.startsWith('mip')) ? "18px" : "11px"}
+                                                            data-print-transform={(systemContext === 'Mip' || tableTab.startsWith('mip')) ? "translateY(-10px)" : "translateY(-7px)"}
+                                                            className={`font-bold text-base whitespace-nowrap overflow-hidden text-ellipsis opacity-100 ${isRiscado || isExpired || isBaixou ? 'line-through text-white/50' : 'text-white'}`}
+                                                        >
+                                                            {driver.name}
+                                                        </span> 
+                                                        {item.baixouAt && <Countdown startTime={item.baixouAt} />}
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 flex-shrink-0"> 
                                                     <span 

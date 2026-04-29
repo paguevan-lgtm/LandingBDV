@@ -2582,7 +2582,7 @@ const AppContent = () => {
         // Se já baixou, CANCELAR (remover a cópia e desmarcar original)
         if (driver.baixou) {
             // 1. Desmarcar original na SOURCE
-            const newList = spList.map((d:any) => d.id === id ? { ...d, baixou: false } : d);
+            const newList = spList.map((d:any) => d.id === id ? { ...d, baixou: false, baixouAt: null } : d);
             db.ref(sourceNode).set(newList);
 
             // 2. Remover a ÚLTIMA cópia criada na TARGET
@@ -2628,7 +2628,8 @@ const AppContent = () => {
             time1: '', 
             time2: '', 
             num: '',
-            isCopy: true
+            isCopy: true,
+            baixouAt: Date.now()
         };
         
         db.ref(targetNode).once('value', (snap) => {
@@ -3287,7 +3288,7 @@ const AppContent = () => {
         const passengerIdsToSave = suggestedTrip.passengers.map((p:any) => p.realId || p.id);
         const passengersSnapshotToSave = suggestedTrip.passengers;
 
-        const sp = spList.find((s:any) => s.name === suggestedTrip.driver.name);
+        const sp = spList.find((s:any) => (s.name || '').trim().toLowerCase() === (suggestedTrip.driver.name || '').trim().toLowerCase());
         
         // Propriedades fundamentais
         const isMadrugada = !!formData.isMadrugada;
@@ -3326,14 +3327,17 @@ const AppContent = () => {
             }
         }
 
+        const pCount = suggestedTrip.occupancy || 0;
+        payload.pCount = pCount;
+
         if (formData.isMadrugada) {
              if (sp) {
                  const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
                  db.ref(tableSystemContext === 'Pg' ? `daily_tables/${finalDate}/madrugada/${sp.vaga}` : `${tableSystemContext}/daily_tables/${finalDate}/madrugada/${sp.vaga}`).update({
                      time: finalTime,
-                     qtd: suggestedTrip.occupancy || 0
+                     qtd: pCount
                  });
-                 payload.pCountSnapshot = suggestedTrip.occupancy || 0;
+                 payload.pCountSnapshot = pCount;
              }
         } 
         
@@ -3347,7 +3351,6 @@ const AppContent = () => {
         payload.ticketPrice = pricePerPassenger;
         payload.pricePerPassenger = pricePerPassenger;
         
-        const pCount = suggestedTrip.occupancy || 0;
         let val = pCount * (pricePerPassenger || 0);
         payload.value = val;
 
@@ -3563,12 +3566,13 @@ const AppContent = () => {
             // Remove a viagem temporária que estava "pendurada" nessa vaga
             removeTempTrip(newLousa[itemIndex].vaga);
             // Cria uma nova entrada limpa no final da fila
-            newLousa.push({ vaga: newLousa[itemIndex].vaga, uid: generateUniqueId(), riscado: false });
+            newLousa.push({ vaga: newLousa[itemIndex].vaga, uid: generateUniqueId(), riscado: false, baixouAt: Date.now() });
             logAction('Baixou Vaga na Lousa', `Vaga: ${newLousa[itemIndex].vaga}`);
         } else if (action === 'cancelar_baixar') {
             if (itemIndex > -1) {
                 const vaga = newLousa[itemIndex].vaga;
                 newLousa[itemIndex].baixou = false;
+                delete newLousa[itemIndex].baixouAt;
                 // Encontrar a última ocorrência desta vaga na lousa (que deve ser a cópia criada pelo baixar)
                 const lastIndex = [...newLousa].reverse().findIndex((d:any) => d.vaga === vaga);
                 if (lastIndex !== -1) {
@@ -4052,7 +4056,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 } else { setModal('trip'); setFormData({}); } 
                             }} dbOp={dbOp} setAiModal={setAiModal} user={user} systemContext={systemContext} notify={notify} />}
                             {view === 'site' && <Site data={data} theme={theme} user={user} systemContext={systemContext} notify={notify} requestConfirm={requestConfirm} />}
-                            {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} />}
+                            {view === 'passengers' && <Passageiros data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setFormData={setFormData} setModal={setModal} del={del} notify={notify} systemContext={systemContext} dbOp={dbOp} user={user} />}
                             {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
                             {view === 'trips' && <Viagens 
                                 user={user}

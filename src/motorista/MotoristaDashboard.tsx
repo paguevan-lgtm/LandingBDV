@@ -39,7 +39,9 @@ import {
   Terminal,
   ListOrdered,
   Pencil,
-  Baby
+  Baby,
+  Copy,
+  Share2
 } from 'lucide-react';
 
 /* ... after imports, before components ... */
@@ -964,8 +966,33 @@ function MotoristaDashboardContent() {
       timeWindow = `das ${tripTime} as ${endTime}`;
     }
 
-    const msg = encodeURIComponent(`Olá ${passenger.name}, aqui é o motorista ${driverData.name} da Bora de Van. Sua viagem está marcada para as ${tripTime}. Lembrando que ${timeWindow} o carro passa a qualquer momento. Estou a caminho!`);
+    const childrenCount = (passenger.children || []).reduce((acc: number, c: any) => acc + (c.quantity || 0), 0);
+    const childrenText = childrenCount > 0 
+      ? `\n${passenger.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ')}` 
+      : "";
+    
+    const obsText = (passenger.observation || passenger.obs) 
+      ? `\nObs: ${passenger.observation || passenger.obs}` 
+      : "";
+
+    const msg = encodeURIComponent(`Olá ${passenger.name}, aqui é o motorista ${driverData.name} da Bora de Van. Sua viagem está marcada para as ${tripTime}. Lembrando que ${timeWindow} o carro passa a qualquer momento. Estou a caminho!${childrenText}${obsText}`);
     window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+  };
+
+  const copyPassengerData = (p: any) => {
+    let text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📍 Bairro: ${p.neighborhood || 'Não informado'}\n🏠 Endereço: ${p.address || 'Não informado'}\n⏰ Horário: ${selectedTrip?.time || '--:--'}\n👥 Passageiros: ${p.passengerCount || 1}\n📱 Telefone: ${p.phone || 'Não informado'}`;
+    
+    if (p.children && p.children.length > 0) {
+        const childrenText = p.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ');
+        text += `\n👶 ${childrenText}`;
+    }
+
+    if (p.observation || p.obs) {
+        text += `\n📝 Obs: ${p.observation || p.obs}`;
+    }
+
+    navigator.clipboard.writeText(text);
+    alert("Dados copiados!");
   };
 
   const openNavigation = (type: 'google' | 'waze', destination: string) => {
@@ -1858,13 +1885,20 @@ function MotoristaDashboardContent() {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-4 gap-2">
                           <button 
                             onClick={() => openNavigation(navApp, selectedPassenger.address || selectedPassenger.neighborhood)}
                             className="bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl flex flex-col items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
                           >
                             <Navigation size={20} />
-                            <span className="text-[10px] font-bold uppercase">Navegar</span>
+                            <span className="text-[10px] font-bold uppercase">Ir</span>
+                          </button>
+                          <button 
+                            onClick={() => copyPassengerData(selectedPassenger)}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
+                          >
+                            <Copy size={20} />
+                            <span className="text-[10px] font-bold uppercase">Copiar</span>
                           </button>
                           <button 
                             onClick={() => {
@@ -1874,7 +1908,7 @@ function MotoristaDashboardContent() {
                             className="bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
                           >
                             <X size={20} />
-                            <span className="text-[10px] font-bold uppercase">Não entregue</span>
+                            <span className="text-[10px] font-bold uppercase">X</span>
                           </button>
                           <button 
                             onClick={() => {
@@ -1884,7 +1918,7 @@ function MotoristaDashboardContent() {
                             className="bg-slate-800 hover:bg-green-500/20 hover:text-green-400 text-slate-400 py-4 rounded-2xl flex flex-col items-center gap-2 transition-all"
                           >
                             <Check size={20} />
-                            <span className="text-[10px] font-bold uppercase">Entregue</span>
+                            <span className="text-[10px] font-bold uppercase">Fim</span>
                           </button>
                         </div>
 
@@ -1927,7 +1961,7 @@ function MotoristaDashboardContent() {
                               <LayoutList size={18} className="text-slate-500" />
                               <div>
                                 <p className="text-[10px] text-slate-500 font-bold uppercase">Observações</p>
-                                <p className="text-sm text-slate-300">{selectedPassenger.observation || selectedPassenger.obs || 'Nenhuma nota'}</p>
+                                <p className="text-sm text-slate-300 font-bold">{selectedPassenger.observation || selectedPassenger.obs || 'Nenhuma nota'}</p>
                               </div>
                             </div>
                             <ChevronRight size={16} className="text-slate-600" />

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
 import { formatDisplayDate, getTodayDate, formatTime, sendPassWhatsapp } from '../utils';
 
-export default function Passageiros({ data, theme, searchTerm, searchType = 'all', setFormData, setModal, del, notify, systemContext, dbOp }: any) {
+export default function Passageiros({ data, theme, searchTerm, searchType = 'all', setFormData, setModal, del, notify, systemContext, dbOp, user }: any) {
     const [expandedPass, setExpandedPass] = useState<string|null>(null);
     const [activeTab, setActiveTab] = useState<'ativos' | 'bloqueados' | 'site'>('ativos');
     const [limit, setLimit] = useState(50);
@@ -46,6 +46,9 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
     };
 
     const exportVCF = () => {
+        if (user?.role !== 'admin' && user?.username !== 'Breno') {
+            return notify("Acesso negado. Somente administradores podem exportar contatos.", "error");
+        }
         if (data.passengers.length === 0) return notify("Nenhum passageiro para exportar.", "error");
 
         let vcfContent = "";
@@ -107,15 +110,17 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                         Bloqueados
                     </button>
                 </div>
-                <Button 
-                    theme={theme} 
-                    onClick={exportVCF} 
-                    variant="secondary" 
-                    className="sm:w-auto w-full py-2 px-4 text-sm font-bold flex items-center justify-center gap-2"
-                    icon={Icons.Download}
-                >
-                    Exportar Contatos (.vcf)
-                </Button>
+                {(user?.role === 'admin' || user?.username === 'Breno') && (
+                    <Button 
+                        theme={theme} 
+                        onClick={exportVCF} 
+                        variant="secondary" 
+                        className="sm:w-auto w-full py-2 px-4 text-sm font-bold flex items-center justify-center gap-2"
+                        icon={Icons.Download}
+                    >
+                        Exportar Contatos (.vcf)
+                    </Button>
+                )}
             </div>
 
             {displayedList.map((item:any, i:number) => (
@@ -255,7 +260,7 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                                 {item.observation && (
                                     <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
                                         <p className="text-[9px] uppercase font-black opacity-30 tracking-widest mb-2">Observações</p>
-                                        <p className="text-xs italic text-white/50 leading-relaxed">"{item.observation}"</p>
+                                        <p className="text-xs italic text-white/90 font-bold leading-relaxed">"{item.observation}"</p>
                                     </div>
                                 )}
 
