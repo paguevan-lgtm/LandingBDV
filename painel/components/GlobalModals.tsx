@@ -63,6 +63,22 @@ export const GlobalModals = ({
         }
     }, [aiPassengerIndex]);
 
+    const addChild = () => {
+        const children = formData.children || [];
+        setFormData({ ...formData, children: [...children, { quantity: 1, age: 0 }] });
+    };
+
+    const updateChild = (index: number, field: string, value: any) => {
+        const children = [...(formData.children || [])];
+        children[index] = { ...children[index], [field]: value };
+        setFormData({ ...formData, children });
+    };
+
+    const removeChild = (index: number) => {
+        const children = (formData.children || []).filter((_: any, i: number) => i !== index);
+        setFormData({ ...formData, children });
+    };
+
     if (showNewsModal && latestNews) {
         return (
             <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
@@ -251,6 +267,59 @@ export const GlobalModals = ({
                         <div className="grid grid-cols-2 gap-4"><Input themeKey={themeKey} id="input-passenger-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} /><Input themeKey={themeKey} id="input-passenger-count" label="Qtd Pass" type="number" value={formData.passengerCount||''} onChange={(e:any)=>setFormData({...formData, passengerCount:e.target.value})} /></div>
                         <Input themeKey={themeKey} id="input-passenger-luggage" label="Qtd Malas" type="number" value={formData.luggageCount||''} onChange={(e:any)=>setFormData({...formData, luggageCount:e.target.value})} />
                         <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Pagamento</label><select id="input-passenger-payment" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.payment || ''} onChange={(e:any)=>setFormData({...formData, payment:e.target.value})}>{['Dinheiro','Pix','Cartão'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
+                        
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold opacity-60 ml-1">Observação</label>
+                            <textarea id="input-passenger-observation" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 w-full outline-none focus:border-white/50 transition-colors h-24 resize-none" placeholder="Ex: Cuidado ao manusear mala, etc" value={formData.observation || ''} onChange={(e:any)=>setFormData({...formData, observation:e.target.value})} />
+                        </div>
+
+                        <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Icons.Baby size={18} className="text-brand-pink" />
+                                    <span className="text-sm font-black italic uppercase tracking-wider">Crianças</span>
+                                </div>
+                                <Button theme={theme} variant="secondary" className="h-8 px-3 text-[10px] font-black uppercase" onClick={addChild}>
+                                    <Icons.Plus size={14} className="mr-1" /> Add Criança
+                                </Button>
+                            </div>
+
+                            {(!formData.children || formData.children.length === 0) ? (
+                                <p className="text-[10px] opacity-40 text-center py-2 font-bold uppercase tracking-widest">Nenhuma criança cadastrada</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {formData.children.map((child: any, idx: number) => (
+                                        <div key={idx} className="grid grid-cols-[1fr,1fr,auto] gap-2 items-end group">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black opacity-30 uppercase ml-1">Qtd</label>
+                                                <input 
+                                                    type="number" 
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-brand-pink/50"
+                                                    value={child.quantity}
+                                                    onChange={(e) => updateChild(idx, 'quantity', parseInt(e.target.value) || 0)}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black opacity-30 uppercase ml-1">Idade</label>
+                                                <input 
+                                                    type="number" 
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-brand-pink/50"
+                                                    value={child.age}
+                                                    onChange={(e) => updateChild(idx, 'age', parseInt(e.target.value) || 0)}
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={() => removeChild(idx)}
+                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2.5 rounded-xl transition-all"
+                                            >
+                                                <Icons.Trash size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Status</label><select id="input-passenger-status" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.status || ''} onChange={(e:any)=>setFormData({...formData, status:e.target.value})}>{['Ativo','Inativo'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
                         <div className="pt-4"><Button themeKey={themeKey} id="btn-save-passenger" onClick={()=>save('passengers')}>Salvar</Button></div>
                     </>)}

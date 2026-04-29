@@ -214,6 +214,19 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                                                 <p className="text-sm font-bold text-white/90">{item.passengerCount} {item.passengerCount > 1 ? 'pessoas' : 'pessoa'}</p>
                                             </div>
                                         </div>
+                                        {item.children && item.children.length > 0 && (
+                                            <div className="flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5">
+                                                <div className={`w-10 h-10 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 border border-white/5`}>
+                                                    <Icons.Baby size={18} className="text-brand-pink opacity-70" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black opacity-30 tracking-widest">Crianças</p>
+                                                    <p className="text-sm font-bold text-white/90">
+                                                        {item.children.map((c: any) => `${c.quantity}x (${c.age}a)`).join(', ')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5">
                                             <div className={`w-10 h-10 rounded-xl ${theme.inner} flex items-center justify-center shrink-0 border border-white/5`}>
                                                 <Icons.Briefcase size={18} className="text-orange-400 opacity-70" />

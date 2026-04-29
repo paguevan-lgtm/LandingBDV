@@ -38,7 +38,8 @@ import {
   Bug,
   Terminal,
   ListOrdered,
-  Pencil
+  Pencil,
+  Baby
 } from 'lucide-react';
 
 /* ... after imports, before components ... */
@@ -1925,12 +1926,26 @@ function MotoristaDashboardContent() {
                             <div className="flex items-center gap-4">
                               <LayoutList size={18} className="text-slate-500" />
                               <div>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase">Adicionar notas</p>
-                                <p className="text-sm text-slate-300">{selectedPassenger.obs || 'Nenhuma nota'}</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Observações</p>
+                                <p className="text-sm text-slate-300">{selectedPassenger.observation || selectedPassenger.obs || 'Nenhuma nota'}</p>
                               </div>
                             </div>
                             <ChevronRight size={16} className="text-slate-600" />
                           </div>
+
+                          {selectedPassenger.children && selectedPassenger.children.length > 0 && (
+                            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
+                              <div className="flex items-center gap-4">
+                                <Baby size={18} className="text-pink-400" />
+                                <div>
+                                  <p className="text-[10px] text-slate-500 font-bold uppercase">Crianças</p>
+                                  <p className="text-sm text-slate-300">
+                                    {selectedPassenger.children.map((c: any) => `${c.quantity}x (${c.age}a)`).join(', ')}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-slate-800/50 group hover:bg-slate-900 transition-all">
                             <div className="flex items-center gap-4">

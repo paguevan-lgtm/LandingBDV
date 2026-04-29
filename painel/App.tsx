@@ -2947,7 +2947,7 @@ const AppContent = () => {
         setAiLoading(true);
         try {
             const bairros = (systemContext === 'Mip' ? BAIRROS_MIP : BAIRROS).join(',');
-            const prompt = `Extraia um ARRAY JSON de: "${aiInput}". Cada objeto deve ter os campos: name, phone, neighborhood (de: ${bairros}), address, reference, passengerCount (int, pad 1), luggageCount (int, pad 0), payment ("Dinheiro", "Pix", "Cartão"), time (HH:mm). Se faltar use null.`;
+            const prompt = `Extraia um ARRAY JSON de: "${aiInput}". Cada objeto deve ter os campos: name, phone, neighborhood (de: ${bairros}), address, reference, adultCount (int, pad 1), children (ARRAY de objetos {quantity: int, age: int}), luggageCount (int, pad 0), payment ("Dinheiro", "Pix", "Cartão"), time (HH:mm), observation. Se faltar use null.`;
             
             const res = await callGemini(prompt, geminiKey);
             
@@ -2974,11 +2974,23 @@ const AppContent = () => {
                     timeToUse = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
                 }
 
+                // Logic: Children up to 5 years don't count as +1 passenger.
+                const children = json.children || [];
+                const countingChildren = children.reduce((sum: number, c: any) => {
+                    if (c.age > 5) return sum + (c.quantity || 1);
+                    return sum;
+                }, 0);
+                
+                const calculatedPassengerCount = (json.adultCount || 1) + countingChildren;
+
                 return {
                     ...json,
+                    passengerCount: calculatedPassengerCount,
                     time: timeToUse,
                     payment: finalPayment, 
                     luggageCount: json.luggageCount || 0, 
+                    children: children,
+                    observation: json.observation || '',
                     status: 'Ativo', 
                     date: getTodayDate()
                 };

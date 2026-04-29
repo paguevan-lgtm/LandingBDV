@@ -170,18 +170,19 @@ export const generateWhatsappMessage = (tripId: string, passengers: any[], drive
         }
 
         msg += `*Passageiro ${index + 1}:*\n`;
-        msg += `• Nome: ${p.name}\n`;
-        msg += `• Telefone: ${p.phone || 'Sem número'}\n`;
-        if (p.address) msg += `• Endereço: ${p.address}\n`;
-        if (p.reference) msg += `• Referência: ${p.reference}\n`;
-        msg += `• Bairro: ${p.neighborhood || ''}\n`;
-        msg += `• Qtd: ${p.passengerCount || 1} passageiro(s)\n`;
-        msg += `• Horário: ${displayTime}\n`;
-        if (p.luggageDetails) {
-            msg += `• Bagagens: ${p.luggageCount || 0} bagagens (${p.luggageDetails})\n\n`;
-        } else {
-            msg += `• Bagagens: ${p.luggageCount || 0} bagagens\n\n`;
+        msg += `• ${p.name}\n`;
+        msg += `• ${p.phone || 'Sem número'}\n`;
+        if (p.address) msg += `• ${p.address}\n`;
+        if (p.reference) msg += `• ${p.reference}\n`;
+        if (p.neighborhood) msg += `• ${p.neighborhood}\n`;
+        
+        const count = p.passengerCount || 1;
+        msg += `• ${count} ${count > 1 ? 'passageiros' : 'passageiro'}\n`;
+
+        if (p.luggageCount > 0) {
+            msg += `• ${p.luggageCount} bagagem(ns)${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n`;
         }
+        msg += `\n`;
     });
 
     msg += `_Enviado via Bora de Van Transportes_`;

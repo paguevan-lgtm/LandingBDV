@@ -1,4 +1,9 @@
 
+export interface Child {
+    quantity: number;
+    age: number;
+}
+
 export interface Passenger {
     id: string;
     name: string;
@@ -13,6 +18,8 @@ export interface Passenger {
     date: string;
     time: string;
     tags?: string;
+    observation?: string;
+    children?: Child[];
 }
 
 export interface Driver {
