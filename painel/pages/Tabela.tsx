@@ -743,7 +743,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                     {isInLousa ? 'Remover da Lousa' : 'Mover p/ Lousa'}
                                                 </button>
                                             ) : (
-                                                <button onClick={() => requestConfirm("Cancelar Confirmação", "Deseja cancelar a confirmação deste motorista?", () => cancelConfirmation(driver.vaga))} className="text-red-400 hover:text-red-300 transition-colors p-1 hide-on-print"><Icons.X size={12}/></button>
+                                                <button onClick={() => cancelConfirmation(driver.vaga)} className="text-red-400 hover:text-red-300 transition-colors p-1 hide-on-print"><Icons.X size={12}/></button>
                                             )}
                                         </div>
                                     </div>
@@ -936,7 +936,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                     
                                                     <button onClick={(e) => { 
                                                         e.stopPropagation(); 
-                                                        requestConfirm("Remover da Lousa", "Deseja remover este item da lousa?", () => handleLousaAction(item.uid, 'remove', vaga)); 
+                                                        handleLousaAction(item.uid, 'remove', vaga);
                                                     }} className="p-1.5 bg-white/5 rounded hover:bg-red-500/20 text-red-400 hide-on-print flex-shrink-0 opacity-100" title="Remover"><Icons.X size={12}/></button> 
                                                 </div> 
                                             </div> 
@@ -1026,7 +1026,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                     <div className="flex items-center gap-3 w-full md:w-auto flex-1 relative min-w-0"> 
                                         <button onClick={(e) => { 
                                             e.stopPropagation(); 
-                                            requestConfirm("Remover da Madrugada", "Deseja remover este motorista da madrugada?", () => removeMadrugadaVaga(vaga)); 
+                                            removeMadrugadaVaga(vaga); 
                                         }} className="text-red-400 opacity-100 hover:opacity-100 hide-on-print flex-shrink-0 relative z-30"><Icons.Trash size={12}/></button> 
                                         <button 
                                             onClick={(e) => { 
