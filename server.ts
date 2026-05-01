@@ -37,6 +37,9 @@ const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
+    keyGenerator: (req) => {
+        return (req.headers['x-forwarded-for'] as string) || (req.headers['forwarded'] as string) || req.ip || 'unknown';
+    },
     validate: { xForwardedForHeader: false },
     message: { error: 'Muitas requisições. Tente novamente mais tarde.' },
     handler: (req, res, next, options) => {
@@ -48,6 +51,9 @@ const globalLimiter = rateLimit({
 const formLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 10, // Limit each IP to 10 form submissions per windowMs
+    keyGenerator: (req) => {
+        return (req.headers['x-forwarded-for'] as string) || (req.headers['forwarded'] as string) || req.ip || 'unknown';
+    },
     validate: { xForwardedForHeader: false },
     message: { error: 'Limite de envios atingido. Tente novamente em 15 minutos.' },
     handler: (req, res, next, options) => {
@@ -58,7 +64,7 @@ const formLimiter = rateLimit({
 
 // Origin Validation Middleware
 const validateOrigin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (req.originalUrl.startsWith('/api/webhook') || req.originalUrl.startsWith('/api/exchange-rate') || req.originalUrl.startsWith('/api/health')) return next();
+    if (req.originalUrl === '/api/webhook') return next();
     
     const origin = req.headers.origin;
     if (!origin) {
@@ -101,83 +107,14 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 };
 
 // Helper function for resilient fetch
-import admin from 'firebase-admin';
-
-let isFirebaseAdminInitialized = false;
-try {
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (serviceAccountJson) {
-        admin.initializeApp({
-            credential: admin.credential.cert(JSON.parse(serviceAccountJson)),
-            databaseURL: "https://boradevan-546c3-default-rtdb.firebaseio.com"
-        });
-        isFirebaseAdminInitialized = true;
-        console.log("Firebase Admin SDK initialized successfully.");
-    } else {
-        console.warn("\n=======================================================\nWARNING: FIREBASE_SERVICE_ACCOUNT is not set!\n1. Go to Firebase Console -> Project Settings -> Service accounts\n2. Click 'Generate new private key'\n3. Paste the entire JSON file contents into the FIREBASE_SERVICE_ACCOUNT environment variable.\n=======================================================\n");
-        admin.initializeApp({
-            databaseURL: "https://boradevan-546c3-default-rtdb.firebaseio.com"
-        });
-        isFirebaseAdminInitialized = true;
-    }
-} catch (error: any) {
-    console.error("Firebase Admin Initialization Error:", error);
-}
-
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<any> {
-    if (isFirebaseAdminInitialized) {
-        const dbUrlPattern = /^https:\/\/[^\/]+\/(.*?)\.json(?:\?.*)?$/;
-        const match = url.match(dbUrlPattern);
-        
-        if (match) {
-            const path = match[1];
-            const db = admin.database();
-            const method = options.method || 'GET';
-            
-            try {
-                if (method === 'GET') {
-                    const snapshot = await db.ref(path).get();
-                    const val = snapshot.val();
-                    return { ok: true, json: async () => val, text: async () => JSON.stringify(val), status: 200 };
-                } else if (method === 'PATCH') {
-                    const body = JSON.parse(options.body as string);
-                    await db.ref(path).update(body);
-                    return { ok: true, json: async () => body, text: async () => JSON.stringify(body), status: 200 };
-                } else if (method === 'POST') {
-                    const body = JSON.parse(options.body as string);
-                    const ref = await db.ref(path).push(body);
-                    return { ok: true, json: async () => ({ name: ref.key }), text: async () => `{"name":"${ref.key}"}`, status: 200 };
-                } else if (method === 'PUT') {
-                    const body = JSON.parse(options.body as string);
-                    await db.ref(path).set(body);
-                    return { ok: true, json: async () => body, text: async () => JSON.stringify(body), status: 200 };
-                } else if (method === 'DELETE') {
-                    await db.ref(path).remove();
-                    return { ok: true, json: async () => null, text: async () => "", status: 200 };
-                }
-            } catch (error: any) {
-                console.error(`Firebase Admin DB Error on ${method} /${path}:`, error.message);
-                if (retries > 0) {
-                    await new Promise(resolve => setTimeout(resolve, backoff));
-                    return fetchWithRetry(url, options, retries - 1, backoff * 2);
-                }
-                throw error;
-            }
-        }
-    }
-    
-    // Fallback to strict fetch for external URLs or if Firebase Admin throws
-    if (isFirebaseAdminInitialized) {
-        console.warn(`[Firebase Admin Fallback] URL not matched by regex or errored. URL: ${url}`);
-    }
-    
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
     try {
         const response = await fetch(url, options);
         if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
         return response;
     } catch (error) {
         if (retries > 0) {
-            console.warn(`Fetch failed, retrying in ${backoff}ms... URL: ${url}`, error);
+            console.warn(`Fetch failed, retrying in ${backoff}ms...`, error);
             await new Promise(resolve => setTimeout(resolve, backoff));
             return fetchWithRetry(url, options, retries - 1, backoff * 2);
         }
@@ -303,7 +240,7 @@ async function logAction(action: string, details: string, username: string = 'Si
 async function startServer() {
     const app = express();
     app.set('trust proxy', 1);
-    const PORT = 3000;
+    const PORT = Number(process.env.PORT) || 3000;
 
     // Use JSON parser for all non-webhook routes
     app.use((req, res, next) => {
