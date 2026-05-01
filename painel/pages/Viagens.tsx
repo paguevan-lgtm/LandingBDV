@@ -53,11 +53,11 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
         // Filter by user role/ownership
         if (user && user.role === 'operador') {
             list = list.filter((t: any) => {
-                const isOwner = t.createdBy === user.username;
+                const owner = t.createdBy || 'Sistema';
                 const wasEditedByMe = t.lastEditedBy === user.username;
                 const isSistema = t.createdBy === 'Sistema';
                 const isStefanyLegacy = t.date === '2026-04-29' && user.username === 'Stefany' && (!t.createdBy || t.createdBy === 'Sistema');
-                return isOwner || wasEditedByMe || isSistema || isStefanyLegacy || t.isMadrugada;
+                return owner === user.username || wasEditedByMe || isSistema || isStefanyLegacy;
             });
         }
 
@@ -400,11 +400,11 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                                                                 <div className="font-bold text-sm truncate">{formatTime(t.time)} - {t.driverName}</div>
                                                                 <div className="text-xs opacity-50 flex flex-wrap gap-x-2 gap-y-0.5">
                                                                     <span>#{t.id}</span>
-                                                                    <span>•</span>
+                                                                    <span>|</span>
                                                                     <span>{t.status}</span>
-                                                                    <span>•</span>
+                                                                    <span>|</span>
                                                                     <span>{pCount} pass</span>
-                                                                    <span>•</span>
+                                                                    <span>|</span>
                                                                     <span className="text-green-400 font-bold">R$ {(pCount * (Number(t.pricePerPassenger) || Number(t.ticketPrice) || (data.pricePerPassenger || 4))).toFixed(2)}</span>
                                                                 </div>
                                                                 </div>

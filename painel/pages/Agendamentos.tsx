@@ -1,11 +1,14 @@
 
 import React, { useState } from 'react';
 import { Icons, Button, IconButton } from '../components/Shared';
-import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime, sendPassWhatsapp } from '../utils';
+import { formatDisplayDate, getTodayDate, calculateTimeSlot, formatTime, sendPassWhatsapp, normalizeTime } from '../utils';
+import AgendamentosMap from '../components/AgendamentosMap';
+import { AnimatePresence } from 'motion/react';
 
 export default function Agendamentos({ data, theme, setFormData, setModal, dbOp, setSuggestedTrip, setEditingTripId, notify, requestConfirm, systemContext, isTutorialActive, targetDate, onTargetDateHandled, user }: any) {
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [calendarDate, setCalendarDate] = useState(new Date());
+    const [isMapOpen, setIsMapOpen] = useState(false);
 
     React.useEffect(() => {
         if (targetDate) {
@@ -26,7 +29,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
         
         if (dayTrips.length === 0) return notify("Nenhuma viagem neste dia para copiar.", "error");
         let summary = `📅 RESUMO DO DIA ${formatDisplayDate(selectedDate)}\n\n`;
-        dayTrips.forEach((t:any) => { const pList = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p?.id)); summary += `⏰ ${formatTime(t.time)} - ${t.driverName} (${t.status})\n`; pList.forEach((p:any) => summary += `  - ${p.name} (${p.neighborhood})\n`); summary += `\n`; });
+        dayTrips.forEach((t:any) => { const pList = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p?.id)); summary += `⏰ ${formatTime(t.time)} - ${t.driverName} (${t.status})\n`; pList.forEach((p:any) => summary += `  ${p.name} (${p.neighborhood})\n`); summary += `\n`; });
         navigator.clipboard.writeText(summary);
         notify("Resumo do dia copiado!", "success");
     };
@@ -136,27 +139,51 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
     const assigned: any[] = []; const pending: any[] = [];
     passOfDay.forEach((p:any) => { 
         const pId = p.realId || p.id;
-        const pSystem = p.system || systemContext;
-        const isAssigned = data.trips.some((t:any) => 
-            t.date === selectedDate && 
+        const isAssigned = tripsForSelectedDate.some((t:any) => 
             t.status !== 'Cancelada' && 
-            (t.system || 'Pg') === (pSystem === 'Mistura' ? 'Pg' : pSystem) &&
-            (t.passengerIds||[]).some((id:any) => String(id) === String(pId)) &&
-            t.time === p.time
+            (t.passengerIds||[]).map(String).includes(String(pId)) &&
+            (systemContext !== 'Mistura' || (t.system || 'Pg') === (p.system || 'Pg')) &&
+            normalizeTime(t.time) === normalizeTime(p.time)
         ); 
 
         if (isAssigned) assigned.push(p); 
-        
-        if (!isAssigned) {
-            pending.push(p);
-        }
+        else pending.push(p);
     });
     const pendingPass = pending.sort((a, b) => (a.time||'').localeCompare(b.time||''));
     const assignedPass = assigned.sort((a, b) => (a.time||'').localeCompare(b.time||''));
 
     return (
         <div className="space-y-6">
-            <div id="tut-calendar-card" className={`${theme.card} ${theme.radius} border ${theme.border} p-4 stagger-in d-1`}><div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg capitalize">{monthName}</h3><div className="flex gap-2"><button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()-1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronLeft size={20}/></button><button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()+1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronRight size={20}/></button></div></div><div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs opacity-60">{['D','S','T','Q','Q','S','S'].map((d,i)=><div key={`${d}-${i}`}>{d}</div>)}</div><div className="grid grid-cols-7 gap-1">{dayElements}</div><div className="mt-4 pt-3 border-t border-white/10 flex gap-2"><button onClick={copyDaySummary} className="w-full bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"><Icons.Copy size={16}/> 📋 Copiar Resumo do Dia</button></div></div>
+            <AnimatePresence>
+                {isMapOpen && (
+                    <AgendamentosMap 
+                        passengers={passOfDay}
+                        trips={tripsForSelectedDate}
+                        systemContext={systemContext}
+                        onClose={() => setIsMapOpen(false)}
+                        theme={theme}
+                    />
+                )}
+            </AnimatePresence>
+            <div id="tut-calendar-card" className={`${theme.card} ${theme.radius} border ${theme.border} p-4 stagger-in d-1`}>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-lg capitalize">{monthName}</h3>
+                    <div className="flex gap-2">
+                        <button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()-1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronLeft size={20}/></button>
+                        <button onClick={()=>setCalendarDate(new Date(calendarDate.setMonth(calendarDate.getMonth()+1)))} className="p-2 hover:bg-white/10 rounded-lg"><Icons.ChevronRight size={20}/></button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center mb-2 text-xs opacity-60">{['D','S','T','Q','Q','S','S'].map((d,i)=><div key={`${d}-${i}`}>{d}</div>)}</div>
+                <div className="grid grid-cols-7 gap-1">{dayElements}</div>
+                <div className="mt-4 pt-3 border-t border-white/10 flex gap-2">
+                    <button onClick={copyDaySummary} className="flex-1 bg-white/5 hover:bg-white/10 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors">
+                        <Icons.Copy size={16}/> Copiar Resumo
+                    </button>
+                    <button onClick={() => setIsMapOpen(true)} className="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-blue-500/20">
+                        <Icons.Map size={16}/> Ver Mapa do Dia
+                    </button>
+                </div>
+            </div>
             <div className="space-y-4 stagger-in d-2">
                 <div className="flex justify-between items-center border-b border-white/10 pb-2">
                     <h3 className="font-bold text-lg">📅 {formatDisplayDate(selectedDate)}</h3>

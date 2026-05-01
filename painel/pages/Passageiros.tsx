@@ -29,7 +29,7 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
     const displayedList = searchTerm ? filteredList : filteredList.slice(0, limit);
 
     const copyPassengerData = (p: any) => {
-        const txt = `*PASSAGEIRO*\n• Nome: ${p.name}\n• Tel: ${p.phone}\n• End: ${p.address}\n• Ref: ${p.reference||''}\n• Bairro: ${p.neighborhood}\n• Pagamento: ${p.payment}\n• Data: ${formatDisplayDate(p.date)} - ${formatTime(p.time)}\n• Qtd: ${p.passengerCount} pessoa(s)`;
+        const txt = `*PASSAGEIRO*\nNome: ${p.name}\nTel: ${p.phone}\nEnd: ${p.address}\nRef: ${p.reference||''}\nBairro: ${p.neighborhood}\nPagamento: ${p.payment}\nData: ${formatDisplayDate(p.date)} - ${formatTime(p.time)}\nQtd: ${p.passengerCount} pessoa(s)`;
         navigator.clipboard.writeText(txt);
         notify('Dados copiados para a área de transferência!', 'success');
     };
@@ -196,7 +196,7 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                                             </div>
                                             <div>
                                                 <p className="text-[9px] uppercase font-black opacity-30 tracking-widest">Última Viagem</p>
-                                                <p className="text-sm font-bold text-white/90">{formatDisplayDate(item.date)} • {formatTime(item.time) || 'Sem horário'}</p>
+                                                <p className="text-sm font-bold text-white/90">{formatDisplayDate(item.date)} | {formatTime(item.time) || 'Sem horário'}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5">

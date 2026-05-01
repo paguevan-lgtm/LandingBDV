@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import cron from 'node-cron';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 
@@ -26,7 +27,19 @@ function getStripe(): Stripe {
     return stripeClient;
 }
 
-// In-memory token store for login
+// --- Mail Transporter Configuration ---
+function getTransporter() {
+    return nodemailer.createTransport({
+        host: process.env.EMAIL_HOST || 'SMTP.HOSTINGER.COM',
+        port: parseInt(process.env.EMAIL_PORT || '465'),
+        secure: process.env.EMAIL_SECURE === 'true' || process.env.EMAIL_SECURE === 'ssl' || true,
+        auth: {
+            user: process.env.EMAIL_USER || 'suporte@boradevan.com.br',
+            pass: process.env.EMAIL_PASS || '15744751@Bb'
+        }
+    });
+}
+
 const loginTokens = new Map<string, { token: string, expires: number }>();
 const tokenAttempts = new Map<string, { count: number, lastAttempt: number, blockedUntil?: number }>();
 
@@ -34,6 +47,8 @@ const tokenAttempts = new Map<string, { count: number, lastAttempt: number, bloc
 const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 
 // Rate Limiters
+const FIREBASE_BASE_URL = 'https://boradevan-546c3-default-rtdb.firebaseio.com';
+
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
@@ -127,7 +142,7 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
     const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
     
     // We update the global system settings, not the individual user
-    let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+    let systemUrl = `${FIREBASE_BASE_URL}/system_settings/subscription.json`;
     if (dbSecret) {
         systemUrl += `?auth=${dbSecret}`;
     }
@@ -217,7 +232,7 @@ async function logAction(action: string, details: string, username: string = 'Si
     try {
         const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
         const authParam = dbSecret ? `?auth=${dbSecret}` : '';
-        const logUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/audit_logs.json${authParam}`;
+        const logUrl = `${FIREBASE_BASE_URL}/audit_logs.json${authParam}`;
         
         const logEntry = {
             username,
@@ -236,6 +251,465 @@ async function logAction(action: string, details: string, username: string = 'Si
         console.error("Error logging action in server:", e);
     }
 }
+
+
+// --- Cron Job: Prancheta Auto-Riscar ---
+const getWeekNumber = (date: Date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+let lastPranchetaAutoRun = '';
+
+async function checkPranchetaAutoRiscar() {
+    try {
+        const now = new Date();
+        // Check time in Brazil (America/Sao_Paulo)
+        const brTimeStr = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+        const brDate = new Date(brTimeStr);
+        
+        const day = brDate.getDay(); // 5 = Friday
+        const hours = brDate.getHours();
+        const minutes = brDate.getMinutes();
+        const todayStr = brDate.toISOString().split('T')[0];
+
+        // Trigger at 19:55 on Fridays
+        if (day === 5 && hours === 19 && minutes === 55 && lastPranchetaAutoRun !== todayStr) {
+            console.log(`[Cron] Triggered Prancheta Auto-Riscar at ${brTimeStr}`);
+            lastPranchetaAutoRun = todayStr;
+
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const baseUrl = `${FIREBASE_BASE_URL}/`;
+            const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+
+            // 1. Get current week ID
+            const weekNum = getWeekNumber(brDate);
+            const weekId = `${brDate.getFullYear()}-W${weekNum}`;
+
+            // 2. Fetch drivers_table_list for PG
+            const driversUrl = `${baseUrl}drivers_table_list.json${authParam}`;
+            const driversRes = await fetchWithRetry(driversUrl);
+            const driversList = await driversRes.json();
+
+            if (!Array.isArray(driversList)) {
+                console.error("[Cron] drivers_table_list is not an array or not found");
+                return;
+            }
+
+            // 3. Fetch prancheta data for the week
+            const pranchetaUrl = `${baseUrl}prancheta/${weekId}.json${authParam}`;
+            const pranchetaRes = await fetchWithRetry(pranchetaUrl);
+            const pranchetaData = await pranchetaRes.json() || {};
+
+            // 4. Update drivers who haven't paid
+            let updatedCount = 0;
+            const newList = driversList.map((driver: any) => {
+                if (driver && driver.vaga) {
+                    const payment = pranchetaData[driver.vaga];
+                    if (!payment || !payment.paid) {
+                        if (!driver.riscado) {
+                            updatedCount++;
+                            return { ...driver, riscado: true };
+                        }
+                    }
+                }
+                return driver;
+            });
+
+            if (updatedCount > 0) {
+                // 5. Save updated list
+                await fetchWithRetry(driversUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newList)
+                });
+
+                // 6. Log action to audit_logs
+                const logUrl = `${baseUrl}audit_logs.json${authParam}`;
+                const logEntry = {
+                    username: 'Sistema (Auto)',
+                    action: 'Auto-Riscar Prancheta',
+                    details: `Sexta-feira 19:55 - ${updatedCount} vagas não pagas foram riscadas para a semana ${weekId}`,
+                    timestamp: Date.now(),
+                    date: todayStr
+                };
+                await fetchWithRetry(logUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logEntry)
+                });
+
+                console.log(`[Cron] Prancheta Auto-Riscar completed: ${updatedCount} drivers riscados for ${weekId}`);
+            } else {
+                console.log(`[Cron] No drivers needed to be riscados for ${weekId}`);
+            }
+        }
+    } catch (error) {
+        console.error("[Cron] Error in checkPranchetaAutoRiscar:", error);
+    }
+}
+
+// Run check every 30 seconds
+setInterval(checkPranchetaAutoRiscar, 30000);
+
+// --- Backup and Reporting Logic ---
+async function fetchAllFirebaseData() {
+    const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+    const baseUrl = `${FIREBASE_BASE_URL}/.json`;
+    const authParam = dbSecret ? `?auth=${dbSecret}` : '';
+    const response = await fetchWithRetry(`${baseUrl}${authParam}`);
+    return await response.json();
+}
+
+async function sendBackupToBreno() {
+    console.log('[Cron] Starting monthly backup to Breno...');
+    try {
+        const fullData = await fetchAllFirebaseData();
+        
+        // Remove Breno from backup representation
+        if (fullData && fullData.users) {
+            Object.keys(fullData.users).forEach(uid => {
+                const u = fullData.users[uid];
+                if (u && (u.username === 'Breno' || u.email === 'breno0452@gmail.com')) {
+                    delete fullData.users[uid];
+                }
+            });
+        }
+
+        const backupJson = JSON.stringify(fullData, null, 2);
+        const fileName = `Backup_Full_BoraDeVan_${new Date().toISOString().split('T')[0]}.json`;
+
+        const transporter = getTransporter();
+        await transporter.sendMail({
+            from: `"Sistema Bora de Van" <${process.env.EMAIL_USER || 'suporte@boradevan.com.br'}>`,
+            to: 'Breno0452@gmail.com',
+            subject: `Backup Mensal Completo - ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
+            text: 'Segue em anexo o backup completo do Firebase (JSON).',
+            attachments: [
+                {
+                    filename: fileName,
+                    content: backupJson
+                }
+            ]
+        });
+        console.log('[Cron] Backup sent to Breno successfully.');
+    } catch (error) {
+        console.error('[Cron] Error sending backup to Breno:', error);
+        throw error;
+    }
+}
+
+async function generateAndSendReports(targetSpecificEmails?: string[], forceSystem?: string, isManual: boolean = false, selectedMonth?: number, selectedYear?: number) {
+    console.log(`[Cron] Starting ${isManual ? 'manual' : 'monthly'} system reports...`);
+    try {
+        const fullData = await fetchAllFirebaseData();
+        const systems = ['Pg', 'Mip', 'Sv'];
+        const users = fullData.users ? Object.values(fullData.users) : [];
+        const admins = users.filter((u: any) => u && u.role === 'admin' && u.username !== 'Breno');
+
+        const now = new Date();
+        let targetMonth = selectedMonth !== undefined ? selectedMonth : now.getMonth();
+        let targetYear = selectedYear !== undefined ? selectedYear : now.getFullYear();
+
+        // If not manual (automated cron on 1st), report on the PREVIOUS month
+        if (!isManual && selectedMonth === undefined) {
+            targetMonth = now.getMonth() - 1;
+            if (targetMonth < 0) {
+                targetMonth = 11;
+                targetYear--;
+            }
+        }
+
+        for (const system of (forceSystem ? [forceSystem] : systems)) {
+            const systemData = system === 'Pg' ? fullData : fullData[system];
+            if (!systemData) continue;
+
+            const reportHtml = generateHtmlReport(system, systemData, targetMonth, targetYear, fullData.audit_logs, users, fullData.api_metrics_v3 || {});
+            const recipients = targetSpecificEmails || admins
+                .filter((adm: any) => {
+                    const adminSystem = adm.systemContext || 'Pg';
+                    return adminSystem === system || adminSystem === 'Mistura';
+                })
+                .map((adm: any) => adm.email)
+                .filter(Boolean);
+
+            if (recipients.length > 0) {
+                const transporter = getTransporter();
+                await transporter.sendMail({
+                    from: `"Bora de Van - Relatorio" <${process.env.EMAIL_USER || 'suporte@boradevan.com.br'}>`,
+                    to: recipients.join(', '),
+                    subject: `Relatório ${isManual ? 'Parcial' : 'Mensal'} - ${system.toUpperCase()} - ${new Date(targetYear, targetMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
+                    html: reportHtml
+                });
+                console.log(`[Cron] Report for ${system} sent to ${recipients.length} coordinators.`);
+            }
+        }
+    } catch (error) {
+        console.error('[Cron] Error generating system reports:', error);
+        throw error;
+    }
+}
+
+function generateHtmlReport(system: string, data: any, targetMonth: number, targetYear: number, auditLogs: any, users: any[] = [], siteMetrics: any = {}) {
+    const passengers = data.passengers ? Object.values(data.passengers) : [];
+    const trips = data.trips ? Object.values(data.trips) : [];
+    const drivers = data.drivers ? Object.values(data.drivers) : [];
+    const logs = auditLogs ? Object.values(auditLogs) : [];
+
+    const filterByMonth = (items: any[], m: number, y: number) => {
+        return items.filter((item: any) => {
+            if (!item) return false;
+            const date = item.date || item.createdAt || item.timestamp;
+            if (!date) return false;
+            const d = new Date(date);
+            return d.getMonth() === m && d.getFullYear() === y;
+        });
+    };
+
+    // Filter Logs for target system and month early to avoid reference errors
+    const logsRaw = auditLogs ? Object.values(auditLogs) : [];
+    const thisMonthLogs = logsRaw.filter((l: any) => {
+        if (!l) return false;
+        const d = new Date(l.timestamp);
+        const matchesDate = d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+        const matchesSystem = system === 'Pg' ? true : (l.details?.includes(system) || l.action?.includes(system));
+        return matchesDate && matchesSystem;
+    });
+
+    const thisMonthTrips = filterByMonth(trips, targetMonth, targetYear);
+
+    // Calculate previous month for growth comparison
+    let prevMonth = targetMonth - 1;
+    let prevYear = targetYear;
+    if (prevMonth < 0) {
+        prevMonth = 11;
+        prevYear--;
+    }
+    const lastMonthTrips = filterByMonth(trips, prevMonth, prevYear);
+    
+    const thisMonthValue = thisMonthTrips.reduce((acc: number, t: any) => acc + (parseFloat(t.value) || 0), 0);
+    const lastMonthValue = lastMonthTrips.reduce((acc: number, t: any) => acc + (parseFloat(t.value) || 0), 0);
+    
+    const growthValue = lastMonthValue === 0 ? 100 : ((thisMonthValue - lastMonthValue) / lastMonthValue) * 100;
+    const growthTrips = lastMonthTrips.length === 0 ? 100 : ((thisMonthTrips.length - lastMonthTrips.length) / lastMonthTrips.length) * 100;
+
+    // Top Drivers
+    const driverTripsMap: any = {};
+    const driverPaxMap: any = {};
+    thisMonthTrips.forEach((t: any) => {
+        const driver = t.driverName || 'N/A';
+        driverTripsMap[driver] = (driverTripsMap[driver] || 0) + 1;
+        const paxCount = t.passengers ? (typeof t.passengers === 'object' ? Object.keys(t.passengers).length : 0) : 0;
+        driverPaxMap[driver] = (driverPaxMap[driver] || 0) + paxCount;
+    });
+
+    const topDriversTrips = Object.entries(driverTripsMap)
+        .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))
+        .slice(0, 5);
+
+    const topDriversPax = Object.entries(driverPaxMap)
+        .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))
+        .slice(0, 5);
+
+    // Productivity (actions per admin)
+    const adminProductivity: any = {};
+    thisMonthLogs.forEach((l: any) => {
+        if (l.username && l.username !== 'Breno') {
+            adminProductivity[l.username] = (adminProductivity[l.username] || 0) + 1;
+        }
+    });
+    const topOperators = Object.entries(adminProductivity)
+        .sort((a: any, b: any) => (b[1] as number) - (a[1] as number));
+
+    // Additional Metrics
+    const cancelledTrips = thisMonthTrips.filter((t: any) => (t.status === 'Cancelada' || t.status === 'Cancelado')).length;
+    const newPassengers = filterByMonth(passengers, targetMonth, targetYear).length;
+    const removedSchedules = thisMonthLogs.filter((l: any) => l.action?.includes('Limpou') || l.action?.includes('Riscado')).length;
+
+    const monthName = new Date(targetYear, targetMonth, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+    return `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #020617; color: #f8fafc; margin: 0; padding: 20px; line-height: 1.5; }
+        .container { max-width: 800px; margin: 0 auto; background-color: #0f172a; border-radius: 24px; border: 1px solid #1e293b; padding: 40px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .header { text-align: center; border-bottom: 1px solid #1e293b; padding-bottom: 30px; margin-bottom: 30px; }
+        .logo { color: #f59e0b; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase; font-style: italic; margin-bottom: 5px; }
+        .system-badge { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 6px 16px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; display: inline-block; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); border: 1px solid rgba(255,255,255,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+        .card { background: rgba(30, 41, 59, 0.5); padding: 24px; border-radius: 20px; border: 1px solid rgba(51, 65, 85, 0.5); position: relative; overflow: hidden; }
+        .card::before { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #3b82f6; opacity: 0.5; }
+        .card-title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+        .card-value { font-size: 30px; font-weight: 800; color: #f8fafc; letter-spacing: -0.025em; }
+        .card-subtitle { font-size: 13px; margin-top: 10px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .positive { color: #10b981; }
+        .negative { color: #f43f5e; }
+        .section-title { font-size: 15px; font-weight: 800; color: #f59e0b; margin: 40px 0 20px 0; text-transform: uppercase; letter-spacing: 0.1em; display: flex; align-items: center; gap: 12px; }
+        .section-title::after { content: ""; height: 1px; flex: 1; background: linear-gradient(to right, #1e293b, transparent); }
+        .table-container { background: rgba(30, 41, 59, 0.3); border-radius: 20px; border: 1px solid #1e293b; overflow: hidden; margin-bottom: 25px; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th { text-align: left; padding: 16px 24px; background: #0f172a; color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #1e293b; }
+        .table td { padding: 16px 24px; border-bottom: 1px solid #1e293b; font-size: 14px; color: #cbd5e1; }
+        .table tr:last-child td { border-bottom: none; }
+        .operator-badge { background: #334155; color: #f8fafc; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+        .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #475569; padding-top: 40px; border-top: 1px solid #1e293b; letter-spacing: 0.025em; }
+        .metric-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px dashed #1e293b; }
+        .metric-row:last-child { border-bottom: none; }
+        .metric-label { font-size: 13px; color: #94a3b8; font-weight: 500; }
+        .metric-value { font-size: 13px; color: #f8fafc; font-weight: 700; }
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .container { padding: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Bora de Van</div>
+            <div class="system-badge">Gestão ${system.toUpperCase()}</div>
+            <p style="color: #94a3b8; font-size: 14px; margin-top: 20px; font-weight: 500; font-style: italic;">Relatório Executivo Automatizado</p>
+            <h2 style="color: #f8fafc; font-size: 24px; margin-top: 5px; font-weight: 800;">Referência: ${monthName}</h2>
+        </div>
+
+        <div class="section-title">Performance Financeira & Frota</div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Faturamento Bruto</div>
+                <div class="card-value">R$ ${thisMonthValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div class="card-subtitle ${growthValue >= 0 ? 'positive' : 'negative'}">
+                    ${growthValue >= 0 ? '▲' : '▼'} ${Math.abs(growthValue).toFixed(1)}% vs anterior
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Volume de Viagens</div>
+                <div class="card-value">${thisMonthTrips.length}</div>
+                <div class="card-subtitle ${growthTrips >= 0 ? 'positive' : 'negative'}">
+                    ${growthTrips >= 0 ? '▲' : '▼'} ${Math.abs(growthTrips).toFixed(1)}% vs anterior
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Base de Clientes</div>
+                <div class="card-value">${passengers.length}</div>
+                <div class="card-subtitle" style="color: #64748b;">${passengers.filter((p: any) => p && p.status === 'Ativo').length} Ativos</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Parceiros Ativos</div>
+                <div class="card-value">${drivers.filter((d: any) => d && d.status === 'Ativo').length}</div>
+                <div class="card-subtitle" style="color: #64748b;">${drivers.length} Cadastrados</div>
+            </div>
+        </div>
+
+        <div class="section-title">Detalhamento Operacional</div>
+        <div class="grid" style="grid-template-columns: 1fr; gap: 0;">
+            <div class="card" style="border-radius: 20px; padding: 20px 30px;">
+                <div class="metric-row">
+                    <span class="metric-label">Novos Passageiros no Mês</span>
+                    <span class="metric-value" style="color: #10b981;">+ ${newPassengers}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Agendamentos Removidos (Limpeza)</span>
+                    <span class="metric-value" style="color: #f59e0b;">${removedSchedules}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Viagens Canceladas</span>
+                    <span class="metric-value" style="color: #f43f5e;">${cancelledTrips}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Visitantes / Visualizações Site</span>
+                    <span class="metric-value">${(() => {
+                        const monthKey = `${targetYear}-${(targetMonth + 1).toString().padStart(2, '0')}`;
+                        const visits = siteMetrics[monthKey]?.totalMagicRequests || 0;
+                        return visits > 0 ? `${visits} Interações` : 'Sem dados';
+                    })()}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Líderes por Viagens (Top 5)</div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Motorista</th>
+                        <th style="text-align: right;">Qtde</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${topDriversTrips.length > 0 ? topDriversTrips.map(([name, count]) => `
+                        <tr>
+                            <td style="font-weight: 700; color: #f8fafc;">${name}</td>
+                            <td style="text-align: right; color: #f59e0b; font-weight: 800;">${count}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="2" style="text-align: center; color: #64748b;">Sem dados.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-title">Líderes por Passageiros (Top 5)</div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Motorista</th>
+                        <th style="text-align: right;">Total Passageiros</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${topDriversPax.length > 0 ? topDriversPax.map(([name, count]) => `
+                        <tr>
+                            <td style="font-weight: 700; color: #f8fafc;">${name}</td>
+                            <td style="text-align: right; color: #3b82f6; font-weight: 800;">${count}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="2" style="text-align: center; color: #64748b;">Sem dados.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-title">Produtividade da Equipe</div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Operador</th>
+                        <th style="text-align: right;">Ações Realizadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${topOperators.length > 0 ? topOperators.map(([name, count]) => `
+                        <tr>
+                            <td><span class="operator-badge">${name}</span></td>
+                            <td style="text-align: right; font-weight: 800; color: #cbd5e1;">${count}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="2" style="text-align: center; color: #64748b;">Sem atividades registradas.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            Este é um documento confidencial gerado pelo Sistema Bora de Van.<br>
+            Relatório gerado em ${new Date().toLocaleString('pt-BR')}.<br>
+            <strong>&copy; 2026 Bora de Van Technology</strong>
+        </div>
+    </div>
+</body>
+</html>
+`;
+}
+
+// Cron setup
+// Backup: Every 1st day of the month at 02:00
+cron.schedule('0 2 1 * *', () => {
+    sendBackupToBreno().catch(err => console.error('[Cron] Monthly backup failed:', err));
+});
+
+// Report: Every 1st day of the month at 08:00 (of previous month data)
+cron.schedule('0 8 1 * *', () => {
+    generateAndSendReports(undefined, undefined, false).catch(err => console.error('[Cron] Monthly reports failed:', err));
+});
 
 async function startServer() {
     const app = express();
@@ -314,7 +788,7 @@ async function startServer() {
             // 1. Check if device is trusted FIRST (to skip token request and rate limits)
             if (type === 'login' && uid && deviceId) {
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                const trustedUrl = `${FIREBASE_BASE_URL}/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
                 
                 try {
                     const trustRes = await fetchWithRetry(trustedUrl);
@@ -379,7 +853,7 @@ async function startServer() {
                 port: parseInt(process.env.EMAIL_PORT || '465'),
                 secure: true,
                 auth: {
-                    user: process.env.EMAIL_USER || 'suporte@painel.boradevan.com.br',
+                    user: process.env.EMAIL_USER || 'suporte@boradevan.com.br',
                     pass: process.env.EMAIL_PASS || '15744751@Bb'
                 }
             });
@@ -504,7 +978,7 @@ async function startServer() {
 </html>`;
 
             await transporter.sendMail({
-                from: `"Bora de Van" <${process.env.EMAIL_USER || 'suporte@painel.boradevan.com.br'}>`,
+                from: `"Bora de Van" <${process.env.EMAIL_USER || 'suporte@boradevan.com.br'}>`,
                 to: email,
                 subject: subject,
                 html: emailHtml
@@ -536,7 +1010,7 @@ async function startServer() {
 
         if (uid && deviceId) {
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const trustedUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const trustedUrl = `${FIREBASE_BASE_URL}/trusted_devices/${uid}/${deviceId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             
             try {
                 await fetchWithRetry(trustedUrl, {
@@ -562,6 +1036,104 @@ async function startServer() {
         res.json({ success: true, sessionToken });
     });
 
+    app.post('/api/force-report', async (req, res) => {
+        try {
+            const { emails, system, adminId, month } = req.body;
+            console.log(`[Manual Report] Received request. System: ${system}, Month: ${month}, Admin: ${adminId}`);
+            
+            if (!adminId) return res.status(400).json({ error: 'adminId required' });
+            
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const userUrl = `${FIREBASE_BASE_URL}/users/${adminId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userRes = await fetchWithRetry(userUrl);
+            const userData = await userRes.json();
+            
+            if (!userData || userData.role !== 'admin') {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+
+            let selectedMonth, selectedYear;
+            if (month) {
+                const parts = month.split('-');
+                selectedYear = parseInt(parts[0]);
+                selectedMonth = parseInt(parts[1]) - 1;
+                console.log(`[Manual Report] Parsed: Year ${selectedYear}, Month ${selectedMonth} (0-indexed)`);
+            }
+
+            // Inicia em background para evitar timeout de rede no frontend
+            generateAndSendReports(emails ? emails.split(',').map((e:string)=>e.trim()) : undefined, system, true, selectedMonth, selectedYear)
+                .then(() => console.log('Relatórios manuais enviados com sucesso.'))
+                .catch(err => console.error('Erro no processamento do relatório manual:', err));
+
+            // Log action
+            try {
+                const logUrl = `${FIREBASE_BASE_URL}/audit_logs.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                await fetchWithRetry(logUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: userData.username || 'System',
+                        action: 'Enviou Relatório Manual',
+                        details: `Relatório do sistema ${system} (${month || 'atual'}) iniciado via painel superadmin.`,
+                        timestamp: Date.now(),
+                        date: new Date().toISOString().split('T')[0]
+                    })
+                });
+            } catch (e) {
+                console.error("Error logging action:", e);
+            }
+
+            res.json({ success: true, message: 'O envio do relatório foi iniciado com sucesso.' });
+        } catch (error: any) {
+            console.error('Error in force-report:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/force-backup', async (req, res) => {
+        try {
+            const { adminId } = req.body;
+            if (!adminId) return res.status(400).json({ error: 'adminId required' });
+            
+            const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
+            const userUrl = `${FIREBASE_BASE_URL}/users/${adminId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userRes = await fetchWithRetry(userUrl);
+            const userData = await userRes.json();
+            
+            if (!userData || userData.username !== 'Breno') {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+
+            // Inicia em background
+            sendBackupToBreno()
+                .then(() => console.log('Backup manual enviado com sucesso.'))
+                .catch(err => console.error('Erro no processamento do backup manual:', err));
+
+            // Log action
+            try {
+                const logUrl = `${FIREBASE_BASE_URL}/audit_logs.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+                await fetchWithRetry(logUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: userData.username || 'System',
+                        action: 'Forçou Backup Mensal',
+                        details: `Geração de backup completa iniciada para Breno0452@gmail.com.`,
+                        timestamp: Date.now(),
+                        date: new Date().toISOString().split('T')[0]
+                    })
+                });
+            } catch (e) {
+                console.error("Error logging action:", e);
+            }
+
+            res.json({ success: true, message: 'A geração do backup foi iniciada.' });
+        } catch (error: any) {
+            console.error('Error in force-backup:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     async function findExistingPassenger(name: string, phone: string, address: string, authParam: string, fingerprint?: string) {
         const systems = ['Pg', 'Mip', 'Sv'];
         const normalizedName = name.toLowerCase().trim();
@@ -569,7 +1141,7 @@ async function startServer() {
 
         try {
             const promises = systems.map(sys => {
-                let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+                let url = `${FIREBASE_BASE_URL}/`;
                 if (sys === 'Pg') url += `passengers.json${authParam}`;
                 else url += `${sys}/passengers.json${authParam}`;
                 return fetchWithRetry(url).then(r => r.json().then(data => ({ system: sys, data })));
@@ -684,7 +1256,7 @@ async function startServer() {
             } else {
                 // 3. Get the last passenger ID to continue sequence
                 try {
-                    const allPassUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
+                    const allPassUrl = `${FIREBASE_BASE_URL}/${systemToSave === 'Pg' ? '' : systemToSave + '/'}passengers.json${authParam}`;
                     const allPassRes = await fetchWithRetry(allPassUrl);
                     const allPassData = await allPassRes.json();
                     
@@ -731,7 +1303,7 @@ async function startServer() {
             passengerData.isSiteBooking = true;
 
             // 5. Save to Firebase
-            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            let url = `${FIREBASE_BASE_URL}/`;
             if (systemToSave === 'Pg') {
                 url += `passengers/${firebaseKey}.json${authParam}`;
             } else {
@@ -755,7 +1327,7 @@ async function startServer() {
 
             // 5. Push notification for real-time alerts in the panel
             try {
-                const notificationUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/site_notifications.json${authParam}`;
+                const notificationUrl = `${FIREBASE_BASE_URL}/site_notifications.json${authParam}`;
                 const notificationData = {
                     id: Date.now().toString(),
                     type: 'new_booking',
@@ -794,7 +1366,7 @@ async function startServer() {
             const authParam = dbSecret ? `?auth=${dbSecret}` : '';
             const firebaseKey = id.replace(' #', '_');
             
-            let url = `https://lotacao-753a1-default-rtdb.firebaseio.com/`;
+            let url = `${FIREBASE_BASE_URL}/`;
             if (system === 'Pg') {
                 url += `passengers/${firebaseKey}.json${authParam}`;
             } else {
@@ -848,7 +1420,7 @@ async function startServer() {
                     
                     if (updateSuccess) {
                         const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                        let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                        let systemUrl = `${FIREBASE_BASE_URL}/system_settings/subscription.json`;
                         if (dbSecret) systemUrl += `?auth=${dbSecret}`;
                         const sysRes = await fetchWithRetry(systemUrl);
                         const sysData = await sysRes.json() || {};
@@ -972,7 +1544,7 @@ async function startServer() {
                 
                 // Update Firebase
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `${FIREBASE_BASE_URL}/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};
@@ -998,7 +1570,7 @@ async function startServer() {
             } else {
                 // No active subscription found, ensure auto-renewal is off
                 const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-                let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+                let systemUrl = `${FIREBASE_BASE_URL}/system_settings/subscription.json`;
                 if (dbSecret) systemUrl += `?auth=${dbSecret}`;
 
                 const updates: any = {};
@@ -1031,7 +1603,7 @@ async function startServer() {
 
             // Check if user is admin
             const dbSecret = process.env.FIREBASE_DATABASE_SECRET;
-            const userUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
+            const userUrl = `${FIREBASE_BASE_URL}/users/${userId}.json${dbSecret ? `?auth=${dbSecret}` : ''}`;
             const userRes = await fetchWithRetry(userUrl);
             const userData = await userRes.json();
             
@@ -1040,7 +1612,7 @@ async function startServer() {
             }
 
             // Fetch current system subscription data to get the subscription ID
-            let systemUrl = `https://lotacao-753a1-default-rtdb.firebaseio.com/system_settings/subscription.json`;
+            let systemUrl = `${FIREBASE_BASE_URL}/system_settings/subscription.json`;
             if (dbSecret) {
                 systemUrl += `?auth=${dbSecret}`;
             }

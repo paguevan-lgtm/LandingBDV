@@ -266,13 +266,13 @@ export const GlobalModals = ({
                                 Cadastro Mágico: {aiPassengerIndex + 1} / {aiPassengerQueue.length} passageiros
                             </div>
                         )}
-                        <Input themeKey={themeKey} id="input-passenger-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:e.target.value})} speech={true} />
+                        <Input themeKey={themeKey} id="input-passenger-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData((prev:any) => ({...prev, name:e.target.value}))} speech={true} />
                         <Input themeKey={themeKey} id="input-passenger-phone" label="Telefone" type="tel" value={formData.phone||''} onChange={(e:any)=>setFormData({...formData, phone:e.target.value})} speech={true} />
-                        <Input themeKey={themeKey} id="input-passenger-address" label="Endereço" value={formData.address||''} onChange={(e:any)=>setFormData({...formData, address:e.target.value})} speech={true} />
-                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Bairro</label><select id="input-passenger-neighborhood" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.neighborhood || ''} onChange={(e:any)=>setFormData({...formData, neighborhood:e.target.value})}>{bairrosList.map(b=><option key={b} value={b} className="bg-slate-900">{b}</option>)}</select></div>
-                        <Input themeKey={themeKey} id="input-passenger-reference" label="Referência" value={formData.reference||''} onChange={(e:any)=>setFormData({...formData, reference:e.target.value})} speech={true} />
-                        <div className="grid grid-cols-2 gap-4"><Input themeKey={themeKey} id="input-passenger-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} /><Input themeKey={themeKey} id="input-passenger-count" label="Qtd Pass" type="number" value={formData.passengerCount||''} onChange={(e:any)=>setFormData({...formData, passengerCount:e.target.value})} /></div>
-                        <Input themeKey={themeKey} id="input-passenger-luggage" label="Qtd Malas" type="number" value={formData.luggageCount||''} onChange={(e:any)=>setFormData({...formData, luggageCount:e.target.value})} />
+                        <Input themeKey={themeKey} id="input-passenger-address" label="Endereço" value={formData.address||''} onChange={(e:any)=>setFormData((prev:any) => ({...prev, address:e.target.value}))} speech={true} />
+                        <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Bairro</label><select id="input-passenger-neighborhood" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.neighborhood || ''} onChange={(e:any)=>setFormData((prev:any) => ({...prev, neighborhood:e.target.value}))}>{bairrosList.map(b=><option key={b} value={b} className="bg-slate-900">{b}</option>)}</select></div>
+                        <Input themeKey={themeKey} id="input-passenger-reference" label="Referência" value={formData.reference||''} onChange={(e:any)=>setFormData((prev:any) => ({...prev, reference:e.target.value}))} speech={true} />
+                        <div className="grid grid-cols-2 gap-4"><Input themeKey={themeKey} id="input-passenger-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} /><Input themeKey={themeKey} id="input-passenger-count" label="Qtd Pass" type="number" value={formData.passengerCount||''} onChange={(e:any)=>setFormData((prev:any) => ({...prev, passengerCount:e.target.value}))} /></div>
+                        <Input themeKey={themeKey} id="input-passenger-luggage" label="Qtd Malas" type="number" value={formData.luggageCount||''} onChange={(e:any)=>setFormData((prev:any) => ({...prev, luggageCount:e.target.value}))} />
                         <div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Pagamento</label><select id="input-passenger-payment" className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.payment || ''} onChange={(e:any)=>setFormData({...formData, payment:e.target.value})}>{['Dinheiro','Pix','Cartão'].map(x=><option key={x} value={x} className="bg-slate-900">{x}</option>)}</select></div>
                         
                         <div className="flex flex-col gap-1.5">
@@ -341,15 +341,15 @@ export const GlobalModals = ({
                                     </div>
 
                                     {formData.isMadrugada && (
-                                        <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-3 anim-fade">
-                                            <label className="text-xs font-bold text-indigo-300 ml-1 block mb-2">Quem é o responsável por receber desta viagem?</label>
+                                        <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-3 anim-fade">
+                                            <label className="text-xs font-bold opacity-70 ml-1 block mb-2">Quem é o responsável por receber desta viagem?</label>
                                             <div className="grid grid-cols-2 gap-2">
                                                 {operators.map((u: any) => {
-                                                    const isSelected = (formData.responsibleUser || (operators.find((op:any) => op.username === user.username) ? user.username : (operators[0]?.username || ''))) === u.username;
+                                                    const isSelected = formData.responsibleUser === u.username;
                                                     return (
                                                         <div 
                                                             key={u.username}
-                                                            onClick={() => setFormData({...formData, responsibleUser: u.username})}
+                                                            onClick={() => setFormData((prev:any) => ({...prev, responsibleUser: u.username}))}
                                                             className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${isSelected ? 'bg-indigo-500/30 border-indigo-500 ring-1 ring-indigo-500' : 'bg-black/20 border-white/10 hover:bg-white/5'}`}
                                                         >
                                                             <div className="relative">
@@ -464,12 +464,72 @@ export const GlobalModals = ({
                                             </div>
                                         )}
                                     </div>
-                                    {formData.isMadrugada ? (<div className="flex flex-col gap-1.5"><label className="text-xs font-bold opacity-60 ml-1">Horário</label><select className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})}><option value="" className="bg-slate-900">Selecione...</option><option value="04:00/04:45" className="bg-slate-900">4:00 as 4:45</option><option value="05:00/05:45" className="bg-slate-900">5:00 as 5:45</option><option value="06:00/06:45" className="bg-slate-900">6:00 as 6:45</option></select></div>) : (<Input themeKey={themeKey} id="input-trip-time" label="Horário (HH:mm)" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time||''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />)}
+                                    {formData.isMadrugada ? (
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-bold opacity-60 ml-1">Horário</label>
+                                            <select 
+                                                className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14" 
+                                                value={formData.time || ''} 
+                                                onChange={(e:any)=>setFormData((prev: any) => ({...prev, time:e.target.value}))}
+                                            >
+                                                <option value="" className="bg-slate-900">Selecione...</option>
+                                                <option value="04:00/04:45" className="bg-slate-900">4:00 as 4:45</option>
+                                                <option value="05:00/05:45" className="bg-slate-900">5:00 as 5:45</option>
+                                                <option value="06:00/06:45" className="bg-slate-900">6:00 as 6:45</option>
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <Input 
+                                            themeKey={themeKey} 
+                                            id="input-trip-time" 
+                                            label="Horário (HH:mm)" 
+                                            type="text" 
+                                            mask="time" 
+                                            placeholder="HH:mm" 
+                                            maxLength={5} 
+                                            value={formData.time||''} 
+                                            onChange={(e:any)=>setFormData((prev: any) => ({...prev, time:e.target.value}))} 
+                                        />
+                                    )}
                                     <Button themeKey={themeKey} id="btn-generate-route" onClick={simulate} icon={Icons.Zap}>Gerar Rota</Button>
                                 </div>
                             ) : (
                                 <div className="flex flex-col h-full">
                                     <div className="bg-black/10 p-5 rounded-xl border border-white/10 flex-1 flex flex-col">
+                                        {formData.isMadrugada && (
+                                            <div className="mb-4 space-y-2 anim-fade">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <label className="text-[10px] font-black text-indigo-300 uppercase tracking-widest block">Responsável pelo Débito</label>
+                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
+                                                        <span className="text-[9px] font-bold text-indigo-200">Selecionado: {formData.responsibleUser || 'Sistema'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {operators.map((u: any) => {
+                                                        const isSelected = formData.responsibleUser === u.username;
+                                                        return (
+                                                            <div 
+                                                                key={u.username}
+                                                                onClick={() => setFormData((prev:any) => ({...prev, responsibleUser: u.username}))}
+                                                                className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-all border ${isSelected ? 'bg-indigo-500/40 border-indigo-500 ring-2 ring-indigo-500/50 scale-[1.02]' : 'bg-black/20 border-white/5 hover:bg-white/5 opacity-60'}`}
+                                                            >
+                                                                <img 
+                                                                    src={u.photoURL || getAvatarUrl(u.username)} 
+                                                                    alt={u.username} 
+                                                                    className={`w-5 h-5 rounded-full object-cover ${isSelected ? 'ring-2 ring-indigo-400' : ''}`} 
+                                                                    referrerPolicy="no-referrer" 
+                                                                />
+                                                                <span className={`text-[10px] font-bold truncate ${isSelected ? 'text-white' : 'text-white/50'}`}>
+                                                                    {u.username}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="flex flex-col gap-1.5 mb-4">
                                             <label className="text-xs font-bold opacity-60 ml-1">Motorista</label>
                                             <button 
@@ -642,7 +702,7 @@ export const GlobalModals = ({
                                     </div>
                                 </div>
                             )}
-                            <Input themeKey={themeKey} id="input-driver-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData({...formData, name:capitalize(e.target.value)})} />
+                            <Input themeKey={themeKey} id="input-driver-name" label="Nome" value={formData.name||''} onChange={(e:any)=>setFormData((prev:any)=>({...prev, name:capitalize(e.target.value)}))} />
                              <div className="flex flex-col gap-4">
                                  <div className="flex flex-col gap-2">
                                      <label className="text-xs font-bold opacity-60 ml-1">Telefones</label>
@@ -651,16 +711,16 @@ export const GlobalModals = ({
                                              <input id={`input-driver-phone-name-${i}`} className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14 w-full" placeholder="Nome" value={p.name} onChange={(e:any) => {
                                                  const newPhones = [...(formData.phones || [{name: '', phone: ''}])];
                                                  newPhones[i].name = e.target.value;
-                                                 setFormData({...formData, phones: newPhones});
+                                                 setFormData((prev:any)=>({...prev, phones: newPhones}));
                                              }} />
                                              <input id={`input-driver-phone-val-${i}`} className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14 w-full" placeholder="Telefone" value={p.phone} onChange={(e:any) => {
                                                  const newPhones = [...(formData.phones || [{name: '', phone: ''}])];
                                                  newPhones[i].phone = e.target.value;
-                                                 setFormData({...formData, phones: newPhones});
+                                                 setFormData((prev:any)=>({...prev, phones: newPhones}));
                                              }} />
                                              <Button themeKey={themeKey} variant="danger" className="h-14 w-14 p-0 flex items-center justify-center shrink-0" onClick={() => {
                                                  const newPhones = (formData.phones || [{name: '', phone: ''}]).filter((_:any, index:number) => index !== i);
-                                                 setFormData({...formData, phones: newPhones});
+                                                 setFormData((prev:any)=>({...prev, phones: newPhones}));
                                              }}><Icons.Trash size={16}/></Button>
                                          </div>
                                      ))}

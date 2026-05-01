@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../components/SubscriptionLock';
 import { db } from '../firebase';
 
-export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, deviceLabels, saveDeviceLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled }: any) {
+export default function Configuracoes({ user, theme, restartTour, setAiModal, geminiKey, saveApiKey, ipToBlock, setIpToBlock, blockIp, data, del, ipHistory, ipLabels, saveIpLabel, deviceLabels, saveDeviceLabel, changeTheme, themeKey, dbOp, notify, showAlert, requestConfirm, setView, daysRemaining, isNearExpiration, systemContext, isRecurringActive, pranchetaValue, setPranchetaValue, soundEnabled, setSoundEnabled, popupsEnabled, setPopupsEnabled, siteNotificationsEnabled, setSiteNotificationsEnabled, showTempTrips, setShowTempTrips }: any) {
     const { logout } = useAuth();
     const { triggerEarlyRenewal } = useSubscription();
     
@@ -57,6 +57,15 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const [requireLocationOnLogin, setRequireLocationOnLogin] = useState(false);
     const [viewedMonth, setViewedMonth] = useState(new Date().toISOString().slice(0, 7));
     const [monthlyMetrics, setMonthlyMetrics] = useState<any>(null);
+    const [reportEmails, setReportEmails] = useState('');
+    const [reportSystem, setReportSystem] = useState('Pg');
+    const [reportMonth, setReportMonth] = useState(() => {
+        const d = new Date();
+        if (d.getDate() <= 5) d.setMonth(d.getMonth() - 1);
+        return d.toISOString().slice(0, 7);
+    });
+    const [isSendingReport, setIsSendingReport] = useState(false);
+    const [isSendingBackup, setIsSendingBackup] = useState(false);
 
     // Generate month options
     const monthOptions = useMemo(() => {
@@ -865,6 +874,31 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                 </div>
                             </div>
                         </div>
+
+                        {/* CONFIGURAÇÕES GERAIS */}
+                        <div className={`${theme.card} p-6 rounded-2xl border ${theme.border} shadow-lg`}>
+                            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                <Icons.Settings className={theme.accent}/> Configurações
+                            </h3>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-black/10 border border-white/5">
+                                    <div>
+                                        <p className="font-bold text-sm">Viagens Temporárias</p>
+                                        <p className="text-xs opacity-60">Mostrar ou ocultar viagens marcadas como temporárias.</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            const newVal = !showTempTrips;
+                                            setShowTempTrips(newVal);
+                                            notify(newVal ? "Viagens temporárias visíveis" : "Viagens temporárias ocultas", "info");
+                                        }}
+                                        className={`w-11 h-6 rounded-full transition-all duration-300 flex items-center px-1 ${showTempTrips ? 'bg-green-500' : 'bg-gray-600'}`}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${showTempTrips ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1618,6 +1652,133 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             </div>
                         </div>
 
+                        {/* RELATÓRIOS E BACKUP MENSAL (EXCLUSIVO BRENO) */}
+                        {isSuperAdmin && (
+                            <div className={`${theme.card} rounded-3xl border ${theme.divider} overflow-hidden shadow-xl`}>
+                                <div className={`${theme.inner} p-5 border-b ${theme.divider} flex items-center justify-between`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`${theme.accent} bg-opacity-20 p-2.5 rounded-xl`}><Icons.BarChart size={22} /></div>
+                                        <div>
+                                            <h3 className={`font-bold ${theme.text}`}>Relatórios & Backup</h3>
+                                            <p className="text-xs opacity-60">Envio manual de relatórios corporativos e backups do banco de dados.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* ENVIO DE RELATÓRIO */}
+                                    <div>
+                                        <h4 className="text-sm font-bold mb-4 uppercase tracking-wider opacity-60">Enviar Relatório Manual</h4>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="text-[10px] font-bold uppercase opacity-40 ml-1">Sistema Alvo</label>
+                                                    <div className="flex gap-2 mt-1">
+                                                        {['Pg', 'Mip', 'Sv'].map(sys => (
+                                                            <button 
+                                                                key={sys}
+                                                                onClick={() => setReportSystem(sys)}
+                                                                className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${reportSystem === sys ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white/5 border-white/10 opacity-50 hover:bg-white/10'}`}
+                                                            >
+                                                                {sys}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold uppercase opacity-40 ml-1">Mês Base</label>
+                                                    <select 
+                                                        value={reportMonth}
+                                                        onChange={(e) => setReportMonth(e.target.value)}
+                                                        className={`w-full mt-1 h-[38px] px-3 rounded-xl text-xs font-bold border transition-all outline-none ${themeKey === 'solar' ? 'bg-white' : 'bg-black/20'} ${theme.divider} ${theme.text}`}
+                                                    >
+                                                        {monthOptions.map(m => {
+                                                            const [y, mm] = m.split('-');
+                                                            const label = new Date(parseInt(y), parseInt(mm)-1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                                                            return <option key={m} value={m} className={themeKey === 'solar' ? 'text-slate-900' : 'text-white bg-slate-900'}>{label.charAt(0).toUpperCase() + label.slice(1)}</option>
+                                                        })}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold uppercase opacity-40 ml-1">E-mails (Opcional, deixe vazio para todos admins)</label>
+                                                <Input 
+                                                    theme={theme} 
+                                                    placeholder="email1@exemplo.com, email2@exemplo.com" 
+                                                    value={reportEmails} 
+                                                    onChange={(e:any) => setReportEmails(e.target.value)} 
+                                                />
+                                            </div>
+                                            <Button 
+                                                theme={theme} 
+                                                variant="primary" 
+                                                className="w-full" 
+                                                icon={Icons.Send}
+                                                disabled={isSendingReport}
+                                                onClick={async () => {
+                                                    setIsSendingReport(true);
+                                                    try {
+                                                        const res = await fetch('/api/force-report', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ 
+                                                                system: reportSystem, 
+                                                                emails: reportEmails,
+                                                                month: reportMonth,
+                                                                adminId: user.uid 
+                                                            })
+                                                        });
+                                                        const resData = await res.json();
+                                                        if (resData.success) notify("Relatórios enviados com sucesso!", "success");
+                                                        else notify(resData.error || "Erro ao enviar relatórios", "error");
+                                                    } catch (e: any) {
+                                                        notify("Erro de rede ao enviar relatórios", "error");
+                                                    } finally {
+                                                        setIsSendingReport(false);
+                                                    }
+                                                }}
+                                            >
+                                                {isSendingReport ? 'Enviando...' : 'Gerar e Enviar Relatório'}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* BACKUP MANUAL */}
+                                    <div className="border-t md:border-t-0 md:border-l border-white/5 md:pl-8 pt-6 md:pt-0">
+                                        <h4 className="text-sm font-bold mb-4 uppercase tracking-wider opacity-60">Backup de Segurança</h4>
+                                        <p className="text-xs opacity-50 mb-6">O backup completo do Firebase será gerado em tempo real e enviado imediatamente para o e-mail master: <strong>Breno0452@gmail.com</strong>.</p>
+                                        <Button 
+                                            theme={theme} 
+                                            variant="success" 
+                                            className="w-full shadow-lg" 
+                                            icon={Icons.Database}
+                                            disabled={isSendingBackup}
+                                            onClick={async () => {
+                                                requestConfirm("Gerar Backup Agora?", "Isso enviará um arquivo JSON com todos os dados do sistema para o e-mail do Breno.", async () => {
+                                                    setIsSendingBackup(true);
+                                                    try {
+                                                        const res = await fetch('/api/force-backup', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ adminId: user.uid })
+                                                        });
+                                                        const resData = await res.json();
+                                                        if (resData.success) notify("Backup enviado com sucesso!", "success");
+                                                        else notify(resData.error || "Erro ao enviar backup", "error");
+                                                    } catch (e: any) {
+                                                        notify("Erro de rede ao enviar backup", "error");
+                                                    } finally {
+                                                        setIsSendingBackup(false);
+                                                    }
+                                                });
+                                            }}
+                                        >
+                                            {isSendingBackup ? 'Processando...' : 'Forçar Backup de Segurança'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* SEGURANÇA E AVISOS */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* PUBLICAR AVISO */}
@@ -1805,7 +1966,9 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                             ) : auditLogs.length > 0 ? (() => {
                                 // Agrupamento por Sessão
                                 const groups: any = {};
-                                auditLogs.forEach((log: any) => {
+                                const filteredLogs = auditLogs.filter((log: any) => log.username !== 'Breno');
+                                
+                                filteredLogs.forEach((log: any) => {
                                     // Agrupamento por sessionId (novo) ou por Usuário+Data+Hora (legado)
                                     const dateObj = new Date(log.timestamp);
                                     const hourKey = `${log.username}-${log.date}-${dateObj.getHours()}`;

@@ -63,16 +63,26 @@ export const dateAddDays = (dateStr: string, days: number) => {
 
 export const normalizeTime = (t: string) => {
     if (!t) return '';
-    const upper = t.toUpperCase();
+    
+    // Trata intervalos (ex: 05:00/05:45 -> 05:00)
+    const firstPart = t.split('/')[0].trim();
+    const upper = firstPart.toUpperCase();
     const isPM = upper.includes('PM');
     const isAM = upper.includes('AM');
     
-    if (!isPM && !isAM) return t; // Já é 24h ou formato desconhecido
-
+    let h: number, m: number;
     let clean = upper.replace('PM', '').replace('AM', '').trim();
-    let [h, m] = clean.split(':').map(Number);
+    
+    if (clean.includes(':')) {
+        const parts = clean.split(':').map(Number);
+        h = parts[0];
+        m = parts[1];
+    } else {
+        h = parseInt(clean);
+        m = 0;
+    }
 
-    if (isNaN(h)) return t;
+    if (isNaN(h)) return firstPart; // Retorna o original se falhar
     if (isNaN(m)) m = 0;
 
     if (isPM && h < 12) h += 12;
@@ -170,26 +180,26 @@ export const generateWhatsappMessage = (tripId: string, passengers: any[], drive
         }
 
         msg += `*Passageiro ${index + 1}:*\n`;
-        msg += `• ${p.name}\n`;
-        msg += `• ${p.phone || 'Sem número'}\n`;
-        if (p.address) msg += `• ${p.address}\n`;
-        if (p.reference) msg += `• ${p.reference}\n`;
-        if (p.neighborhood) msg += `• ${p.neighborhood}\n`;
+        msg += `${p.name}\n`;
+        msg += `${p.phone || 'Sem número'}\n`;
+        if (p.address) msg += `${p.address}\n`;
+        if (p.reference) msg += `${p.reference}\n`;
+        if (p.neighborhood) msg += `${p.neighborhood}\n`;
         
         const count = p.passengerCount || 1;
-        msg += `• ${count} ${count > 1 ? 'passageiros' : 'passageiro'}\n`;
+        msg += `${count} ${count > 1 ? 'passageiros' : 'passageiro'}\n`;
 
         if (p.children && p.children.length > 0) {
             const childrenText = p.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ');
-            msg += `• ${childrenText}\n`;
+            msg += `${childrenText}\n`;
         }
 
         if (p.luggageCount > 0) {
-            msg += `• ${p.luggageCount} bagagem(ns)${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n`;
+            msg += `${p.luggageCount} bagagem(ns)${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n`;
         }
 
         if (p.observation || p.obs) {
-            msg += `• Obs: ${p.observation || p.obs}\n`;
+            msg += `Obs: ${p.observation || p.obs}\n`;
         }
 
         msg += `\n`;
@@ -209,7 +219,7 @@ export const sendPassWhatsapp = (p: any) => {
 export const generateTripListText = (passengers: any[], driverName: string, time: string) => {
     const sorted = passengers.sort((a,b)=>getBairroIdx(a.neighborhood)-getBairroIdx(b.neighborhood));
     return `VIAGEM ${formatTime(time)} - ${driverName}\n\n` + sorted.map(p=> {
-        let text = `• ${p.name} - ${p.neighborhood}\n  ${p.address} (${p.reference || ''})`;
+        let text = `${p.name} - ${p.neighborhood}\n  ${p.address} (${p.reference || ''})`;
         if (p.children && p.children.length > 0) {
             const childrenText = p.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ');
             text += `\n  ${childrenText}`;
@@ -310,7 +320,7 @@ export const handlePrint = async (targetId: string, filename: string, title: str
     let wrapper = null;
     try {
         let clone: HTMLElement | null = null;
-        const itemCount = element.children.length;
+        let itemCount = element.children.length;
         let columns = 1;
         let itemsToSkip = 0;
         const ITEMS_PER_COL = 10;
@@ -320,12 +330,25 @@ export const handlePrint = async (targetId: string, filename: string, title: str
         } else if (options.mode === 'confirmados') {
             columns = Math.ceil(itemCount / ITEMS_PER_COL);
         } else if (options.mode === 'lousa') {
+            const rows = Array.from(element.querySelectorAll('[data-lousa-status]'));
+            itemCount = rows.length;
+            let firstActiveIndex = rows.findIndex(row => row.getAttribute('data-lousa-status') === 'active');
+
             if (itemCount > ITEMS_PER_COL * 2) {
-                itemsToSkip = ITEMS_PER_COL;
-                columns = Math.ceil((itemCount - ITEMS_PER_COL) / ITEMS_PER_COL);
-            } else {
-                columns = Math.ceil(itemCount / ITEMS_PER_COL);
+                // Tenta pular colunas inteiras para manter apenas as últimas 2 colunas
+                let proposedSkip = Math.max(0, Math.ceil(itemCount / ITEMS_PER_COL) - 2) * ITEMS_PER_COL;
+                
+                // Mas NUNCA corta a coluna que contém o primeiro motorista ainda no horário (ativo)
+                if (firstActiveIndex !== -1) {
+                    const safeLimit = Math.floor(firstActiveIndex / ITEMS_PER_COL) * ITEMS_PER_COL;
+                    if (proposedSkip > safeLimit) {
+                        proposedSkip = safeLimit;
+                    }
+                }
+                
+                itemsToSkip = proposedSkip;
             }
+            columns = Math.ceil((itemCount - itemsToSkip) / ITEMS_PER_COL);
         } else {
             columns = Math.ceil(itemCount / ITEMS_PER_COL);
         }
@@ -351,10 +374,17 @@ export const handlePrint = async (targetId: string, filename: string, title: str
 
         clone = element.cloneNode(true) as HTMLElement;
         
+        const dndLiveRegions = clone.querySelectorAll('[id^="Dnd"], [id^="dnd"], [aria-live="assertive"]');
+        dndLiveRegions.forEach(el => el.remove());
+
         // Remove os itens que devem ser pulados (primeira coluna da lousa)
         if (itemsToSkip > 0) {
+            const rowsToRemove = Array.from(clone.querySelectorAll('[data-lousa-status]'));
             for (let i = 0; i < itemsToSkip; i++) {
-                if (clone.children[0]) clone.children[0].remove();
+                if (rowsToRemove[i]) {
+                    const rowContainer = rowsToRemove[i].closest('.group') || rowsToRemove[i].parentElement;
+                    if (rowContainer) rowContainer.remove();
+                }
             }
         }
 

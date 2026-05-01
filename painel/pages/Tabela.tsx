@@ -96,7 +96,7 @@ const SortableRow = ({ id, children, disabled, hideGrip }: any) => {
 };
 
 // Tabela Component
-export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, requestConfirm, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
+export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, duplicateMadrugadaDriver, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, requestConfirm, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -274,16 +274,35 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
         setShowClearConfirm(false);
     };
 
-    const addVaga = () => {
+    const addVaga = (customName?: string) => {
         const newVagaNumber = spList.length > 0 ? Math.max(...spList.map((d: any) => parseInt(d.vaga) || 0)) + 1 : 1;
         const newVaga = {
             vaga: newVagaNumber.toString(),
-            name: 'Novo Motorista',
+            name: typeof customName === 'string' ? customName : 'Novo Motorista',
             id: uuidv4()
         };
         const newList = [...spList, newVaga];
         setSpList(newList);
         dbOp('update', 'drivers_table_list', newList);
+    };
+
+    const duplicateDriver = (driver: any) => {
+        requestConfirm("Duplicar Vaga", `Deseja duplicar a vaga de ${driver.name}?`, () => {
+            const copy = {
+                ...driver,
+                id: uuidv4(),
+                isCopy: true,
+                baixou: false,
+                riscado: false,
+                time1: '',
+                time2: '',
+                num: ''
+            };
+            const newList = [...spList, copy];
+            setSpList(newList);
+            dbOp('update', 'drivers_table_list', newList);
+            notify("Vaga duplicada para o final da fila!", "success");
+        });
     };
 
     const removeVaga = (id: string, vaga: string) => {
@@ -292,17 +311,21 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
         
         if (!driver) return;
 
-        triggerUndo(() => {
-            setSpList(oldList);
-            dbOp('update', 'drivers_table_list', oldList);
-        }, `Vaga ${driver.vaga} (${driver.name}) removida`);
+        const tableName = tableTab === 'geral' ? 'Geral' : (tableTab === 'mip6' ? 'MIP 6:00' : 'MIP 18:00');
 
-        const newList = spList.filter((d: any) => {
-            if (id && d.id) return d.id !== id;
-            return d.vaga !== vaga;
+        requestConfirm("Remover vaga", `Deseja realmente remover o motorista ${driver.name} vaga ${driver.vaga} da tabela ${tableName}?`, () => {
+            triggerUndo(() => {
+                setSpList(oldList);
+                dbOp('update', 'drivers_table_list', oldList);
+            }, `Vaga ${driver.vaga} (${driver.name}) removida da ${tableName}`);
+
+            const newList = spList.filter((d: any) => {
+                if (id && d.id) return d.id !== id;
+                return d.vaga !== vaga;
+            });
+            setSpList(newList);
+            dbOp('update', 'drivers_table_list', newList);
         });
-        setSpList(newList);
-        dbOp('update', 'drivers_table_list', newList);
     };
 
 
@@ -398,7 +421,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                             <div className="px-4 font-mono font-bold text-sm">{formatDisplayDate(analysisDate)}</div>
                             <button onClick={() => setAnalysisDate(dateAddDays(analysisDate, 1))} className="p-2 hover:bg-white/10 rounded-md"><Icons.ChevronRight size={18}/></button>
                             <button onClick={() => setAnalysisDate(currentOpDate)} className="ml-2 text-xs bg-white/10 px-2 py-1 rounded hover:bg-white/20">{currentOpDate === getTodayDate() ? 'Hoje' : 'Amanhã (Op)'}</button>
-                            <button id="tut-btn-screenshot" onClick={() => onPrint('print-tabela-list', 'Tabela_Geral', tableTab === 'mip6' ? 'TABELA 6:00' : tableTab === 'mip18' ? 'TABELA 18:00' : 'TABELA GERAL', { date: analysisDate })} className="ml-4 p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors" title="Salvar como Imagem"><Icons.Screenshot size={18}/></button>
+                            <button id="tut-btn-screenshot" onClick={() => onPrint('print-tabela-list', 'Tabela_Geral', tableTab === 'mip6' ? 'TABELA 6:00' : tableTab === 'mip18' ? 'TABELA 18:00' : 'TABELA GERAL', { date: analysisDate, forceCols: 2 })} className="ml-4 p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors" title="Salvar como Imagem"><Icons.Screenshot size={18}/></button>
                         </div>
                     </div>
                     <div id="print-tabela-list" className="space-y-2">
@@ -572,17 +595,40 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         </div>
                                                     )}
                                                     {!isBlocked && (
-                                                        <button 
-                                                            onClick={() => handleMipRiscar(driver.id)} 
-                                                            className={`p-1.5 rounded-lg border transition-all hide-on-print ${driver.riscado ? 'bg-red-500 text-white border-red-500' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}
-                                                            title="Riscar"
-                                                        >
-                                                            <Icons.Slash size={12}/>
-                                                        </button>
+                                                        <div className="flex items-center gap-1">
+                                                            <button 
+                                                                onClick={() => {
+                                                                    if (driver.riscado) {
+                                                                        handleMipRiscar(driver.id);
+                                                                    } else {
+                                                                        requestConfirm("Riscar Motorista", `Deseja riscar o motorista ${driver.name}?`, () => handleMipRiscar(driver.id));
+                                                                    }
+                                                                }} 
+                                                                className={`p-1.5 rounded-lg border transition-all hide-on-print ${driver.riscado ? 'bg-red-500 text-white border-red-500' : 'bg-white/5 text-white/40 border-white/10 hover:bg-white/10'}`}
+                                                                title="Riscar"
+                                                            >
+                                                                <Icons.Slash size={12}/>
+                                                            </button>
+                                                            {driver.riscado && (
+                                                                <button 
+                                                                    onClick={() => duplicateDriver(driver)} 
+                                                                    className="p-1.5 border rounded-lg transition-all hide-on-print bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
+                                                                    title="Duplicar para o final da lista"
+                                                                >
+                                                                    <Icons.Plus size={12}/>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                     {!driver.riscado && (
                                                         <button 
-                                                            onClick={() => handleMipBaixar(driver.id)} 
+                                                            onClick={() => {
+                                                                if (driver.baixou) {
+                                                                    handleMipBaixar(driver.id);
+                                                                } else {
+                                                                    requestConfirm("Baixar Motorista", `Deseja baixar o motorista ${driver.name}?`, () => handleMipBaixar(driver.id));
+                                                                }
+                                                            }} 
                                                             className={`p-1.5 border rounded-lg transition-all hide-on-print ${driver.baixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20'}`}
                                                             title={driver.baixou ? "Cancelar Baixar" : "Baixar"}
                                                         >
@@ -593,8 +639,8 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                             ) : (
                                                 !status ? (
                                                     <>
-                                                        <button onClick={() => updateTableStatus(driver.vaga, 'confirmed')} className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors hide-on-print"><Icons.CheckCircle size={12}/> Confirmar</button>
-                                                        <button onClick={() => updateTableStatus(driver.vaga, 'lousa')} className="px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors hide-on-print"><Icons.List size={12}/> Lousa</button>
+                                                        <button onClick={() => requestConfirm("Confirmar Motorista", `Deseja confirmar o motorista ${driver.name}?`, () => updateTableStatus(driver.vaga, 'confirmed'))} className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors hide-on-print"><Icons.CheckCircle size={12}/> Confirmar</button>
+                                                        <button onClick={() => requestConfirm("Mover para Lousa", `Deseja enviar o motorista ${driver.name} para a lousa?`, () => updateTableStatus(driver.vaga, 'lousa'))} className="px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors hide-on-print"><Icons.List size={12}/> Lousa</button>
                                                     </>
                                                 ) : (
                                                     <div className="flex items-center gap-2 hide-on-print">
@@ -602,7 +648,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                             {status === 'confirmed' ? <Icons.CheckCircle size={12}/> : <Icons.List size={12}/>}
                                                             {status === 'confirmed' ? 'Confirmado' : 'Na Lousa'}
                                                         </span>
-                                                        <button onClick={() => updateTableStatus(driver.vaga, null)} className="p-1 text-red-400 opacity-50 hover:opacity-100" title="Remover status"><Icons.X size={12}/></button>
+                                                        <button onClick={() => requestConfirm("Remover Status", "Deseja remover o status deste motorista?", () => updateTableStatus(driver.vaga, null))} className="p-1 text-red-400 opacity-50 hover:opacity-100" title="Remover status"><Icons.X size={12}/></button>
                                                     </div>
                                                 )
                                             )}
@@ -687,7 +733,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                             </span>
                                             {expired ? (
                                                 <button 
-                                                    onClick={() => toggleLousaFromConfirmados(driver.vaga)} 
+                                                    onClick={() => requestConfirm("Mover para Lousa", "Deseja mover este motorista para a lousa?", () => toggleLousaFromConfirmados(driver.vaga))} 
                                                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors hide-on-print ${
                                                         isInLousa 
                                                         ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
@@ -697,7 +743,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                     {isInLousa ? 'Remover da Lousa' : 'Mover p/ Lousa'}
                                                 </button>
                                             ) : (
-                                                <button onClick={() => cancelConfirmation(driver.vaga)} className="text-red-400 hover:text-red-300 transition-colors p-1 hide-on-print"><Icons.X size={12}/></button>
+                                                <button onClick={() => requestConfirm("Cancelar Confirmação", "Deseja cancelar a confirmação deste motorista?", () => cancelConfirmation(driver.vaga))} className="text-red-400 hover:text-red-300 transition-colors p-1 hide-on-print"><Icons.X size={12}/></button>
                                             )}
                                         </div>
                                     </div>
@@ -742,6 +788,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                     const driver = isNullItem ? { name: "🚫 HORÁRIO VAGO" } : (spList.find((d:any) => d.vaga === vaga) || { name: '' }); 
                                     const isRiscado = item.riscado; 
                                     const isBaixou = item.baixou;
+                                    const isEmptyDriver = (!driver.name || driver.name.trim() === '');
                                     
                                     let displayContent = '---'; 
                                     let isExpired = false;
@@ -773,6 +820,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                     return ( 
                                         <SortableRow key={item.uid || `lousa-${item.vaga}-${index}`} id={item.uid} disabled={isLocked} hideGrip={true}>
                                             <div 
+                                                data-lousa-status={(isRiscado || isExpired || isBaixou || isNullItem) ? 'done' : (isEmptyDriver ? 'empty' : 'active')}
                                                 className={`h-[48px] flex items-center justify-between gap-4 px-3 rounded-lg border opacity-100 ${isExpired ? 'bg-red-900/10 border-red-500/20' : (isRiscado ? 'bg-red-900/10 border-red-500/20' : (isBaixou ? 'bg-orange-900/10 border-orange-500/20' : 'bg-black/20 border-white/5'))}`}
                                             > 
                                                 <div 
@@ -818,32 +866,50 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         {displayContent}
                                                     </span> 
                                                     
-                                                    {!isNullItem && !isRiscado && (
+                                                    {!isNullItem && (
                                                         <>
-                                                            <button 
-                                                                id={`tut-lousa-baixar-${vaga}`}
-                                                                onClick={(e) => { 
-                                                                    e.stopPropagation(); 
-                                                                    handleLousaAction(item.uid, isBaixou ? 'cancelar_baixar' : 'baixar', vaga); 
-                                                                    if(isTutorialActive) nextStep();
-                                                                }} 
-                                                                className={`p-1.5 rounded transition-all hide-on-print flex-shrink-0 opacity-100 ${isBaixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-500/20 text-orange-400 border-orange-500/20 hover:bg-orange-500/30'}`}
-                                                                title={isBaixou ? "Cancelar Baixar" : "Baixar vaga"}
-                                                            > 
-                                                                {isBaixou ? <Icons.X size={12}/> : <Icons.ArrowDown size={12}/>} 
-                                                            </button>
+                                                            {!isRiscado && (
+                                                                <button 
+                                                                    id={`tut-lousa-baixar-${vaga}`}
+                                                                    onClick={(e) => { 
+                                                                        e.stopPropagation(); 
+                                                                        if (isBaixou) {
+                                                                            handleLousaAction(item.uid, 'cancelar_baixar', vaga);
+                                                                        } else {
+                                                                            requestConfirm("Baixar na Lousa", `Deseja baixar o motorista ${driver.name} na lousa?`, () => handleLousaAction(item.uid, 'baixar', vaga));
+                                                                        }
+                                                                        if(isTutorialActive) nextStep();
+                                                                    }} 
+                                                                    className={`p-1.5 rounded transition-all hide-on-print flex-shrink-0 opacity-100 ${isBaixou ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-500/20 text-orange-400 border-orange-500/20 hover:bg-orange-500/30'}`}
+                                                                    title={isBaixou ? "Cancelar Baixar" : "Baixar vaga"}
+                                                                > 
+                                                                    {isBaixou ? <Icons.X size={12}/> : <Icons.ArrowDown size={12}/>} 
+                                                                </button>
+                                                            )}
                                                             {!isBaixou && !isRiscado && (
                                                                 <button 
                                                                     id={`tut-lousa-duplicate-${vaga}`} 
                                                                     onClick={(e) => { 
                                                                         e.stopPropagation(); 
-                                                                        handleLousaAction(item.uid, 'duplicate', vaga); 
+                                                                        requestConfirm("Duplicar na Lousa", `Deseja duplicar o motorista ${driver.name} na lousa?`, () => handleLousaAction(item.uid, 'duplicate', vaga));
                                                                         if(isTutorialActive) nextStep();
                                                                     }} 
                                                                     className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 opacity-100" 
                                                                     title="Duplicar vaga"
                                                                 > 
                                                                     <Icons.Plus size={12}/> 
+                                                                </button>
+                                                            )}
+                                                            {isRiscado && (
+                                                                <button 
+                                                                    onClick={(e) => { 
+                                                                        e.stopPropagation(); 
+                                                                        requestConfirm("Duplicar na Lousa", `Deseja duplicar o motorista ${driver.name} na lousa?`, () => handleLousaAction(item.uid, 'duplicate', vaga));
+                                                                    }} 
+                                                                    className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 opacity-100"
+                                                                    title="Duplicar para o final da lousa"
+                                                                >
+                                                                    <Icons.Plus size={12}/>
                                                                 </button>
                                                             )}
                                                         </>
@@ -854,7 +920,11 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                             id={`tut-lousa-riscar-${vaga}`} 
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
-                                                                handleLousaAction(item.uid, 'riscar', vaga); 
+                                                                if (isRiscado) {
+                                                                    handleLousaAction(item.uid, 'riscar', vaga);
+                                                                } else {
+                                                                    requestConfirm("Riscar na Lousa", `Deseja riscar o motorista ${driver.name} na lousa?`, () => handleLousaAction(item.uid, 'riscar', vaga));
+                                                                }
                                                                 if(isTutorialActive) nextStep();
                                                             }} 
                                                             className={`p-1.5 bg-white/5 rounded hover:bg-white/10 text-white hide-on-print flex-shrink-0 opacity-100 ${isRiscado ? 'text-red-500 bg-red-500/10' : ''}`} 
@@ -864,7 +934,10 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                         </button> 
                                                     )}
                                                     
-                                                    <button onClick={(e) => { e.stopPropagation(); handleLousaAction(item.uid, 'remove', vaga); }} className="p-1.5 bg-white/5 rounded hover:bg-red-500/20 text-red-400 hide-on-print flex-shrink-0 opacity-100" title="Remover"><Icons.X size={12}/></button> 
+                                                    <button onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        requestConfirm("Remover da Lousa", "Deseja remover este item da lousa?", () => handleLousaAction(item.uid, 'remove', vaga)); 
+                                                    }} className="p-1.5 bg-white/5 rounded hover:bg-red-500/20 text-red-400 hide-on-print flex-shrink-0 opacity-100" title="Remover"><Icons.X size={12}/></button> 
                                                 </div> 
                                             </div> 
                                         </SortableRow>
@@ -951,8 +1024,32 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                         <SortableRow key={uniqueId} id={uniqueId} disabled={isLocked}>
                                             <div className={rowClass}> 
                                     <div className="flex items-center gap-3 w-full md:w-auto flex-1 relative min-w-0"> 
-                                        <button onClick={(e) => { e.stopPropagation(); removeMadrugadaVaga(vaga); }} className="text-red-400 opacity-100 hover:opacity-100 hide-on-print flex-shrink-0 relative z-30"><Icons.Trash size={12}/></button> 
-                                        <button onClick={(e) => { e.stopPropagation(); toggleMadrugadaRiscado(vaga); }} className={`p-1.5 rounded hover:bg-white/10 flex-shrink-0 ${mData.riscado ? 'text-red-400' : 'text-white/30'} hide-on-print opacity-100 relative z-30`}> <Icons.Slash size={12}/> </button> 
+                                        <button onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            requestConfirm("Remover da Madrugada", "Deseja remover este motorista da madrugada?", () => removeMadrugadaVaga(vaga)); 
+                                        }} className="text-red-400 opacity-100 hover:opacity-100 hide-on-print flex-shrink-0 relative z-30"><Icons.Trash size={12}/></button> 
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                if (mData.riscado) {
+                                                    toggleMadrugadaRiscado(vaga);
+                                                } else {
+                                                    requestConfirm("Riscar na Madrugada", `Deseja riscar o motorista ${driver.name} na madrugada?`, () => toggleMadrugadaRiscado(vaga));
+                                                }
+                                            }} 
+                                            className={`p-1.5 rounded hover:bg-white/10 flex-shrink-0 ${mData.riscado ? 'text-red-400' : 'text-white/30'} hide-on-print opacity-100 relative z-30`}> <Icons.Slash size={12}/> </button> 
+                                        {mData.riscado && !isNullMadrugada && (
+                                            <button 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    requestConfirm("Duplicar na Madrugada", `Deseja duplicar o motorista ${driver.name} na madrugada?`, () => duplicateMadrugadaDriver(vaga));
+                                                }} 
+                                                className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 hide-on-print flex-shrink-0 relative z-30 opacity-100"
+                                                title="Duplicar para o final da madrugada"
+                                            >
+                                                <Icons.Plus size={12}/>
+                                            </button>
+                                        )}
                                         <div 
                                             className={`relative font-mono text-sm bg-indigo-500/20 text-indigo-300 w-[35px] h-[30px] min-w-[35px] rounded flex items-center justify-center flex-shrink-0 leading-none pt-[1px] print:bg-transparent ${isNullMadrugada ? 'opacity-0' : 'opacity-100'}`}
                                             data-print-bg="transparent"

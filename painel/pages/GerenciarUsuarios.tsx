@@ -564,7 +564,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                         </div>
                                         {!canManageSystems && (
                                             <p className="text-[10px] text-amber-400 font-bold mt-1 italic">
-                                                Apenas o criador ({formUser.createdBy}) ou Breno podem alterar os sistemas deste usuário.
+                                                Apenas o criador ({formUser.createdBy === 'Breno' ? 'Sistema' : formUser.createdBy}) ou a Coordenação podem alterar os sistemas deste usuário.
                                             </p>
                                         )}
                                         {canManageSystems && currentUser.username !== 'Breno' && (

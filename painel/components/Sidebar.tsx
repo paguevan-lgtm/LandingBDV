@@ -171,7 +171,7 @@ export const Sidebar = ({
                         <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">
-                                {systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext} • Painel
+                                {systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext} | Painel
                             </div>
                         </div>
                     </div>

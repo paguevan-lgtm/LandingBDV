@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 // Components
 import { Sidebar } from './components/Sidebar';
 import { GlobalModals } from './components/GlobalModals';
+import { CustomDatePicker } from './components/CustomDatePicker';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -154,6 +155,21 @@ const AppContent = () => {
     const [popupsEnabled, setPopupsEnabled] = useState(() => localStorage.getItem('nexflow_popups_enabled') !== 'false');
     const [siteNotificationsEnabled, setSiteNotificationsEnabled] = useState(() => localStorage.getItem('nexflow_site_notifs_enabled') !== 'false');
     
+    // Estados para confirmação de Recebimento com Data
+    const [paymentConfirmTrip, setPaymentConfirmTrip] = useState<any>(null);
+    const [paymentConfirmDate, setPaymentConfirmDate] = useState(getTodayDate());
+
+    const [showTempTrips, rawSetShowTempTrips] = useState(() => {
+        if (!user) return true;
+        return localStorage.getItem(`${user.username}_nexflow_show_temp_trips`) !== 'false';
+    });
+    
+    // Sync showTempTrips with user preferences when user changes
+    useEffect(() => {
+        if (user) {
+            rawSetShowTempTrips(localStorage.getItem(`${user.username}_nexflow_show_temp_trips`) !== 'false');
+        }
+    }, [user]);    
     const [ipHistory, setIpHistory] = useState<any[]>([]);
     const [ipLabels, setIpLabels] = useState<any>({});
     const [deviceLabels, setDeviceLabels] = useState<any>({});
@@ -234,6 +250,14 @@ const AppContent = () => {
 
     const theme = useMemo(() => THEMES[themeKey] || THEMES.default, [themeKey]);
     
+    const filteredData = useMemo(() => {
+        if (showTempTrips) return data;
+        return {
+            ...data,
+            trips: (data.trips || []).filter((t: any) => !t.isTemp)
+        };
+    }, [data, showTempTrips]);
+
     // Metric Tracking Helper
     const trackApiMetric = useCallback((type: 'aiStudio' | 'magicRegistration', usdCost: number) => {
         if (!db) return;
@@ -408,7 +432,8 @@ const AppContent = () => {
                 const isOwner = t.createdBy === user.username;
                 const isPaidByMe = t.paymentStatus === 'Pago' && t.receivedBy === user.username;
                 const isStefanyLegacy = t.date === '2026-04-29' && user.username === 'Stefany' && (!t.createdBy || t.createdBy === 'Sistema');
-                // Se a viagem tem um dono definido (createdBy), respeita isso acima de tudo
+                
+                // Se a viagem é de madrugada e EU não sou o dono (não foi passado pra mim), eu não vejo no financeiro
                 if (!isOwner && !isPaidByMe && !isStefanyLegacy) return false;
             }
 
@@ -417,6 +442,7 @@ const AppContent = () => {
         });
 
         const groups: any = {};
+        const perOperatorPending: Record<string, number> = {};
         let pending = 0;
         let paid = 0;
 
@@ -444,8 +470,14 @@ const AppContent = () => {
             const isCancelled = t.status === 'Cancelada';
 
             if (!isCancelled) {
-                if (isPaid) paid += val;
-                else pending += val;
+                if (isPaid) {
+                    paid += val;
+                } else {
+                    pending += val;
+                    // Detalha quem é o dono/responsável pelo débito pendente
+                    const owner = t.createdBy || 'Sistema';
+                    perOperatorPending[owner] = (perOperatorPending[owner] || 0) + val;
+                }
             }
 
             if (!groups[t.date]) groups[t.date] = { date: t.date, totalValue: 0, trips: [] };
@@ -454,7 +486,7 @@ const AppContent = () => {
         });
 
         return {
-            summary: { pending, paid },
+            summary: { pending, paid, perOperatorPending },
             groups: Object.values(groups).sort((a: any, b: any) => b.date.localeCompare(a.date))
         };
     }, [data.trips, data.passengers, billingDate, pricePerPassenger]);
@@ -1006,7 +1038,7 @@ const AppContent = () => {
                 if (node === 'trips') {
                     finalPayload.pricePerPassenger = pricePerPassenger;
                     if (user?.username) {
-                        finalPayload.createdBy = user.username;
+                        finalPayload.createdBy = payload.createdBy || user.username;
                     }
                 }
 
@@ -1400,7 +1432,7 @@ const AppContent = () => {
         { label: 'Novo Passageiro', icon: <Icons.Users size={18}/>, action: () => { 
             const now = new Date();
             const timeToUse = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
-            setFormData({neighborhood: systemContext === 'Mip' ? BAIRROS_MIP[0] : BAIRROS[0], status:'Ativo', payment:'Dinheiro', passengerCount:1, luggageCount:0, date:getTodayDate(), time: timeToUse}); 
+            setFormData({neighborhood: systemContext === 'Mip' ? BAIRROS_MIP[0] : BAIRROS[0], status:'Ativo', payment:'Dinheiro', passengerCount:1, luggageCount:0, date:getTodayDate(), time: timeToUse, responsibleUser: user.username}); 
             setModal('passenger'); 
         }, color: 'blue-400' },
         { label: 'Calculadora Rápida', icon: <Icons.Calculator size={18}/>, action: () => setCalcOpen(true), color: 'yellow-400' },
@@ -1645,12 +1677,20 @@ const AppContent = () => {
         const savedMenuCb = savedMenuRef.on('value', (snap: any) => { 
             const savedOrder = snap.val(); 
             if (savedOrder && Array.isArray(savedOrder)) { 
-                // Remove duplicates from savedOrder to prevent duplicate keys in rendering
                 const uniqueSavedOrder = Array.from(new Set(savedOrder));
                 const reordered = uniqueSavedOrder.map(id => DEFAULT_MENU_ITEMS.find(i => i.id === id)).filter(Boolean); 
                 const missing = DEFAULT_MENU_ITEMS.filter(i => !uniqueSavedOrder.includes(i.id)); 
                 setOrderedMenuItems([...reordered, ...missing]); 
             } 
+        });
+
+        const showTempTripsRef = db.ref(`user_data/${user.username}/preferences/showTempTrips`);
+        const showTempTripsCb = showTempTripsRef.on('value', (snap: any) => {
+            const val = snap.val();
+            if (val !== null) {
+                rawSetShowTempTrips(val === true);
+                localStorage.setItem(`${user.username}_nexflow_show_temp_trips`, String(val === true));
+            }
         });
 
         const swapsPath = tableSystemContext === 'Pg' ? `folgas_swaps/${tableWeekId}` : `${tableSystemContext}/folgas_swaps/${tableWeekId}`;
@@ -2040,146 +2080,186 @@ const AppContent = () => {
             const existingIds = new Set(data.trips.map((t: any) => parseInt(t.realId || t.id)).filter((n: number) => !isNaN(n)));
             let nextIdCandidate = 1;
 
-            // 1. ITERATE ACTIVE SLOTS TO CREATE TRIPS IF IN WINDOW
-            activeSlots.forEach((slot:any) => {
-                if (!slot.time) return;
-                
-                const [h, m] = slot.time.split(':').map(Number);
-                
-                // Construct Date strictly based on Operational Date
-                const [yOp, mOp, dOp] = currentOpDate.split('-').map(Number);
-                const slotDate = new Date(yOp, mOp - 1, dOp, h, m, 0);
+                // 1. ITERATE ACTIVE SLOTS TO CREATE TRIPS IF IN WINDOW
+                const tripsUpdates: any = {};
+                let hasUpdates = false;
 
-                // Logic: If slot hour is small (e.g. 0, 1, 2, 3, 4) AND OpDate starts at 6, it's the next day.
-                if (h < 5) {
-                    slotDate.setDate(slotDate.getDate() + 1);
-                }
-
-                const diffMinutes = (now.getTime() - slotDate.getTime()) / 60000;
-
-                // --- CRIAÇÃO DA VIAGEM TEMPORÁRIA ---
-                // Janela Rígida: Cria APENAS quando chegar a hora (0 min) e mantém por 45 min.
-                if (diffMinutes >= 0 && diffMinutes <= 45) {
+                activeSlots.forEach((slot:any) => {
+                    if (!slot.time) return;
                     
-                    const driverSp = spList.find((d:any) => d.vaga === slot.vaga);
-                    const driverDb = driverSp ? data.drivers.find((d:any) => d?.name?.toLowerCase() === driverSp?.name?.toLowerCase()) : null;
+                    const [h, m] = slot.time.split(':').map(Number);
                     
-                    if (!driverDb) return;
-
-                    const slotDateStr = [
-                        slotDate.getFullYear(),
-                        String(slotDate.getMonth() + 1).padStart(2, '0'),
-                        String(slotDate.getDate()).padStart(2, '0')
-                    ].join('-');
-
-                    // CORREÇÃO: Calcular Data Final da Viagem ANTES de checar existência
-                    const tripTime = addMinutes(slot.time, 60);
-                    const [sH] = slot.time.split(':').map(Number);
-                    const [tH] = tripTime.split(':').map(Number);
-                    
-                    let finalTripDate = slotDateStr;
-                    // Se a viagem cruzar a meia noite (Ex: Slot 23:30 -> Trip 00:30), a data avança
-                    if (tH < sH) {
-                         finalTripDate = dateAddDays(slotDateStr, 1);
-                    }
-
-                    // Check if trip exists for THIS driver on THIS *FINAL* date
-                    // Use realId for comparison to handle Mistura -> Specific system transitions safely
-                    const cleanDriverId = driverDb.realId || driverDb.id;
-                    const exists = data.trips.some((t:any) => 
-                        (t.driverId === cleanDriverId || (t.driverName && t.driverName.toLowerCase().trim() === driverDb.name.toLowerCase().trim())) && 
-                        t.date === finalTripDate && 
-                        t.time === tripTime && // Adicionado conforme pedido: "E NAQUELA HORA"
-                        (t.isTemp || t.status !== 'Cancelada')
-                    );
-
-                    if (!exists) {
-                        while (existingIds.has(nextIdCandidate)) {
-                            nextIdCandidate++;
-                        }
-                        const nextId = nextIdCandidate.toString();
-                        existingIds.add(nextIdCandidate);
-
-                        const newTrip = {
-                            id: nextId, 
-                            driverId: cleanDriverId,
-                            driverName: driverDb.name,
-                            time: tripTime, 
-                            date: finalTripDate,
-                            passengerIds: [],
-                            status: 'Em andamento',
-                            isTemp: true,
-                            vaga: slot.vaga,
-                            createdBy: 'Sistema'
-                        };
-                        db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).child(newTrip.id).set(newTrip);
-                    }
-                }
-            });
-
-            // 2. CLEANUP: REMOVE EXPIRED, INVALID OR REDUNDANT TEMP TRIPS
-            const timeToMinutes = (t: string) => {
-                if (!t) return -1;
-                const [h, m] = t.split(':').map(Number);
-                return h * 60 + m;
-            };
-
-            data.trips.forEach((t:any) => {
-                if (t.isTemp && t.status !== 'Finalizada') {
-                    
-                    // Check if a fixed trip already exists for this driver/time/date
-                    const fixedExists = data.trips.some((ft:any) => 
-                        !ft.isTemp && 
-                        ft.status !== 'Cancelada' &&
-                        ft.date === t.date && 
-                        ft.time === t.time &&
-                        (ft.driverId === t.driverId || (ft.driverName && t.driverName && ft.driverName.toLowerCase().trim() === t.driverName.toLowerCase().trim()))
-                    );
-
-                    if (fixedExists) {
-                        db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).child(t.realId || t.id).remove();
-                        return;
-                    }
-
-                    // Find the best matching active slot for this trip (closest time)
-                    const activeSlot = activeSlots
-                        .filter((s:any) => s.vaga === t.vaga)
-                        .sort((a, b) => {
-                            const diffA = Math.abs(timeToMinutes(addMinutes(a.time, 60)) - timeToMinutes(t.time));
-                            const diffB = Math.abs(timeToMinutes(addMinutes(b.time, 60)) - timeToMinutes(t.time));
-                            return diffA - diffB;
-                        })[0];
-
-                    if (!activeSlot) {
-                        // Only remove if it's strictly the same operational date context
-                        if (t.date === getTodayDate() || t.date === currentOpDate) {
-                             db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).child(t.realId || t.id).remove();
-                        }
-                        return;
-                    }
-
-                    // Recalculate slot time to check expiration
-                    const [h, m] = activeSlot.time.split(':').map(Number);
+                    // Construct Date strictly based on Operational Date
                     const [yOp, mOp, dOp] = currentOpDate.split('-').map(Number);
                     const slotDate = new Date(yOp, mOp - 1, dOp, h, m, 0);
-                    
-                    if (h < 5) slotDate.setDate(slotDate.getDate() + 1);
-                    
-                    const diff = (now.getTime() - slotDate.getTime()) / 60000;
-                    
-                    // Expiration: Delete exactly after 45 minutes OR if time is invalid (< 0)
-                    if (diff > 45 || diff < 0) {
-                        db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).child(t.realId || t.id).remove();
-                    } else {
-                        // Update trip time if slot time changed (keeps it sync with +60 rule)
-                        const correctTripTime = addMinutes(activeSlot.time, 60);
-                        if (t.time !== correctTripTime) {
-                             db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).child(t.realId || t.id).update({ time: correctTripTime });
+
+                    // Logic: If slot hour is small (e.g. 0, 1, 2, 3, 4) AND OpDate starts at 6, it's the next day.
+                    if (h < 5) {
+                        slotDate.setDate(slotDate.getDate() + 1);
+                    }
+
+                    const diffMinutes = (now.getTime() - slotDate.getTime()) / 60000;
+
+                    // Criação flexível: cria a viagem temporária para todos os slots ativos para que possam receber passageiros antecipadamente
+                    if (diffMinutes >= 0 && diffMinutes <= 45) {
+                        
+                        const driverSp = spList.find((d:any) => d.vaga === slot.vaga);
+                        const driverDb = driverSp ? data.drivers.find((d:any) => d?.name?.toLowerCase() === driverSp?.name?.toLowerCase()) : null;
+                        
+                        if (!driverDb) return;
+
+                        const slotDateStr = [
+                            slotDate.getFullYear(),
+                            String(slotDate.getMonth() + 1).padStart(2, '0'),
+                            String(slotDate.getDate()).padStart(2, '0')
+                        ].join('-');
+
+                        // CORREÇÃO: Calcular Data Final da Viagem ANTES de checar existência
+                        const tripTime = addMinutes(slot.time, 60);
+                        const [sH] = slot.time.split(':').map(Number);
+                        const [tH] = tripTime.split(':').map(Number);
+                        
+                        let finalTripDate = slotDateStr;
+                        // Se a viagem cruzar a meia noite (Ex: Slot 23:30 -> Trip 00:30), a data avança
+                        if (tH < sH) {
+                             finalTripDate = dateAddDays(slotDateStr, 1);
+                        }
+
+                        // Check if trip exists for THIS driver on THIS *FINAL* date
+                        // Use realId for comparison to handle Mistura -> Specific system transitions safely
+                        const cleanDriverId = driverDb.realId || driverDb.id;
+                        const exists = data.trips.some((t:any) => 
+                            (t.driverId === cleanDriverId || (t.driverName && t.driverName.toLowerCase().trim() === driverDb.name.toLowerCase().trim())) && 
+                            t.date === finalTripDate && 
+                            t.time === tripTime && // Adicionado conforme pedido: "E NAQUELA HORA"
+                            (t.isTemp || t.status !== 'Cancelada')
+                        );
+
+                        // Also check if we just added it to the pending updates batch
+                        const pendingExists = Object.values(tripsUpdates).some((t:any) => 
+                            (t.driverId === cleanDriverId || (t.driverName && t.driverName.toLowerCase().trim() === driverDb.name.toLowerCase().trim())) && 
+                            t.date === finalTripDate && 
+                            t.time === tripTime &&
+                            (t.isTemp || t.status !== 'Cancelada')
+                        );
+
+                        if (!exists && !pendingExists) {
+                            while (existingIds.has(nextIdCandidate)) {
+                                nextIdCandidate++;
+                            }
+                            const nextId = nextIdCandidate.toString();
+                            existingIds.add(nextIdCandidate);
+
+                            const newTrip = {
+                                id: nextId, 
+                                driverId: cleanDriverId,
+                                driverName: driverDb.name,
+                                time: tripTime, 
+                                date: finalTripDate,
+                                passengerIds: [],
+                                status: 'Em andamento',
+                                isTemp: true,
+                                vaga: slot.vaga,
+                                createdBy: 'Sistema'
+                            };
+                            tripsUpdates[newTrip.id] = newTrip;
+                            hasUpdates = true;
                         }
                     }
+                });
+
+                if (hasUpdates) {
+                    db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).update(tripsUpdates);
                 }
-            });
-        };
+
+                // 2. CLEANUP: REMOVE EXPIRED, INVALID OR REDUNDANT TEMP TRIPS
+                const timeToMinutes = (t: string) => {
+                    if (!t) return -1;
+                    const [h, m] = t.split(':').map(Number);
+                    return h * 60 + m;
+                };
+
+                const cleanupUpdates: any = {};
+                let hasCleanupUpdates = false;
+
+                data.trips.forEach((t:any) => {
+                    if (t.isTemp && t.status !== 'Finalizada') {
+                        
+                        // Check if a fixed trip already exists for this driver/time/date
+                        const fixedExists = data.trips.some((ft:any) => 
+                            !ft.isTemp && 
+                            ft.status !== 'Cancelada' &&
+                            ft.date === t.date && 
+                            ft.time === t.time &&
+                            (ft.driverId === t.driverId || (ft.driverName && t.driverName && ft.driverName.toLowerCase().trim() === t.driverName.toLowerCase().trim()))
+                        );
+
+                        if (fixedExists) {
+                            cleanupUpdates[t.realId || t.id] = null;
+                            hasCleanupUpdates = true;
+                            return;
+                        }
+
+                        // Find the best matching active slot for this trip (closest time)
+                        const activeSlot = activeSlots
+                            .filter((s:any) => s.vaga === t.vaga)
+                            .sort((a, b) => {
+                                const diffA = Math.abs(timeToMinutes(addMinutes(a.time, 60)) - timeToMinutes(t.time));
+                                const diffB = Math.abs(timeToMinutes(addMinutes(b.time, 60)) - timeToMinutes(t.time));
+                                return diffA - diffB;
+                            })[0];
+
+                        if (!activeSlot) {
+                            // Only remove if it's strictly the same operational date context
+                            if (t.date === getTodayDate() || t.date === currentOpDate) {
+                                cleanupUpdates[t.realId || t.id] = null;
+                                hasCleanupUpdates = true;
+                            }
+                            return;
+                        }
+
+                        // Recalculate slot time to check expiration
+                        const [h, m] = activeSlot.time.split(':').map(Number);
+                        const [yOp, mOp, dOp] = currentOpDate.split('-').map(Number);
+                        const slotDate = new Date(yOp, mOp - 1, dOp, h, m, 0);
+                        
+                        if (h < 5) slotDate.setDate(slotDate.getDate() + 1);
+                        
+                        const diff = (now.getTime() - slotDate.getTime()) / 60000;
+                        
+                        // Expiration: Delete exactly after 45 minutes OR if time is invalid (< 0)
+                        if (diff > 45 || diff < 0) {
+                            cleanupUpdates[t.realId || t.id] = null;
+                            hasCleanupUpdates = true;
+                        } else {
+                            // Update trip time if slot time changed (keeps it sync with +60 rule)
+                            const correctTripTime = addMinutes(activeSlot.time, 60);
+                            if (t.time !== correctTripTime) {
+                                const [sH] = activeSlot.time.split(':').map(Number);
+                                const [tH] = correctTripTime.split(':').map(Number);
+                                
+                                const slotDateStr = [
+                                    slotDate.getFullYear(),
+                                    String(slotDate.getMonth() + 1).padStart(2, '0'),
+                                    String(slotDate.getDate()).padStart(2, '0')
+                                ].join('-');
+                                
+                                let finalTripDate = slotDateStr;
+                                if (tH < sH) finalTripDate = dateAddDays(slotDateStr, 1);
+                                
+                                // Se for para atualizar, preenchemos o tempo e a data
+                                cleanupUpdates[`${t.realId || t.id}/time`] = correctTripTime;
+                                cleanupUpdates[`${t.realId || t.id}/date`] = finalTripDate;
+                                hasCleanupUpdates = true;
+                            }
+                        }
+                    }
+                });
+
+                if (hasCleanupUpdates) {
+                    db.ref(systemContext === 'Pg' ? 'trips' : `${systemContext}/trips`).update(cleanupUpdates);
+                }
+            };
 
         manageTempTrips();
 
@@ -2261,7 +2341,7 @@ const AppContent = () => {
                             const pSystem = p?.system || systemContext;
                             db.ref(pSystem === 'Pg' ? `passengers/${pid}` : `${pSystem}/passengers/${pid}`).update({ 
                                 status: 'Ativo',
-                                time: trip.time, 
+                                time: (trip.time || '').split('/')[0].trim(), 
                                 date: trip.date 
                             });
                         });
@@ -3031,7 +3111,7 @@ const AppContent = () => {
              // Tenta achar motorista pelo nome antes de falhar
              const drByName = data.drivers.find((d:any) => d.name.toLowerCase().trim() === (formData.driverName||'').toLowerCase().trim());
              if (drByName) {
-                 formData.driverId = drByName.id; // Auto-fix ID
+                 setFormData((prev: any) => ({ ...prev, driverId: drByName.id }));
              } else {
                  return notify("Selecione um motorista", "error");
              }
@@ -3308,24 +3388,22 @@ const AppContent = () => {
             lastEditedBy: user.username
         };
 
-        if (isMadrugada) {
-            const operators = (data.users || []).filter((u: any) => u.role === 'operador' && u.username !== 'Breno');
-            const fallback = operators.find((u: any) => u.username === user.username) ? user.username : (operators[0]?.username || user.username);
-            // Se o responsibleUser for 'Sistema' ou estiver vazio, usa o fallback. 
-            // Senão, usa o que foi selecionado no modal.
-            payload.createdBy = (formData.responsibleUser && formData.responsibleUser !== 'Sistema') ? formData.responsibleUser : fallback;
-        } else if (!editingTripId) {
-            payload.createdBy = user.username;
-        } else {
-            const existingTrip = data.trips.find((t:any) => t.id === editingTripId);
-            if (existingTrip) {
-                if (existingTrip.createdBy === 'Sistema' && passengerIdsToSave.length > 0) {
-                    payload.createdBy = user.username;
-                } else {
-                    payload.createdBy = existingTrip.createdBy || user.username;
-                }
+        // PRIORIDADE ABSOLUTA: DETERMINAÇÃO DO RESPONSÁVEL (createdBy)
+        // 1. Se o usuário selecionou alguém no modal (responsibleUser)
+        // 2. Se não, tenta manter o criador original se for edição
+        // 3. Por fim, cai no usuário logado
+        let tripOwner = user.username;
+        
+        if (formData.responsibleUser && formData.responsibleUser !== 'Sistema') {
+            tripOwner = formData.responsibleUser;
+        } else if (editingTripId) {
+            const existingTrip = data.trips.find((tx: any) => tx.id === editingTripId);
+            if (existingTrip && existingTrip.createdBy) {
+                tripOwner = existingTrip.createdBy;
             }
         }
+        
+        payload.createdBy = tripOwner;
 
         const pCount = suggestedTrip.occupancy || 0;
         payload.pCount = pCount;
@@ -3345,7 +3423,8 @@ const AppContent = () => {
         suggestedTrip.passengers.forEach((p:any) => {
             const pSystem = p.system || systemContext;
             const pId = p.realId || p.id;
-            db.ref(pSystem === 'Pg' ? `passengers/${pId}` : `${pSystem}/passengers/${pId}`).update({ time: finalTime, date: finalDate });
+            const passengerTime = (finalTime || '').split('/')[0].trim().substring(0, 5);
+            db.ref(pSystem === 'Pg' ? `passengers/${pId}` : `${pSystem}/passengers/${pId}`).update({ time: passengerTime, date: finalDate });
         });
         
         payload.ticketPrice = pricePerPassenger;
@@ -3355,6 +3434,12 @@ const AppContent = () => {
         payload.value = val;
 
         dbOp(editingTripId ? 'update' : 'create', 'trips', payload);
+        
+        if (!editingTripId) {
+            logAction('Criou Viagem', `Viagem #${tripId} (${isMadrugada ? 'Madrugada' : 'Normal'}) - Resp: ${payload.createdBy || user.username}`);
+        } else {
+            logAction('Editou Viagem', `Viagem #${tripId} - Resp: ${payload.createdBy || user.username}`);
+        }
         
         setModal(null);
         setSuggestedTrip(null);
@@ -3428,8 +3513,23 @@ const AppContent = () => {
         }
         
         dbOp('update', 'trips', payload);
+        logAction('Alterou Status Viagem', `Viagem #${id} alterada para ${status}`);
         
         const trip = data.trips.find((t:any) => t.id === id);
+        
+        if (trip && status === 'Cancelada') {
+            if (trip.passengerIds && Array.isArray(trip.passengerIds)) {
+                trip.passengerIds.forEach((pid: string) => {
+                    const p = data.passengers.find((x: any) => x.id === pid);
+                    const pSystem = p?.system || systemContext;
+                    const truncatedTime = (trip.time || '').split('/')[0].trim().substring(0, 5);
+                    db.ref(pSystem === 'Pg' ? `passengers/${pid}` : `${pSystem}/passengers/${pid}`).update({ 
+                        time: truncatedTime 
+                    });
+                });
+            }
+        }
+
         if (trip && status === 'Finalizada') {
             if (!trip.passengersSnapshot && trip.passengerIds) {
                 const pax = data.passengers.filter((p:any) => trip.passengerIds.includes(p.realId || p.id));
@@ -3463,6 +3563,7 @@ const AppContent = () => {
         
         delete newTrip.createdAt;
         dbOp('create', 'trips', newTrip);
+        logAction('Duplicou Viagem', `Viagem #${t.id} duplicada como #${newId}`);
         notify('Viagem duplicada para hoje!', 'success');
     };
 
@@ -3502,9 +3603,12 @@ const AppContent = () => {
     };
 
     const cancelConfirmation = (vaga: string) => {
-        const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
-        db.ref(tableSystemContext === 'Pg' ? `daily_tables/${currentOpDate}/status/${vaga}` : `${tableSystemContext}/daily_tables/${currentOpDate}/status/${vaga}`).remove();
-        notify("Confirmação cancelada!", "delete");
+        const driverName = spList.find((d:any) => d.vaga === vaga)?.name || 'Desconhecido';
+        requestConfirm("Cancelar Confirmação?", `Deseja realmente remover o motorista ${driverName} vaga ${vaga} da tabela Confirmados?`, () => {
+            const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
+            db.ref(tableSystemContext === 'Pg' ? `daily_tables/${currentOpDate}/status/${vaga}` : `${tableSystemContext}/daily_tables/${currentOpDate}/status/${vaga}`).remove();
+            notify("Confirmação cancelada!", "delete");
+        });
     };
 
     const removeTempTrip = (vaga: string) => {
@@ -3539,11 +3643,15 @@ const AppContent = () => {
         } else if (action === 'remove') {
             const itemToRemove = newLousa[itemIndex];
             if(itemToRemove) {
-                removeTempTrip(itemToRemove.vaga);
-                logAction('Removeu Vaga da Lousa', `Vaga: ${itemToRemove.vaga}`);
+                const driverName = itemToRemove.isNull ? 'Vazio' : (spList.find((d:any) => d.vaga === itemToRemove.vaga)?.name || 'Desconhecido');
+                requestConfirm("Remover da Lousa?", `Deseja realmente remover o motorista ${driverName} vaga ${itemToRemove.vaga} da tabela Lousa?`, () => {
+                    removeTempTrip(itemToRemove.vaga);
+                    logAction('Removeu Vaga da Lousa', `Vaga: ${itemToRemove.vaga}`);
+                    newLousa.splice(itemIndex, 1);
+                    db.ref(tableSystemContext === 'Pg' ? `daily_tables/${lousaDate}/lousaOrder` : `${tableSystemContext}/daily_tables/${lousaDate}/lousaOrder`).set(newLousa);
+                });
+                return;
             }
-            newLousa.splice(itemIndex, 1);
-            // Don't remove status anymore, keep in confirmed list
         } else if (action === 'remove_all') {
             if (vagaRef) {
                 removeTempTrip(vagaRef);
@@ -3621,9 +3729,18 @@ const AppContent = () => {
         setModal(null);
     };
 
+    const duplicateMadrugadaDriver = (vaga: string) => {
+        const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
+        const newList = [...madrugadaList, vaga];
+        db.ref(tableSystemContext === 'Pg' ? 'madrugada_config/list' : `${tableSystemContext}/madrugada_config/list`).set(newList);
+        notify("Vaga duplicada na Madrugada!", "success");
+        logAction('Duplicou Vaga na Madrugada', `Vaga: ${vaga}`);
+    };
+
     const removeMadrugadaVaga = (vaga: string) => {
         const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
-        requestConfirm("Remover esta vaga da madrugada?", "Ela sairá da lista da madrugada permanentemente.", () => {
+        const driverName = spList.find((d:any) => d.vaga === vaga)?.name || 'Desconhecido';
+        requestConfirm("Remover esta vaga da madrugada?", `Deseja realmente remover o motorista ${driverName} vaga ${vaga} da tabela Madrugada?`, () => {
             const newList = madrugadaList.filter((v: string) => v !== vaga);
             db.ref(tableSystemContext === 'Pg' ? 'madrugada_config/list' : `${tableSystemContext}/madrugada_config/list`).set(newList);
             logAction('Removeu Vaga da Madrugada', `Vaga: ${vaga}`);
@@ -4022,7 +4139,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 if(view==='passengers') { 
                                     const now = new Date();
                                     const timeToUse = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
-                                    setFormData({neighborhood: systemContext === 'Mip' ? BAIRROS_MIP[0] : BAIRROS[0], status:'Ativo', payment:'Dinheiro', passengerCount:1, luggageCount:0, date:getTodayDate(), time: timeToUse}); 
+                                    setFormData({neighborhood: systemContext === 'Mip' ? BAIRROS_MIP[0] : BAIRROS[0], status:'Ativo', payment:'Dinheiro', passengerCount:1, luggageCount:0, date:getTodayDate(), time: timeToUse, responsibleUser: user.username}); 
                                     setModal('passenger'); 
                                 } else if(view==='trips') { setSuggestedTrip(null); setEditingTripId(null); setModal('trip'); } else if(view==='appointments') { 
                                     const now = new Date();
@@ -4047,11 +4164,11 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
     
                     <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth relative overscroll-contain">
                         <div className="max-w-6xl mx-auto pb-20">
-                            {view === 'dashboard' && <Dashboard data={data} theme={theme} setView={setView} onOpenModal={(t:string)=>{ 
+                            {view === 'dashboard' && <Dashboard data={filteredData} theme={theme} setView={setView} onOpenModal={(t:string)=>{ 
                                 if(t==='newPass'){ 
                                     const now = new Date();
                                     const timeToUse = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
-                                    setFormData({neighborhood: systemContext === 'Mip' ? BAIRROS_MIP[0] : BAIRROS[0], status:'Ativo', payment:'Dinheiro', passengerCount:1, luggageCount: 0, date: getTodayDate(), time: timeToUse}); 
+                                    setFormData({neighborhood: systemContext === 'Mip' ? BAIRROS_MIP[0] : BAIRROS[0], status:'Ativo', payment:'Dinheiro', passengerCount:1, luggageCount: 0, date: getTodayDate(), time: timeToUse, responsibleUser: user.username}); 
                                     setModal('passenger'); 
                                 } else { setModal('trip'); setFormData({}); } 
                             }} dbOp={dbOp} setAiModal={setAiModal} user={user} systemContext={systemContext} notify={notify} />}
@@ -4060,7 +4177,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             {view === 'drivers' && <Motoristas data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setFormData={setFormData} setModal={setModal} del={del} notify={notify} />}
                             {view === 'trips' && <Viagens 
                                 user={user}
-                                data={{...data, pricePerPassenger}} 
+                                data={{...filteredData, pricePerPassenger}} 
                                 theme={theme} 
                                 searchTerm={searchTerm} 
                                 searchType={searchType} 
@@ -4076,7 +4193,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 pranchetaValue={pranchetaValue} 
                             />}
                             {view === 'appointments' && <Agendamentos 
-                                data={data} 
+                                data={filteredData} 
                                 theme={theme} 
                                 setFormData={setFormData} 
                                 setModal={setModal} 
@@ -4094,7 +4211,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             
                             {/* Tabela Recebe Função para Calcular Listas Futuras */}
                             {view === 'table' && <Tabela 
-                                data={data} 
+                                data={filteredData} 
                                 pranchetaData={duePranchetaData}
                                 weekId={dueWeekId}
                                 uiTicker={uiTicker}
@@ -4105,7 +4222,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 editName={editName} tempName={tempName} tempVaga={tempVaga} setEditName={setEditName} setTempName={setTempName} setTempVaga={setTempVaga} saveDriverName={saveDriverName} 
                                 updateTableStatus={updateTableStatus} currentRotatedList={getRotatedList(currentOpDate)} confirmedTimes={confirmedTimes} isTimeExpired={isTimeExpired} 
                                 lousaOrder={lousaOrder} toggleLousaFromConfirmados={toggleLousaFromConfirmados} cancelConfirmation={cancelConfirmation} handleLousaAction={handleLousaAction} startLousaTime={startLousaTime} 
-                                addMadrugadaVaga={addMadrugadaVaga} madrugadaList={madrugadaList} removeMadrugadaVaga={removeMadrugadaVaga} toggleMadrugadaRiscado={toggleMadrugadaRiscado} spList={spList} madrugadaData={madrugadaData} openMadrugadaTrip={openMadrugadaTrip} 
+                                addMadrugadaVaga={addMadrugadaVaga} madrugadaList={madrugadaList} removeMadrugadaVaga={removeMadrugadaVaga} toggleMadrugadaRiscado={toggleMadrugadaRiscado} duplicateMadrugadaDriver={duplicateMadrugadaDriver} spList={spList} madrugadaData={madrugadaData} openMadrugadaTrip={openMadrugadaTrip} 
                                 cannedMessages={cannedMessages} addCannedMessage={addCannedMessage} updateCannedMessage={updateCannedMessage} deleteCannedMessage={deleteCannedMessage} 
                                 addNullLousaItem={addNullLousaItem} addNullMadrugadaItem={addNullMadrugadaItem} notify={notify} 
                                 requestConfirm={requestConfirm}
@@ -4127,7 +4244,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                             
                             {(view === 'financeiro' || view === 'billing') && <Financeiro 
                                 user={user}
-                                data={data} 
+                                data={filteredData} 
                                 spList={spList}
                                 pranchetaData={viewedPranchetaData}
                                 weekId={viewedWeekId}
@@ -4150,21 +4267,25 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                     
                                     // Restrição: Só quem recebeu (ou admin) pode desmarcar
                                     if (!isPaying && trip.receivedBy && trip.receivedBy !== user.username && user.role !== 'admin') {
-                                        return notify(`Apenas ${trip.receivedBy} ou Coordenação pode desfazer este pagamento.`, 'error');
+                                        const displayReceiver = trip.receivedBy === 'Breno' ? 'Sistema' : trip.receivedBy;
+                                        return notify(`Apenas ${displayReceiver} ou Coordenação pode desfazer este pagamento.`, 'error');
                                     }
         
-                                    const payload:any = { 
-                                        id: trip.id, 
-                                        paymentStatus: isPaying ? 'Pago' : 'Pendente' 
-                                    };
                                     if (isPaying) {
-                                        payload.receivedBy = user.username;
-                                        payload.receivedAt = getTodayDate(); // Usa data YYYY-MM-DD para facilitar filtro
+                                        // Abrir modal de confirmação de data
+                                        setPaymentConfirmTrip(trip);
+                                        setPaymentConfirmDate(getTodayDate());
                                     } else {
-                                        payload.receivedBy = null;
-                                        payload.receivedAt = null;
+                                        // Desfazer pagamento direto
+                                        const payload:any = { 
+                                            id: trip.id, 
+                                            paymentStatus: 'Pendente',
+                                            receivedBy: null,
+                                            receivedAt: null
+                                        };
+                                        dbOp('update', 'trips', payload);
+                                        logAction('Pagamento Desfeito', `Passageiro: ${trip.passengerName} (Viagem #${trip.id})`);
                                     }
-                                    dbOp('update', 'trips', payload);
                                 }} 
                                 sendBillingMessage={sendBillingMessage} 
                                 del={del} 
@@ -4174,6 +4295,8 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 notify={notify} 
                                 systemContext={systemContext}
                                 pricePerPassenger={pricePerPassenger}
+                                dbOp={dbOp}
+                                logAction={logAction}
                             />}
                             {view === 'achados' && <Achados data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
                             {view === 'lostFound' && <Achados data={data} theme={theme} searchTerm={searchTerm} searchType={searchType} setSearchTerm={setSearchTerm} setModal={setModal} dbOp={dbOp} del={del} notify={notify} systemContext={systemContext} />}
@@ -4217,6 +4340,12 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 setPopupsEnabled={setPopupsEnabled}
                                 siteNotificationsEnabled={siteNotificationsEnabled}
                                 setSiteNotificationsEnabled={setSiteNotificationsEnabled}
+                                showTempTrips={showTempTrips}
+                                setShowTempTrips={(val: boolean) => {
+                                    rawSetShowTempTrips(val);
+                                    localStorage.setItem(`${user.username}_nexflow_show_temp_trips`, String(val));
+                                    dbOp('update', 'preferences', { showTempTrips: val });
+                                }}
                             />}
                             {view === 'manageUsers' && <GerenciarUsuarios data={data} theme={theme} setView={setView} dbOp={dbOp} notify={notify} user={user} requestConfirm={requestConfirm} systemContext={systemContext} />}
                         </div>
@@ -4224,6 +4353,54 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                  </div>
 
             <PersistentNotifications notifications={persistentNotifications} onClose={removePersistentNotification} />
+            
+            {/* Modal de Confirmação de Pagamento com Calendário - Versão Simplificada */}
+            {paymentConfirmTrip && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4 animate-in fade-in duration-200" onClick={() => setPaymentConfirmTrip(null)}>
+                    <div 
+                        className={`${theme.card} w-full max-w-[300px] rounded-[2.5rem] border ${theme.border} shadow-2xl p-6 anim-bounce-in`}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 bg-green-500/20 text-green-400 rounded-2xl flex items-center justify-center">
+                                <Icons.Calendar size={24} />
+                            </div>
+                            <div className="text-center">
+                                <h3 className={`font-black text-sm uppercase tracking-widest ${theme.text}`}>Data do Recebimento</h3>
+                                <p className="text-[10px] opacity-40 mt-1 uppercase font-bold">Viagem #{paymentConfirmTrip.id}</p>
+                            </div>
+                        </div>
+
+                        <div className="my-6 flex justify-center">
+                            <CustomDatePicker 
+                                value={paymentConfirmDate}
+                                onChange={(date) => setPaymentConfirmDate(date)}
+                                theme={theme}
+                                themeKey={themeKey}
+                            />
+                        </div>
+
+                        <button 
+                            onClick={() => {
+                                const payload:any = { 
+                                    id: paymentConfirmTrip.id, 
+                                    paymentStatus: 'Pago',
+                                    receivedBy: user.username,
+                                    receivedAt: paymentConfirmDate
+                                };
+                                dbOp('update', 'trips', payload);
+                                logAction('Pagamento Recebido', `Viagem #${paymentConfirmTrip.id} (${paymentConfirmTrip.driverName || 'Passageiro'}) - Data Ref: ${paymentConfirmDate}`);
+                                setPaymentConfirmTrip(null);
+                                notify("Pagamento Recebido!", "success");
+                            }}
+                            className="w-full py-4 rounded-2xl font-black bg-white text-black shadow-xl hover:scale-[1.02] transition-all active:scale-95 text-sm flex items-center justify-center gap-2"
+                        >
+                            <Icons.Check size={20} /> OK
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <AdminNotificationsModal 
                 notifications={adminNotifications} 
                 onClose={removePersistentNotification} 

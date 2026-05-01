@@ -180,7 +180,7 @@ const AddressAutocomplete = ({
                     </p>
                   </div>
                   <p className="text-[10px] text-slate-500 truncate ml-5 font-medium">
-                    {neighborhood}{city && city !== neighborhood ? `, ${city}` : ''} • {props.state || 'SP'}
+                    {neighborhood}{city && city !== neighborhood ? `, ${city}` : ''} | {props.state || 'SP'}
                   </p>
                 </button>
               );
@@ -1588,7 +1588,7 @@ function MotoristaDashboardContent() {
                     <ArrowLeft size={20} />
                   </button>
                   <div>
-                    <h2 className="text-sm font-bold text-white tracking-tight">{selectedTrip.time} • {selectedTrip.route || 'Rota Local'}</h2>
+                    <h2 className="text-sm font-bold text-white tracking-tight">{selectedTrip.time} | {selectedTrip.route || 'Rota Local'}</h2>
                     <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest leading-none mt-0.5">Mapa de Roteiro</p>
                   </div>
                 </div>
@@ -2028,7 +2028,7 @@ function MotoristaDashboardContent() {
                         <div className="mb-6 flex items-center justify-between">
                           <div>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">
-                              {selectedTrip.passengers.length} paradas • {selectedTrip.time}
+                              {selectedTrip.passengers.length} paradas | {selectedTrip.time}
                             </p>
                             <h2 className="text-3xl font-bold text-white">Rota de hoje</h2>
                           </div>
