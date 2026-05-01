@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Stripe from 'stripe';
@@ -7,6 +8,10 @@ import nodemailer from 'nodemailer';
 import cron from 'node-cron';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+
+console.log('[INIT] Iniciando o servidor...');
+console.log(`[INIT] Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`[INIT] PORT variable: ${process.env.PORT || 'not set (using 3000 default)'}`);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,15 +34,24 @@ function getStripe(): Stripe {
 
 // --- Mail Transporter Configuration ---
 function getTransporter() {
+    const host = process.env.EMAIL_HOST;
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+
+    if (!host || !user || !pass) {
+        console.warn('[MAIL] Aviso: EMAIL_HOST, EMAIL_USER ou EMAIL_PASS não configurados. E-mails podem falhar.');
+    }
+
     return nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'SMTP.HOSTINGER.COM',
+        host: host || 'smtp.hostinger.com',
         port: parseInt(process.env.EMAIL_PORT || '465'),
-        secure: process.env.EMAIL_SECURE === 'true' || process.env.EMAIL_SECURE === 'ssl' || true,
+        secure: process.env.EMAIL_SECURE !== 'false', // Default true for legacy port 465
         auth: {
-            user: process.env.EMAIL_USER || 'suporte@boradevan.com.br',
-            pass: process.env.EMAIL_PASS || '15744751@Bb'
-        }
-    });
+            user: user || '',
+            pass: pass || ''
+        },
+        timeout: 10000 // 10 seconds timeout
+    } as any);
 }
 
 const loginTokens = new Map<string, { token: string, expires: number }>();
@@ -848,15 +862,7 @@ async function startServer() {
 
             loginTokens.set(email.toLowerCase(), { token, expires });
 
-            const transporter = nodemailer.createTransport({
-                host: (process.env.EMAIL_HOST && !process.env.EMAIL_HOST.includes('@')) ? process.env.EMAIL_HOST : 'smtp.hostinger.com',
-                port: parseInt(process.env.EMAIL_PORT || '465'),
-                secure: true,
-                auth: {
-                    user: process.env.EMAIL_USER || 'suporte@boradevan.com.br',
-                    pass: process.env.EMAIL_PASS || '15744751@Bb'
-                }
-            });
+            const transporter = getTransporter();
 
             const userName = name ? name : 'Usuário';
             let subject = 'Código de Acesso';
@@ -1762,8 +1768,17 @@ async function startServer() {
     }
 
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`[INIT] Servidor rodando com sucesso na porta ${PORT}`);
+        console.log(`[INIT] Endpoint API: http://localhost:${PORT}/api/health`);
+    }).on('error', (err: any) => {
+        console.error('[CRITICAL] Falha ao iniciar o servidor:', err);
+        if (err.code === 'EADDRINUSE') {
+            console.error(`[CRITICAL] Porta ${PORT} já está em uso.`);
+        }
     });
 }
 
-startServer();
+startServer().catch(err => {
+    console.error('[CRITICAL] Erro fatal durante a inicialização:', err);
+    process.exit(1);
+});
