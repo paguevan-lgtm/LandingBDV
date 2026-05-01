@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Stripe from 'stripe';
@@ -8,6 +7,10 @@ import nodemailer from 'nodemailer';
 import cron from 'node-cron';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+
+// Load .env only if it exists
+dotenv.config();
 
 console.log('[INIT] Iniciando o servidor...');
 console.log(`[INIT] Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -65,12 +68,10 @@ const FIREBASE_BASE_URL = 'https://boradevan-546c3-default-rtdb.firebaseio.com';
 
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    keyGenerator: (req) => {
-        return (req.headers['x-forwarded-for'] as string) || (req.headers['forwarded'] as string) || req.ip || 'unknown';
-    },
-    validate: { xForwardedForHeader: false },
+    max: 5000, // Limit increased for production stability
     message: { error: 'Muitas requisições. Tente novamente mais tarde.' },
+    standardHeaders: true,
+    legacyHeaders: false,
     handler: (req, res, next, options) => {
         console.warn(`[RATE LIMIT] IP bloqueado globalmente: ${req.ip}`);
         res.status(options.statusCode).send(options.message);
@@ -79,12 +80,10 @@ const globalLimiter = rateLimit({
 
 const formLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 form submissions per windowMs
-    keyGenerator: (req) => {
-        return (req.headers['x-forwarded-for'] as string) || (req.headers['forwarded'] as string) || req.ip || 'unknown';
-    },
-    validate: { xForwardedForHeader: false },
+    max: 100, // Limit increased for production stability
     message: { error: 'Limite de envios atingido. Tente novamente em 15 minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false,
     handler: (req, res, next, options) => {
         console.warn(`[RATE LIMIT] IP bloqueado no formulário: ${req.ip}`);
         res.status(options.statusCode).send(options.message);
@@ -137,13 +136,18 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 
 // Helper function for resilient fetch
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s default timeout
+    
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
         return response;
-    } catch (error) {
-        if (retries > 0) {
-            console.warn(`Fetch failed, retrying in ${backoff}ms...`, error);
+    } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (retries > 0 && error.name !== 'AbortError') {
+            console.warn(`Fetch failed, retrying in ${backoff}ms...`, error.message || error);
             await new Promise(resolve => setTimeout(resolve, backoff));
             return fetchWithRetry(url, options, retries - 1, backoff * 2);
         }
@@ -398,7 +402,7 @@ async function sendBackupToBreno() {
 
         const transporter = getTransporter();
         await transporter.sendMail({
-            from: `"Sistema Bora de Van" <${process.env.EMAIL_USER || 'suporte@boradevan.com.br'}>`,
+            from: `"Sistema Bora de Van" <${process.env.EMAIL_USER || ''}>`,
             to: 'Breno0452@gmail.com',
             subject: `Backup Mensal Completo - ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
             text: 'Segue em anexo o backup completo do Firebase (JSON).',
@@ -453,7 +457,7 @@ async function generateAndSendReports(targetSpecificEmails?: string[], forceSyst
             if (recipients.length > 0) {
                 const transporter = getTransporter();
                 await transporter.sendMail({
-                    from: `"Bora de Van - Relatorio" <${process.env.EMAIL_USER || 'suporte@boradevan.com.br'}>`,
+                    from: `"Bora de Van - Relatorio" <${process.env.EMAIL_USER || ''}>`,
                     to: recipients.join(', '),
                     subject: `Relatório ${isManual ? 'Parcial' : 'Mensal'} - ${system.toUpperCase()} - ${new Date(targetYear, targetMonth).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
                     html: reportHtml
@@ -984,7 +988,7 @@ async function startServer() {
 </html>`;
 
             await transporter.sendMail({
-                from: `"Bora de Van" <${process.env.EMAIL_USER || 'suporte@boradevan.com.br'}>`,
+                from: `"Bora de Van" <${process.env.EMAIL_USER || ''}>`,
                 to: email,
                 subject: subject,
                 html: emailHtml
