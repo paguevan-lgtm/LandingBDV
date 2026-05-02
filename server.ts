@@ -33,7 +33,7 @@ const tokenAttempts = new Map<string, { count: number, lastAttempt: number, bloc
 // API Session Tokens (Security Layer)
 const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 
-const CURRENT_VERSION = '1.0.1';
+const CURRENT_VERSION = '1.0.2';
 
 // API Version Middleware
 const requireAppVersion = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -1198,14 +1198,16 @@ async function startServer() {
     } else {
         // Production Static Serving
         // Painel
-        app.use('/painel', express.static(path.resolve(__dirname, 'painel/dist')));
+        app.use('/painel', express.static(path.resolve(__dirname, 'painel/dist'), { setHeaders: (res, path) => { if (path.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
         app.get('/painel/*', (req, res) => {
+            res.setHeader('Cache-Control', 'no-cache');
             res.sendFile(path.resolve(__dirname, 'painel/dist/index.html'));
         });
 
         // Root
-        app.use(express.static(path.resolve(__dirname, 'dist')));
+        app.use(express.static(path.resolve(__dirname, 'dist'), { setHeaders: (res, path) => { if (path.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
         app.get('*', (req, res) => {
+            res.setHeader('Cache-Control', 'no-cache');
             res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
         });
     }
