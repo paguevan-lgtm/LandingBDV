@@ -81,6 +81,55 @@
 <body>
     <div id="loader"><div class="spinner"></div><p style="margin-top:20px; color:#94a3b8; font-size:12px; font-weight:bold;">Bora de Van</p></div>
     <div id="root"></div>
+    <script>
+      const CURRENT_VERSION = '1.0.0';
+      const originalFetch = window.fetch;
+      window.fetch = async function() {
+        let args = arguments;
+        let url = args[0];
+        if (typeof url === 'string' && (url.startsWith('/api/') || url === '/version')) {
+          let init = args[1] || {};
+          init.headers = init.headers || {};
+          if (init.headers instanceof Headers) {
+            init.headers.set('x-app-version', CURRENT_VERSION);
+          } else if (Array.isArray(init.headers)) {
+            init.headers.push(['x-app-version', CURRENT_VERSION]);
+          } else {
+            init.headers['x-app-version'] = CURRENT_VERSION;
+          }
+          args[1] = init;
+          try {
+            const resp = await originalFetch.apply(this, args);
+            if (resp.status === 426) {
+                if (!sessionStorage.getItem('reloading_for_update')) {
+                    sessionStorage.setItem('reloading_for_update', 'true');
+                    window.location.href = window.location.pathname + '?v=' + new Date().getTime();
+                } else {
+                    console.error('Update loop detected. Please clear cache.');
+                }
+            }
+            return resp;
+          } catch (err) { throw err; }
+        }
+        return originalFetch.apply(this, args);
+      };
+      
+      fetch('/version', { headers: { 'x-app-version': CURRENT_VERSION } })
+        .then(res => res.json())
+        .then(data => { 
+            if (data.version && data.version !== CURRENT_VERSION) {
+                if (!sessionStorage.getItem('reloading_for_update')) {
+                    sessionStorage.setItem('reloading_for_update', 'true');
+                    window.location.href = window.location.pathname + '?v=' + new Date().getTime();
+                } else {
+                    console.error('Update loop detected. Please clear cache.');
+                }
+            } else {
+                sessionStorage.removeItem('reloading_for_update');
+            }
+        })
+        .catch(console.error);
+    </script>
     <script type="module" src="./index.tsx"></script>
     <script>
         window.addEventListener('load', () => {

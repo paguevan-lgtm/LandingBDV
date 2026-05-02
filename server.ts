@@ -33,6 +33,21 @@ const tokenAttempts = new Map<string, { count: number, lastAttempt: number, bloc
 // API Session Tokens (Security Layer)
 const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 
+const CURRENT_VERSION = '1.0.0';
+
+// API Version Middleware
+const requireAppVersion = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Apply to all /api/ routes, but not webhooks if we have them, though webhook is /api/webhook
+    // Actually we can apply to /api/ globally.
+    if (req.originalUrl.startsWith('/api/') || req.originalUrl === '/version') {
+        const clientVersion = req.headers['x-app-version'];
+        if (clientVersion && clientVersion !== CURRENT_VERSION && req.originalUrl !== '/version') {
+            return res.status(426).json({ error: 'update_required' });
+        }
+    }
+    next();
+};
+
 // Rate Limiters
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -256,7 +271,13 @@ async function startServer() {
     // Apply global security middlewares
     app.use('/api', validateOrigin);
     app.use('/api', globalLimiter);
+    app.use(requireAppVersion);
     
+    // Version endpoint
+    app.get('/version', (req, res) => {
+        res.json({ version: CURRENT_VERSION });
+    });
+
     // Health check
     app.get('/api/health', (req, res) => {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });
