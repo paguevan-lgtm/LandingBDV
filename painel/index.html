@@ -82,7 +82,7 @@
     <div id="loader"><div class="spinner"></div><p style="margin-top:20px; color:#94a3b8; font-size:12px; font-weight:bold;">Bora de Van</p></div>
     <div id="root"></div>
     <script>
-      const CURRENT_VERSION = '1.1.1';
+      const CURRENT_VERSION = '1.1.2';
       window.APP_VERSION = CURRENT_VERSION;
       
       if (sessionStorage.getItem('app_version') !== CURRENT_VERSION) {
@@ -108,12 +108,7 @@
           try {
             const resp = await originalFetch.apply(this, args);
             if (resp.status === 426) {
-                if (!sessionStorage.getItem('reloading_for_update')) {
-                    sessionStorage.setItem('reloading_for_update', 'true');
-                    window.location.reload(true);
-                } else {
-                    console.error('Update loop detected. Please clear cache.');
-                }
+                triggerUpdate();
             }
             return resp;
           } catch (err) { throw err; }
@@ -121,15 +116,49 @@
         return originalFetch.apply(this, args);
       };
 
+      function triggerUpdate() {
+          if (!sessionStorage.getItem('reloading_for_update')) {
+              sessionStorage.setItem('reloading_for_update', 'true');
+              
+              const loader = document.createElement('div');
+              loader.style.position = 'fixed';
+              loader.style.top = '0';
+              loader.style.left = '0';
+              loader.style.width = '100vw';
+              loader.style.height = '100vh';
+              loader.style.backgroundColor = 'rgba(15, 23, 42, 0.9)';
+              loader.style.color = '#fff';
+              loader.style.display = 'flex';
+              loader.style.flexDirection = 'column';
+              loader.style.alignItems = 'center';
+              loader.style.justifyContent = 'center';
+              loader.style.zIndex = '999999';
+              loader.innerHTML = '<div style="border:4px solid rgba(255,255,255,0.1); border-top:4px solid #3b82f6; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite;"></div><p style="margin-top:20px; font-family:sans-serif; font-weight:bold;">Aplicando atualização...</p><style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>';
+              document.body.appendChild(loader);
+
+              function tryReload() {
+                  originalFetch('/version?t=' + new Date().getTime())
+                    .then(r => {
+                        if (r.ok) {
+                            window.location.reload(true);
+                        } else {
+                            setTimeout(tryReload, 1500);
+                        }
+                    })
+                    .catch(() => setTimeout(tryReload, 1500));
+              }
+              setTimeout(tryReload, 1500);
+          } else {
+              console.error('Update loop detected. Please clear cache.');
+          }
+      }
+
       function checkAppVersion() {
           originalFetch('/version?t=' + new Date().getTime(), { headers: { 'x-app-version': CURRENT_VERSION } })
             .then(res => res.json())
             .then(data => { 
                 if (data.version && data.version !== CURRENT_VERSION) {
-                    if (!sessionStorage.getItem('reloading_for_update')) {
-                        sessionStorage.setItem('reloading_for_update', 'true');
-                        window.location.reload(true);
-                    }
+                    triggerUpdate();
                 }
             })
             .catch(console.error);
