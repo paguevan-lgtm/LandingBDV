@@ -176,7 +176,7 @@ export const Sidebar = ({
                                 </div>
                             </div>
                             <div className="text-[9px] font-bold tracking-widest opacity-30 uppercase pl-3">
-                                v{(window as any).APP_VERSION || '1.1.2'}
+                                v{(window as any).APP_VERSION || '1.1.3'}
                             </div>
                         </div>
                     </div>
