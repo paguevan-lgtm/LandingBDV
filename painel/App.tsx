@@ -68,7 +68,12 @@ const AppContent = () => {
         return saved ? JSON.parse(saved) : [];
     });
     const [isFireConnected, setIsFireConnected] = useState(false);
-    const [view, setView] = useState('dashboard');
+    const [view, setView] = useState(() => localStorage.getItem('nexflow_active_view') || 'dashboard');
+    
+    useEffect(() => {
+        localStorage.setItem('nexflow_active_view', view);
+    }, [view]);
+
     const [menuOpen, setMenuOpen] = useState(false);
     const [data, setData] = useState<any>(() => {
         const saved = localStorage.getItem('nexflow_cached_data');
@@ -84,7 +89,12 @@ const AppContent = () => {
     const [editName, setEditName] = useState(null);
     const [tempName, setTempName] = useState('');
     const [tempVaga, setTempVaga] = useState('');
-    const [tableTab, setTableTab] = useState('geral'); 
+    const [tableTab, setTableTab] = useState(() => localStorage.getItem('nexflow_table_tab') || 'geral'); 
+    
+    useEffect(() => {
+        localStorage.setItem('nexflow_table_tab', tableTab);
+    }, [tableTab]);
+
     const [mipDayType, setMipDayType] = useState(() => new Date().getDate() % 2 !== 0 ? 'odd' : 'even');
     
     const [currentOpDate, setCurrentOpDate] = useState(getOperationalDate());

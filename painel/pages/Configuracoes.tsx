@@ -29,9 +29,21 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
         system: '',
         currentExpiration: null
     });
-    const [securityTab, setSecurityTab] = useState('timeline'); // timeline | blocked
-    const [financeiroTab, setFinanceiroTab] = useState('cobranca'); // cobranca | pix
-    const [activeTab, setActiveTab] = useState('geral');
+    const [securityTab, setSecurityTab] = useState(() => localStorage.getItem('nexflow_config_sec_tab') || 'timeline');
+    const [financeiroTab, setFinanceiroTab] = useState(() => localStorage.getItem('nexflow_config_fin_tab') || 'cobranca');
+    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('nexflow_config_tab') || 'geral');
+
+    React.useEffect(() => {
+        localStorage.setItem('nexflow_config_tab', activeTab);
+    }, [activeTab]);
+    
+    React.useEffect(() => {
+        localStorage.setItem('nexflow_config_sec_tab', securityTab);
+    }, [securityTab]);
+
+    React.useEffect(() => {
+        localStorage.setItem('nexflow_config_fin_tab', financeiroTab);
+    }, [financeiroTab]);
     const [selectedLog, setSelectedLog] = useState<any>(null);
     const [trustedDevices, setTrustedDevices] = useState<any>({});
     

@@ -32,7 +32,10 @@ export default function Financeiro({
   dbOp,
   logAction,
 }: any) {
-  const [financeiroTab, setFinanceiroTab] = React.useState("geral");
+  const [financeiroTab, setFinanceiroTab] = React.useState(() => localStorage.getItem("nexflow_financeiro_tab") || "geral");
+  React.useEffect(() => {
+    localStorage.setItem("nexflow_financeiro_tab", financeiroTab);
+  }, [financeiroTab]);
   const [caixinhaModal, setCaixinhaModal] = React.useState(false);
   const [caixinhaValue, setCaixinhaValue] = React.useState("");
 
