@@ -24,7 +24,7 @@
   </head>
   <body>
     <script>
-      const CURRENT_VERSION = '1.0.7';
+      const CURRENT_VERSION = '1.1.1';
       window.APP_VERSION = CURRENT_VERSION;
 
       if (sessionStorage.getItem('app_version') !== CURRENT_VERSION) {
@@ -80,8 +80,8 @@
       // Check on initial load
       checkAppVersion();
 
-      // Check every 30 seconds
-      setInterval(checkAppVersion, 30000);
+      // Check every 5 minutes
+      setInterval(checkAppVersion, 300000);
 
       // Check when user comes back to the tab
       document.addEventListener('visibilitychange', () => {

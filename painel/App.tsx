@@ -3844,7 +3844,7 @@ const AppContent = () => {
     const sendBillingMessage = (trip: any) => {
         const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
         const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
-            ? `\n\n💰 *Dados para Pagamento (Pix)*\n👤 Nome: ${currentUserData.pixName}\n🔑 Chave: ${currentUserData.pixKey}` 
+            ? `\n\n*Dados para Pagamento (Pix)*\nNome: ${currentUserData.pixName}\nChave: ${currentUserData.pixKey}` 
             : '';
 
         if (trip.isExtra) {
@@ -3883,10 +3883,10 @@ const AppContent = () => {
         
         const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
         const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
-            ? `\n\n💰 *Dados para Pagamento (Pix)*\n👤 Nome: ${currentUserData.pixName}\n🔑 Chave: ${currentUserData.pixKey}` 
+            ? `\n\n*Dados para Pagamento (Pix)*\nNome: ${currentUserData.pixName}\nChave: ${currentUserData.pixKey}` 
             : '';
 
-        const template = `📢 AVISO DE VENCIMENTO
+        const template = `AVISO DE VENCIMENTO
 
 Olá ${driverName}, Informamos que o valor da prancheta é de R$ ${pranchetaValue}
 
@@ -3918,12 +3918,12 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
         
         const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
         const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
-            ? `\n\n💰 *Dados para Pagamento (Pix)*\n👤 Nome: ${currentUserData.pixName}\n🔑 Chave: ${currentUserData.pixKey}` 
+            ? `\n\n*Dados para Pagamento (Pix)*\nNome: ${currentUserData.pixName}\nChave: ${currentUserData.pixKey}` 
             : '';
 
         const formattedPranchetaValue = pranchetaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
         
-        const template = `Olá ${driverName}! Tudo bem? ⚡\n\nNotamos que o pagamento da prancheta ainda não foi efetuado. ❗\nPor isso, sua vaga está bloqueada no momento, sendo automaticamente retomado o valor de R$ ${formattedPranchetaValue} reais.\n\nEstamos à disposição para regularizar assim que possível! ✅${pixInfo}`;
+        const template = `Olá ${driverName}! Tudo bem?\n\nNotamos que o pagamento da prancheta ainda não foi efetuado.\nPor isso, sua vaga está bloqueada no momento, sendo automaticamente retomado o valor de R$ ${formattedPranchetaValue} reais.\n\nEstamos à disposição para regularizar assim que possível!${pixInfo}`;
 
         const encodedMsg = encodeURIComponent(template);
 
