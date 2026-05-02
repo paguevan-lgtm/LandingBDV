@@ -27,6 +27,7 @@ export default function Financeiro({
   pranchetaValue,
   setPranchetaValue,
   sendPranchetaBillingMessage,
+  sendPranchetaBlockedMessage,
   pricePerPassenger,
   dbOp,
   logAction,
@@ -888,22 +889,42 @@ export default function Financeiro({
 
                   <div className="flex items-center gap-1 shrink-0">
                     {driverInVaga && (
-                      <button
-                        onClick={() => {
-                          const phone = driverInfo?.phone || "";
-                          const phones = driverInfo?.phones || [];
-                          sendPranchetaBillingMessage(
-                            vaga,
-                            driverInVaga.name,
-                            phone,
-                            phones
-                          );
-                        }}
-                        className="p-2 rounded-lg bg-green-600/20 text-green-500 hover:bg-green-600/30 transition-colors"
-                        title="WhatsApp"
-                      >
-                        <Icons.Message size={14} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            const phone = driverInfo?.phone || "";
+                            const phones = driverInfo?.phones || [];
+                            sendPranchetaBillingMessage(
+                              vaga,
+                              driverInVaga.name,
+                              phone,
+                              phones
+                            );
+                          }}
+                          className="p-2 rounded-lg bg-green-600/20 text-green-500 hover:bg-green-600/30 transition-colors"
+                          title="Aviso de Cobrança"
+                        >
+                          <Icons.Message size={14} />
+                        </button>
+                        {!isPaid && (
+                          <button
+                            onClick={() => {
+                              const phone = driverInfo?.phone || "";
+                              const phones = driverInfo?.phones || [];
+                              sendPranchetaBlockedMessage(
+                                vaga,
+                                driverInVaga.name,
+                                phone,
+                                phones
+                              );
+                            }}
+                            className="p-2 rounded-lg bg-red-600/20 text-red-500 hover:bg-red-600/30 transition-colors"
+                            title="Aviso de Bloqueio"
+                          >
+                            <Icons.Ban size={14} />
+                          </button>
+                        )}
+                      </div>
                     )}
                     <button
                       onClick={() => togglePranchetaPayment(vaga)}

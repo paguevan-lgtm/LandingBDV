@@ -33,7 +33,7 @@ const tokenAttempts = new Map<string, { count: number, lastAttempt: number, bloc
 // API Session Tokens (Security Layer)
 const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 
-const CURRENT_VERSION = '1.0.4';
+const CURRENT_VERSION = '1.0.7';
 
 // API Version Middleware
 const requireAppVersion = (req: express.Request, res: express.Response, next: express.NextFunction) => {

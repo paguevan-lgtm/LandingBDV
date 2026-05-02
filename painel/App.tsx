@@ -3896,10 +3896,36 @@ Caso o pagamento não seja efetuado até sexta-feira, dentro do horário de func
 
 Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
 
-        const encodedMsg = encodeURIComponent(template)
-            .replace(/%F0%9F%93%A2/g, '📢')
-            .replace(/%E2%9A%A0%EF%B8%8F/g, '⚠️')
-            .replace(/%20/g, ' '); // Use literal spaces for better compatibility
+        const encodedMsg = encodeURIComponent(template);
+
+        if (_phones.length === 1) {
+            window.open(`https://wa.me/55${_phones[0].phone.replace(/\D/g,'')}?text=${encodedMsg}`, '_blank');
+        } else {
+            setFormData({
+                phones: _phones,
+                onSelect: (selectedPhone: string) => {
+                    window.open(`https://wa.me/55${selectedPhone.replace(/\D/g,'')}?text=${encodedMsg}`, '_blank');
+                }
+            });
+            setModal('phoneSelection');
+        }
+    };
+
+    const sendPranchetaBlockedMessage = (vaga: string, driverName: string, phone: string, phones?: Array<{name:string,phone:string}>) => {
+        const _phones = phones && phones.length > 0 ? phones : (phone ? [{name: driverName, phone: phone}] : []);
+        
+        if (_phones.length === 0) return notify("Motorista sem telefone", "error");
+        
+        const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
+        const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
+            ? `\n\n💰 *Dados para Pagamento (Pix)*\n👤 Nome: ${currentUserData.pixName}\n🔑 Chave: ${currentUserData.pixKey}` 
+            : '';
+
+        const formattedPranchetaValue = pranchetaValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        
+        const template = `Olá ${driverName}! Tudo bem? ⚡\n\nNotamos que o pagamento da prancheta ainda não foi efetuado. ❗\nPor isso, sua vaga está bloqueada no momento, sendo automaticamente retomado o valor de R$ ${formattedPranchetaValue} reais.\n\nEstamos à disposição para regularizar assim que possível! ✅${pixInfo}`;
+
+        const encodedMsg = encodeURIComponent(template);
 
         if (_phones.length === 1) {
             window.open(`https://wa.me/55${_phones[0].phone.replace(/\D/g,'')}?text=${encodedMsg}`, '_blank');
@@ -4309,6 +4335,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                      db.ref('system_settings/Pg/pranchetaValue').set(val);
                                  }}
                                  sendPranchetaBillingMessage={sendPranchetaBillingMessage}
+                                 sendPranchetaBlockedMessage={sendPranchetaBlockedMessage}
                                  billingData={billingData}
                                 billingDate={billingDate} 
                                 prevBillingMonth={()=>setBillingDate(new Date(billingDate.getFullYear(), billingDate.getMonth()-1, 1))} 
