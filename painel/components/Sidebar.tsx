@@ -168,10 +168,15 @@ export const Sidebar = ({
                     <Logo theme={theme} systemContext={systemContext} />
                     <div className="flex flex-col">
                         <h1 className="text-xl font-black tracking-tight leading-tight">Bora de <span className="text-brand-pink">Van</span></h1>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">
-                                {systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext} | Painel
+                        <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">
+                                    {systemContext === 'Mistura' && user?.username !== 'Breno' ? 'Pg' : systemContext} | Painel
+                                </div>
+                            </div>
+                            <div className="text-[9px] font-bold tracking-widest opacity-30 uppercase pl-3">
+                                v{(window as any).APP_VERSION || '1.0.3'}
                             </div>
                         </div>
                     </div>
