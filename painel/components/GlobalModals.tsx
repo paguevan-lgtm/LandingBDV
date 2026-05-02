@@ -53,7 +53,12 @@ export const GlobalModals = ({
 }: any) => {
 
     const bairrosList = systemContext === 'Mip' ? BAIRROS_MIP : BAIRROS;
-    const operators = (data.users || []).filter((u: any) => u.role === 'operador' && u.username !== 'Breno');
+    const operators = (data.users || []).filter((u: any) => {
+        if (u.role !== 'operador' || u.username === 'Breno') return false;
+        if (systemContext === 'Mistura') return true;
+        const userSystems = u.systems || (u.system ? [u.system] : ['Pg']);
+        return userSystems.includes(systemContext);
+    });
 
     const scrollRef = React.useRef<HTMLDivElement>(null);
     const [driverSearch, setDriverSearch] = React.useState('');
@@ -248,6 +253,39 @@ export const GlobalModals = ({
                                 <Input theme={theme} label="Data da Viagem" type="text" mask="date" placeholder="DD/MM/YYYY" maxLength={10} value={formData.date} onChange={(e:any)=>setFormData({...formData, date:e.target.value})} />
                                 <Input theme={theme} label="Horário" type="text" mask="time" placeholder="HH:mm" maxLength={5} value={formData.time || ''} onChange={(e:any)=>setFormData({...formData, time:e.target.value})} />
                             </div>
+
+                            {operators.length > 0 && (
+                                <div className="mt-4">
+                                    <label className="text-xs font-bold opacity-70 ml-1 block mb-2">Quem é o responsável por receber desta viagem?</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {operators.map((u: any) => {
+                                            const isSelected = formData.responsibleUser === u.username;
+                                            return (
+                                                <div 
+                                                    key={u.username}
+                                                    onClick={() => setFormData((prev:any) => ({...prev, responsibleUser: u.username}))}
+                                                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${isSelected ? 'bg-purple-500/30 border-purple-500 ring-1 ring-purple-500' : 'bg-black/20 border-white/10 hover:bg-white/5'}`}
+                                                >
+                                                    <div className="relative">
+                                                        <img 
+                                                            src={u.photoURL || getAvatarUrl(u.username)} 
+                                                            alt={u.username} 
+                                                            className="w-8 h-8 rounded-full object-cover border border-white/20" 
+                                                            referrerPolicy="no-referrer" 
+                                                        />
+                                                        {isSelected && (
+                                                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full flex items-center justify-center border border-white/20">
+                                                                <Icons.Check size={8} className="text-white" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs font-bold truncate flex-1">{u.username}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold opacity-60 ml-1">Observação (Opcional)</label>

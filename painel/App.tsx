@@ -159,17 +159,8 @@ const AppContent = () => {
     const [paymentConfirmTrip, setPaymentConfirmTrip] = useState<any>(null);
     const [paymentConfirmDate, setPaymentConfirmDate] = useState(getTodayDate());
 
-    const [showTempTrips, rawSetShowTempTrips] = useState(() => {
-        if (!user) return true;
-        return localStorage.getItem(`${user.username}_nexflow_show_temp_trips`) !== 'false';
-    });
+    const showTempTrips = false; // Forçadamente desativado
     
-    // Sync showTempTrips with user preferences when user changes
-    useEffect(() => {
-        if (user) {
-            rawSetShowTempTrips(localStorage.getItem(`${user.username}_nexflow_show_temp_trips`) !== 'false');
-        }
-    }, [user]);    
     const [ipHistory, setIpHistory] = useState<any[]>([]);
     const [ipLabels, setIpLabels] = useState<any>({});
     const [deviceLabels, setDeviceLabels] = useState<any>({});
@@ -1684,15 +1675,6 @@ const AppContent = () => {
             } 
         });
 
-        const showTempTripsRef = db.ref(`user_data/${user.username}/preferences/showTempTrips`);
-        const showTempTripsCb = showTempTripsRef.on('value', (snap: any) => {
-            const val = snap.val();
-            if (val !== null) {
-                rawSetShowTempTrips(val === true);
-                localStorage.setItem(`${user.username}_nexflow_show_temp_trips`, String(val === true));
-            }
-        });
-
         const swapsPath = tableSystemContext === 'Pg' ? `folgas_swaps/${tableWeekId}` : `${tableSystemContext}/folgas_swaps/${tableWeekId}`;
         const swapsRef = db.ref(swapsPath);
         const swapsCb = swapsRef.on('value', (snap: any) => {
@@ -2776,7 +2758,7 @@ const AppContent = () => {
             paymentStatus: 'Pendente',
             status: 'Finalizada',
             pCount: 0,
-            createdBy: user?.displayName || user?.username || 'Sistema'
+            createdBy: formData.responsibleUser || user?.username || 'Sistema'
         };
 
         dbOp(formData.id ? 'update' : 'create', 'trips', payload);
@@ -2823,11 +2805,15 @@ const AppContent = () => {
             const currentPassIds = trip.passengerIds || [];
             const newPassIds = [...currentPassIds, pax.realId || pax.id];
             
-            await dbOp('update', 'trips', { 
+            const tripUpdatePayload: any = { 
                 id: trip.id, 
                 passengerIds: newPassIds,
                 isTemp: false // Se tem passageiro, deixa de ser temporária
-            });
+            };
+            if (trip.createdBy === 'Sistema') {
+                tripUpdatePayload.createdBy = user.username;
+            }
+            await dbOp('update', 'trips', tripUpdatePayload);
             notify(`Passageiro alocado na viagem de ${trip.driverName}`, "success");
         }
     };
@@ -3399,7 +3385,7 @@ const AppContent = () => {
             tripOwner = formData.responsibleUser;
         } else if (editingTripId) {
             const existingTrip = data.trips.find((tx: any) => tx.id === editingTripId);
-            if (existingTrip && existingTrip.createdBy) {
+            if (existingTrip && existingTrip.createdBy && existingTrip.createdBy !== 'Sistema') {
                 tripOwner = existingTrip.createdBy;
             }
         }
@@ -3469,7 +3455,8 @@ const AppContent = () => {
                 value: t.value,
                 date: t.date,
                 time: t.time,
-                notes: t.notes
+                notes: t.notes,
+                responsibleUser: t.createdBy
             });
             setModal('extraCharge');
             return;
@@ -3567,7 +3554,7 @@ const AppContent = () => {
             pCountSnapshot: null,
             isMadrugada: !!t.isMadrugada, 
             isTemp: false,
-            createdBy: (!!t.isMadrugada ? t.createdBy : user.username) || user.username,
+            createdBy: (!!t.isMadrugada && t.createdBy && t.createdBy !== 'Sistema' ? t.createdBy : user.username),
             lastEditedBy: user.username
         };
         
@@ -4219,7 +4206,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 } else if(view==='billing' || view==='financeiro') {
                                     const now = new Date();
                                     const timeToUse = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
-                                    setFormData({ date: getTodayDate(), time: timeToUse, type: 'Cobrança Manual' });
+                                    setFormData({ date: getTodayDate(), time: timeToUse, type: 'Cobrança Manual', responsibleUser: user.username });
                                     setModal('extraCharge');
                                 } else if(view==='lostFound') { setFormData({date: getTodayDate(), status: 'Pendente'}); setModal('lostFound'); } else if(view==='drivers') { setFormData({status: 'Ativo'}); setModal('driver'); } else { setSuggestedTrip(null); setEditingTripId(null); setModal('trip'); } 
                             }} className={`${theme.primary} p-2.5 rounded-xl shadow-lg active:scale-95`}><Icons.Plus/></button>
@@ -4404,12 +4391,6 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 setPopupsEnabled={setPopupsEnabled}
                                 siteNotificationsEnabled={siteNotificationsEnabled}
                                 setSiteNotificationsEnabled={setSiteNotificationsEnabled}
-                                showTempTrips={showTempTrips}
-                                setShowTempTrips={(val: boolean) => {
-                                    rawSetShowTempTrips(val);
-                                    localStorage.setItem(`${user.username}_nexflow_show_temp_trips`, String(val));
-                                    dbOp('update', 'preferences', { showTempTrips: val });
-                                }}
                             />}
                             {view === 'manageUsers' && <GerenciarUsuarios data={data} theme={theme} setView={setView} dbOp={dbOp} notify={notify} user={user} requestConfirm={requestConfirm} systemContext={systemContext} />}
                         </div>
