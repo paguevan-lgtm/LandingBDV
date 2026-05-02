@@ -3889,8 +3889,10 @@ const AppContent = () => {
         }
     };
 
-    const sendPranchetaBillingMessage = (vaga: string, driverName: string, phone: string) => {
-        if (!phone) return notify("Motorista sem telefone", "error");
+    const sendPranchetaBillingMessage = (vaga: string, driverName: string, phone: string, phones?: Array<{name:string,phone:string}>) => {
+        const _phones = phones && phones.length > 0 ? phones : (phone ? [{name: driverName, phone: phone}] : []);
+        
+        if (_phones.length === 0) return notify("Motorista sem telefone", "error");
         
         const currentUserData = (data.users || []).find((u: any) => u.id === user.uid || u.username === user.username);
         const pixInfo = currentUserData?.pixName && currentUserData?.pixKey 
@@ -3912,7 +3914,17 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
             .replace(/%E2%9A%A0%EF%B8%8F/g, '⚠️')
             .replace(/%20/g, ' '); // Use literal spaces for better compatibility
 
-        window.open(`https://wa.me/55${phone.replace(/\D/g,'')}?text=${encodedMsg}`, '_blank');
+        if (_phones.length === 1) {
+            window.open(`https://wa.me/55${_phones[0].phone.replace(/\D/g,'')}?text=${encodedMsg}`, '_blank');
+        } else {
+            setFormData({
+                phones: _phones,
+                onSelect: (selectedPhone: string) => {
+                    window.open(`https://wa.me/55${selectedPhone.replace(/\D/g,'')}?text=${encodedMsg}`, '_blank');
+                }
+            });
+            setModal('phoneSelection');
+        }
     };
 
     const handleGlobalTouchStart = (e:any) => { 

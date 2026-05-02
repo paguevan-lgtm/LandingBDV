@@ -849,7 +849,7 @@ export default function Financeiro({
               const receivedBySelf = payment?.receivedBy === user.username;
 
               const driverInfo = driverInVaga
-                ? data.drivers.find((d: any) => d.name === driverInVaga.name)
+                ? data.drivers.find((d: any) => (d.name || "").trim().toLowerCase() === (driverInVaga.name || "").trim().toLowerCase())
                 : null;
 
               return (
@@ -891,10 +891,12 @@ export default function Financeiro({
                       <button
                         onClick={() => {
                           const phone = driverInfo?.phone || "";
+                          const phones = driverInfo?.phones || [];
                           sendPranchetaBillingMessage(
                             vaga,
                             driverInVaga.name,
                             phone,
+                            phones
                           );
                         }}
                         className="p-2 rounded-lg bg-green-600/20 text-green-500 hover:bg-green-600/30 transition-colors"
