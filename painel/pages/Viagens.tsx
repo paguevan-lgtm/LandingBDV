@@ -117,7 +117,7 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
     };
 
     const copyPassengerData = (p: any) => {
-        let text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📍 Bairro: ${p.neighborhood}\n🏠 Endereço: ${p.address || 'Não informado'}\n⏰ Horário: ${formatTime(p.time)}\n👥 Passageiros: ${p.passengerCount}\n🎒 Malas: ${p.luggageCount || 0}${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n📱 Telefone: ${p.phone || 'Não informado'}`;
+        let text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📱 Telefone: ${p.phone || 'Não informado'}\n📍 Bairro: ${p.neighborhood}\n🏠 Endereço: ${p.address || 'Não informado'}\n⏰ Horário: ${formatTime(p.time)}\n👥 Passageiros: ${p.passengerCount}\n🎒 Malas: ${p.luggageCount || 0}${p.luggageDetails ? ` (${p.luggageDetails})` : ''}`;
         
         if (p.children && p.children.length > 0) {
             const childrenText = p.children.map((c: any) => `${c.quantity} ${c.quantity > 1 ? 'Crianças' : 'Criança'} de ${c.age} Anos`).join(', ');

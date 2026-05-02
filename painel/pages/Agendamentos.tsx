@@ -35,7 +35,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
     };
 
     const copyPassengerData = (p: any) => {
-        const text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📍 Bairro: ${p.neighborhood}\n🏠 Endereço: ${p.address || 'Não informado'}\n⏰ Horário: ${formatTime(p.time)}\n👥 Passageiros: ${p.passengerCount}\n🎒 Malas: ${p.luggageCount || 0}${p.luggageDetails ? ` (${p.luggageDetails})` : ''}\n📱 Telefone: ${p.phone || 'Não informado'}`;
+        const text = `📋 DADOS DO PASSAGEIRO\n👤 Nome: ${p.name}\n📱 Telefone: ${p.phone || 'Não informado'}\n📍 Bairro: ${p.neighborhood}\n🏠 Endereço: ${p.address || 'Não informado'}\n⏰ Horário: ${formatTime(p.time)}\n👥 Passageiros: ${p.passengerCount}\n🎒 Malas: ${p.luggageCount || 0}${p.luggageDetails ? ` (${p.luggageDetails})` : ''}`;
         navigator.clipboard.writeText(text);
         notify("Dados do passageiro copiados!", "success");
     };
