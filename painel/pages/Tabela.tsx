@@ -96,7 +96,7 @@ const SortableRow = ({ id, children, disabled, hideGrip }: any) => {
 };
 
 // Tabela Component
-export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, duplicateMadrugadaDriver, spList, setSpList, madrugadaData, openMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, requestConfirm, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
+export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType, setMipDayType, currentOpDate, getTodayDate, analysisDate, setAnalysisDate, analysisRotatedList, tableStatus, editName, tempName, tempVaga, setEditName, setTempName, setTempVaga, saveDriverName, updateTableStatus, currentRotatedList, confirmedTimes, isTimeExpired, lousaOrder, toggleLousaFromConfirmados, cancelConfirmation, handleLousaAction, startLousaTime, addMadrugadaVaga, madrugadaList, removeMadrugadaVaga, toggleMadrugadaRiscado, duplicateMadrugadaDriver, spList, setSpList, madrugadaData, openMadrugadaTrip, openExtraMadrugadaTrip, cannedMessages, addCannedMessage, updateCannedMessage, deleteCannedMessage, addNullLousaItem, addNullMadrugadaItem, notify, requestConfirm, getRotatedList, getRotatedMadrugadaList, dbOp, systemContext, updateMipDriver, handleMipBaixar, handleMipRiscar, triggerUndo, ganchos, effectiveFolgas, getFolgasForDate, user, pranchetaData, weekId, uiTicker, rotationBaseDate, isTutorialActive, nextStep }: any) {
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -241,9 +241,23 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
 
     // Usa a nova função getRotatedMadrugadaList para calcular a rotação exclusiva da madrugada
     // Se não existir (por algum motivo legado), cai no fallback antigo
-    const madrugadaOrderedList = getRotatedMadrugadaList 
+    const baseMadrugadaOrderedList = getRotatedMadrugadaList 
         ? getRotatedMadrugadaList(madrugadaDisplayDate) 
         : (getRotatedList ? getRotatedList(madrugadaDisplayDate).filter((d:any) => madrugadaList.includes(d.vaga)) : []);
+
+    const extraMadrugadaTrips = data.trips
+        .filter((t: any) => t.isExtraMadrugada && t.date === madrugadaDisplayDate && t.status !== 'Cancelada')
+        .map((t: any) => ({
+            vaga: t.vaga || t.driverName || 'EXTRA',
+            name: t.driverName,
+            id: t.driverId,
+            isExtraMadrugada: true
+        }));
+
+    const madrugadaOrderedList = [
+        ...baseMadrugadaOrderedList, 
+        ...extraMadrugadaTrips.filter(extra => !baseMadrugadaOrderedList.some((b: any) => b.vaga === extra.vaga))
+    ];
 
     // Função auxiliar para filtrar confirmados com segurança
     const getConfirmados = () => {
@@ -964,6 +978,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                 >
                                     <Icons.Plus size={14}/> Pular Horário
                                 </button>
+                                <Button theme={theme} onClick={() => openExtraMadrugadaTrip(madrugadaDisplayDate)} icon={Icons.Plus} size="sm" variant="warning">Adicionar Extra</Button>
                                 <Button theme={theme} onClick={addMadrugadaVaga} icon={Icons.Plus} size="sm" variant="success">Adicionar Motorista</Button>
                             </div>
                         </div>
@@ -1005,7 +1020,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                     
                                     // Busca viagem específica para a data selecionada
                                     const tripId = `mad_${madrugadaDisplayDate}_${vaga}`;
-                                    const trip = data.trips.find((t:any) => t.id === tripId || (t.isMadrugada && String(t.vaga) === String(vaga) && t.date === madrugadaDisplayDate && t.status !== 'Cancelada'));
+                                    const trip = data.trips.find((t:any) => t.id === tripId || (t.isMadrugada && (String(t.vaga) === String(vaga) || t.driverName === vaga) && t.date === madrugadaDisplayDate && t.status !== 'Cancelada'));
                                     const isCancelled = trip && trip.status === 'Cancelada';
                                     const isFinished = trip && trip.status === 'Finalizada';
                                     const isTemp = trip && trip.isTemp;
@@ -1026,8 +1041,8 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                     <div className="flex items-center gap-3 w-full md:w-auto flex-1 relative min-w-0"> 
                                         <button onClick={(e) => { 
                                             e.stopPropagation(); 
-                                            removeMadrugadaVaga(vaga); 
-                                        }} className="text-red-400 opacity-100 hover:opacity-100 hide-on-print flex-shrink-0 relative z-30"><Icons.Trash size={12}/></button> 
+                                            removeMadrugadaVaga(vaga, driver.isExtraMadrugada); 
+                                        }} className="text-red-400 opacity-100 hover:opacity-100 hide-on-print flex-shrink-0 relative z-30">{driver.isExtraMadrugada ? <Icons.X size={14}/> : <Icons.Trash size={12}/>}</button> 
                                         <button 
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
@@ -1038,7 +1053,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                                                 }
                                             }} 
                                             className={`p-1.5 rounded hover:bg-white/10 flex-shrink-0 ${mData.riscado ? 'text-red-400' : 'text-white/30'} hide-on-print opacity-100 relative z-30`}> <Icons.Slash size={12}/> </button> 
-                                        {mData.riscado && !isNullMadrugada && (
+                                        {mData.riscado && !isNullMadrugada && !driver.isExtraMadrugada && (
                                             <button 
                                                 onClick={(e) => { 
                                                     e.stopPropagation(); 

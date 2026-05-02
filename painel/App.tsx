@@ -3171,13 +3171,13 @@ const AppContent = () => {
             return normalizeTime(pTime) === normalizeTime(tripTime);
         };
 
-        // 0. Identificar passageiros já alocados neste dia e horário
+        // 0. Identificar passageiros já alocados neste dia (em qualquer horário)
         const occupiedPassInSlot = new Set();
         const currentTripId = editingTripId ? String(editingTripId) : null;
 
         data.trips.forEach((t:any) => {
             if (String(t.id) === currentTripId) return; // PULA A PRÓPRIA VIAGEM
-            if (t.date === tripDate && t.status !== 'Cancelada' && isTimeMatch(t.time)) {
+            if (t.date === tripDate && t.status !== 'Cancelada') {
                 if (t.passengerIds && Array.isArray(t.passengerIds)) {
                     t.passengerIds.forEach((pid:any) => {
                         occupiedPassInSlot.add(String(pid));
@@ -3310,17 +3310,18 @@ const AppContent = () => {
             const paxCount = parseInt(p.passengerCount || 1, 10);
             const currentCap = currentTrip.driver.capacity ? parseInt(currentTrip.driver.capacity, 10) : 15;
 
-            // Check overlap at same time
-            const isOccupiedSameTime = data.trips.some((t:any) => 
+            // Check overlap at same day
+            const isOccupiedSameDay = data.trips.some((t:any) => 
                 t.date === currentTrip.date && 
                 t.status !== 'Cancelada' && 
-                t.time === currentTrip.time &&
+                String(t.id) !== String(editingTripId) &&
                 t.passengerIds && 
                 t.passengerIds.includes(pId)
             );
 
-            if (isOccupiedSameTime) {
-                notify(`Aviso: ${p.name} já está em outra viagem neste mesmo horário!`, "info");
+            if (isOccupiedSameDay) {
+                notify(`Erro: ${p.name} já está em outra viagem nesta mesma data!`, "error");
+                continue;
             }
             
             if (currentTrip.occupancy + paxCount > currentCap) {
@@ -3416,6 +3417,18 @@ const AppContent = () => {
                      qtd: pCount
                  });
                  payload.pCountSnapshot = pCount;
+             }
+             if (formData.isExtraMadrugada) {
+                 payload.isExtraMadrugada = true;
+                 const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
+                 const path = tableSystemContext === 'Pg' ? `daily_tables/${finalDate}/madrugadaFooter` : `${tableSystemContext}/daily_tables/${finalDate}/madrugadaFooter`;
+                 
+                 db.ref(path).once('value', (snap: any) => {
+                     const currentFooter = snap.val() || '';
+                     const newNote = `Motorista ${suggestedTrip.driver.name} dando apoio com ${pCount} as ${finalTime}`;
+                     const updatedFooter = currentFooter ? `${currentFooter}\n${newNote}` : newNote;
+                     db.ref(path).set(updatedFooter);
+                 });
              }
         } 
         
@@ -3737,7 +3750,20 @@ const AppContent = () => {
         logAction('Duplicou Vaga na Madrugada', `Vaga: ${vaga}`);
     };
 
-    const removeMadrugadaVaga = (vaga: string) => {
+    const removeMadrugadaVaga = (vaga: string, isExtraMadrugada: boolean = false) => {
+        if (isExtraMadrugada) {
+            // Se for um extra, procura a viagem e cancela
+            const trip = data.trips.find((t: any) => t.isExtraMadrugada && (t.vaga === vaga || t.driverName === vaga) && t.status !== 'Cancelada');
+            if (trip) {
+                requestConfirm("Remover Extra da Madrugada?", `Deseja realmente remover o motorista extra ${trip.driverName}? A viagem dele será cancelada.`, () => {
+                    dbOp('update', 'trips', { id: trip.id, status: 'Cancelada' });
+                    logAction('Removeu Extra da Madrugada', `Motorista: ${trip.driverName}`);
+                    notify("Motorista extra removido e viagem cancelada!", "success");
+                });
+            }
+            return;
+        }
+        
         const tableSystemContext = (user.username === 'Breno' && systemContext === 'Mistura') ? 'Pg' : systemContext;
         const driverName = spList.find((d:any) => d.vaga === vaga)?.name || 'Desconhecido';
         requestConfirm("Remover esta vaga da madrugada?", `Deseja realmente remover o motorista ${driverName} vaga ${vaga} da tabela Madrugada?`, () => {
@@ -3773,6 +3799,18 @@ const AppContent = () => {
     };
 
     const openMadrugadaTrip = (vaga: string, date: string) => {
+        // Tenta achar viagem extra primeiro
+        const extraTrip = data.trips.find((t:any) => 
+            t.isExtraMadrugada && 
+            t.date === date && 
+            (String(t.vaga) === String(vaga) || t.driverName === vaga) && 
+            t.status !== 'Cancelada'
+        );
+
+        if (extraTrip) {
+            return openEditTrip(extraTrip);
+        }
+
         const sp = spList.find((s:any) => s.vaga === vaga);
         if (!sp) return notify("Vaga não encontrada na lista geral", "error");
         
@@ -3800,6 +3838,20 @@ const AppContent = () => {
             setEditingTripId(null);
             setModal('trip');
         }
+    };
+
+    const openExtraMadrugadaTrip = (date: string) => {
+        setFormData({ 
+            isMadrugada: true, 
+            isExtraMadrugada: true, 
+            driverId: '', 
+            time: '',
+            date: date,
+            responsibleUser: user.username
+        });
+        setSuggestedTrip(null);
+        setEditingTripId(null);
+        setModal('trip');
     };
 
     const sendBillingMessage = (trip: any) => {
@@ -4222,7 +4274,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                 editName={editName} tempName={tempName} tempVaga={tempVaga} setEditName={setEditName} setTempName={setTempName} setTempVaga={setTempVaga} saveDriverName={saveDriverName} 
                                 updateTableStatus={updateTableStatus} currentRotatedList={getRotatedList(currentOpDate)} confirmedTimes={confirmedTimes} isTimeExpired={isTimeExpired} 
                                 lousaOrder={lousaOrder} toggleLousaFromConfirmados={toggleLousaFromConfirmados} cancelConfirmation={cancelConfirmation} handleLousaAction={handleLousaAction} startLousaTime={startLousaTime} 
-                                addMadrugadaVaga={addMadrugadaVaga} madrugadaList={madrugadaList} removeMadrugadaVaga={removeMadrugadaVaga} toggleMadrugadaRiscado={toggleMadrugadaRiscado} duplicateMadrugadaDriver={duplicateMadrugadaDriver} spList={spList} madrugadaData={madrugadaData} openMadrugadaTrip={openMadrugadaTrip} 
+                                addMadrugadaVaga={addMadrugadaVaga} madrugadaList={madrugadaList} removeMadrugadaVaga={removeMadrugadaVaga} toggleMadrugadaRiscado={toggleMadrugadaRiscado} duplicateMadrugadaDriver={duplicateMadrugadaDriver} spList={spList} madrugadaData={madrugadaData} openMadrugadaTrip={openMadrugadaTrip} openExtraMadrugadaTrip={openExtraMadrugadaTrip} 
                                 cannedMessages={cannedMessages} addCannedMessage={addCannedMessage} updateCannedMessage={updateCannedMessage} deleteCannedMessage={deleteCannedMessage} 
                                 addNullLousaItem={addNullLousaItem} addNullMadrugadaItem={addNullMadrugadaItem} notify={notify} 
                                 requestConfirm={requestConfirm}

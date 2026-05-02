@@ -426,7 +426,7 @@ export const GlobalModals = ({
                                                         const searchMatch = (d.name || '').toLowerCase().includes(driverSearch.toLowerCase());
                                                         if (!searchMatch) return false;
 
-                                                        if (formData.isMadrugada) { 
+                                                        if (formData.isMadrugada && !formData.isExtraMadrugada) { 
                                                             const driverName = (d.name || '').trim().toLowerCase();
                                                             const spots = spList.filter((s:any) => (s?.name || '').trim().toLowerCase() === driverName);
                                                             return spots.some((s:any) => madrugadaList.includes(s.vaga));
@@ -580,7 +580,7 @@ export const GlobalModals = ({
                                                             const searchMatch = (d.name || '').toLowerCase().includes(driverSearch.toLowerCase());
                                                             if (!searchMatch) return false;
 
-                                                            if (formData.isMadrugada) { 
+                                                            if (formData.isMadrugada && !formData.isExtraMadrugada) { 
                                                                 const driverName = (d.name || '').trim().toLowerCase();
                                                                 const spots = spList.filter((s:any) => (s?.name || '').trim().toLowerCase() === driverName);
                                                                 return spots.some((s:any) => madrugadaList.includes(s.vaga));
