@@ -82,8 +82,14 @@
     <div id="loader"><div class="spinner"></div><p style="margin-top:20px; color:#94a3b8; font-size:12px; font-weight:bold;">Bora de Van</p></div>
     <div id="root"></div>
     <script>
-      const CURRENT_VERSION = '1.0.3';
+      const CURRENT_VERSION = '1.0.4';
       window.APP_VERSION = CURRENT_VERSION;
+      
+      if (sessionStorage.getItem('app_version') !== CURRENT_VERSION) {
+          sessionStorage.removeItem('reloading_for_update');
+          sessionStorage.setItem('app_version', CURRENT_VERSION);
+      }
+
       const originalFetch = window.fetch;
       window.fetch = async function() {
         let args = arguments;
@@ -104,7 +110,7 @@
             if (resp.status === 426) {
                 if (!sessionStorage.getItem('reloading_for_update')) {
                     sessionStorage.setItem('reloading_for_update', 'true');
-                    window.location.href = window.location.pathname + '?v=' + new Date().getTime();
+                    window.location.reload(true);
                 } else {
                     console.error('Update loop detected. Please clear cache.');
                 }
@@ -114,22 +120,33 @@
         }
         return originalFetch.apply(this, args);
       };
-      
-      fetch('/version?t=' + new Date().getTime(), { headers: { 'x-app-version': CURRENT_VERSION } })
-        .then(res => res.json())
-        .then(data => { 
-            if (data.version && data.version !== CURRENT_VERSION) {
-                if (!sessionStorage.getItem('reloading_for_update')) {
-                    sessionStorage.setItem('reloading_for_update', 'true');
-                    window.location.href = window.location.pathname + '?v=' + new Date().getTime();
-                } else {
-                    console.error('Update loop detected. Please clear cache.');
+
+      function checkAppVersion() {
+          originalFetch('/version?t=' + new Date().getTime(), { headers: { 'x-app-version': CURRENT_VERSION } })
+            .then(res => res.json())
+            .then(data => { 
+                if (data.version && data.version !== CURRENT_VERSION) {
+                    if (!sessionStorage.getItem('reloading_for_update')) {
+                        sessionStorage.setItem('reloading_for_update', 'true');
+                        window.location.reload(true);
+                    }
                 }
-            } else {
-                sessionStorage.removeItem('reloading_for_update');
-            }
-        })
-        .catch(console.error);
+            })
+            .catch(console.error);
+      }
+
+      // Check on initial load
+      checkAppVersion();
+
+      // Check every 30 seconds
+      setInterval(checkAppVersion, 30000);
+
+      // Check when user comes back to the tab
+      document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+              checkAppVersion();
+          }
+      });
     </script>
     <script type="module" src="./index.tsx"></script>
     <script>
