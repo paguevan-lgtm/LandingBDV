@@ -74,6 +74,37 @@ const AppContent = () => {
         localStorage.setItem('nexflow_active_view', view);
     }, [view]);
 
+    useEffect(() => {
+        let lastVersionCheck = 0;
+        const checkVersion = async () => {
+            if (Date.now() - lastVersionCheck < 10000) return; // Limita a checagem a 10 segundos no máximo
+            lastVersionCheck = Date.now();
+            try {
+                const res = await fetch('/?_t=' + new Date().getTime());
+                const text = await res.text();
+                const match = text.match(/const CURRENT_VERSION\s*=\s*['"]([^'"]+)['"]/);
+                if (match && match[1]) {
+                    const latestVersion = match[1];
+                    const currentVersion = (window as any).APP_VERSION;
+                    if (currentVersion && latestVersion !== currentVersion) {
+                        console.log(`Nova versão detectada: ${latestVersion}. Atual: ${currentVersion}. Atualizando...`);
+                        window.location.reload();
+                    }
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+        };
+
+        // Export a globally accessible version checker function
+        (window as any).checkAppVersion = checkVersion;
+
+        checkVersion();
+        
+        const interval = setInterval(checkVersion, 2 * 60 * 1000); // 2 minutos
+        return () => clearInterval(interval);
+    }, [view]);
+
     const [menuOpen, setMenuOpen] = useState(false);
     const [data, setData] = useState<any>(() => {
         const saved = localStorage.getItem('nexflow_cached_data');
@@ -705,6 +736,13 @@ const AppContent = () => {
 
     // --- LOGIC EXTRACTED HELPERS ---
     const notify = (msg: string, type: 'success' | 'error' | 'info' | 'update' | 'delete' | 'warning' | 'loading' = 'success', image: string | null = null) => {
+        // Checar versão se for uma operação que alterou dados (sucesso, delete, update)
+        if (type === 'success' || type === 'update' || type === 'delete') {
+            if (typeof (window as any).checkAppVersion === 'function') {
+                (window as any).checkAppVersion();
+            }
+        }
+        
         // Map types to visual styles
         const visualType = (type === 'update' || type === 'delete') ? (type === 'update' ? 'success' : 'error') : type;
         
