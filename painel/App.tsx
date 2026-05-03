@@ -80,15 +80,32 @@ const AppContent = () => {
             if (Date.now() - lastVersionCheck < 10000) return; // Limita a checagem a 10 segundos no máximo
             lastVersionCheck = Date.now();
             try {
-                const res = await fetch('/?_t=' + new Date().getTime());
+                // Adicionando headers para forçar no-cache de verdade
+                const res = await fetch('/?_t=' + new Date().getTime(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
                 const text = await res.text();
                 const match = text.match(/const CURRENT_VERSION\s*=\s*['"]([^'"]+)['"]/);
                 if (match && match[1]) {
                     const latestVersion = match[1];
                     const currentVersion = (window as any).APP_VERSION;
+                    
                     if (currentVersion && latestVersion !== currentVersion) {
+                        const lastReload = sessionStorage.getItem('last_reload_version');
+                        if (lastReload === latestVersion) {
+                            console.log('Loop de refresh evitado. Já tentamos recarregar para a versão:', latestVersion);
+                            return;
+                        }
                         console.log(`Nova versão detectada: ${latestVersion}. Atual: ${currentVersion}. Atualizando...`);
+                        sessionStorage.setItem('last_reload_version', latestVersion);
                         window.location.reload();
+                    } else if (currentVersion === latestVersion) {
+                        sessionStorage.removeItem('last_reload_version');
                     }
                 }
             } catch (e) {
