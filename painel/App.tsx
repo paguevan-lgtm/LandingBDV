@@ -72,11 +72,6 @@ const AppContent = () => {
     
     useEffect(() => {
         localStorage.setItem('nexflow_active_view', view);
-        
-        // Verifica se há atualização ao trocar de aba no menu
-        if (typeof (window as any).checkAppVersion === 'function') {
-            (window as any).checkAppVersion();
-        }
     }, [view]);
 
     const [menuOpen, setMenuOpen] = useState(false);
@@ -710,13 +705,6 @@ const AppContent = () => {
 
     // --- LOGIC EXTRACTED HELPERS ---
     const notify = (msg: string, type: 'success' | 'error' | 'info' | 'update' | 'delete' | 'warning' | 'loading' = 'success', image: string | null = null) => {
-        // Checar versão se for uma operação que alterou dados (sucesso, delete, update)
-        if (type === 'success' || type === 'update' || type === 'delete') {
-            if (typeof (window as any).checkAppVersion === 'function') {
-                (window as any).checkAppVersion();
-            }
-        }
-        
         // Map types to visual styles
         const visualType = (type === 'update' || type === 'delete') ? (type === 'update' ? 'success' : 'error') : type;
         

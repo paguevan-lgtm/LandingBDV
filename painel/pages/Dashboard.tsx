@@ -876,7 +876,7 @@ export default function Dashboard({
                     <IconButton
                       theme={theme}
                       variant="default"
-                      onClick={() => { navigator.clipboard.writeText(note.text); notify("Copiado com sucesso!", "success"); }}
+                      onClick={() => navigator.clipboard.writeText(note.text)}
                       icon={Icons.Copy}
                       className="w-8 h-8 rounded-lg"
                     />
