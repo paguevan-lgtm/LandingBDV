@@ -82,9 +82,17 @@
     <div id="loader"><div class="spinner"></div><p style="margin-top:20px; color:#94a3b8; font-size:12px; font-weight:bold;">Bora de Van</p></div>
     <div id="root"></div>
     <script>
-      const CURRENT_VERSION = '1.1.7';
+      const CURRENT_VERSION = '1.1.9';
       window.APP_VERSION = CURRENT_VERSION;
       
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('_v') && urlParams.get('_v') === CURRENT_VERSION) {
+          urlParams.delete('_v');
+          const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+          window.history.replaceState({}, '', newUrl);
+          sessionStorage.removeItem('reloading_for_update');
+      }
+
       if (sessionStorage.getItem('app_version') !== CURRENT_VERSION) {
           sessionStorage.removeItem('reloading_for_update');
           sessionStorage.setItem('app_version', CURRENT_VERSION);
@@ -94,7 +102,7 @@
       window.fetch = async function() {
         let args = arguments;
         let url = args[0];
-        if (typeof url === 'string' && (url.startsWith('/api/') || url === '/version')) {
+        if (typeof url === 'string' && url.startsWith('/api/')) {
           let init = args[1] || {};
           init.headers = init.headers || {};
           if (init.headers instanceof Headers) {
@@ -116,9 +124,9 @@
         return originalFetch.apply(this, args);
       };
 
-      function triggerUpdate() {
-          if (!sessionStorage.getItem('reloading_for_update')) {
-              sessionStorage.setItem('reloading_for_update', 'true');
+      function triggerUpdate(latestVersion) {
+          if (!sessionStorage.getItem('reloading_for_update') || sessionStorage.getItem('reloading_for_update') !== latestVersion) {
+              sessionStorage.setItem('reloading_for_update', latestVersion || 'true');
               
               const loader = document.createElement('div');
               loader.style.position = 'fixed';
@@ -136,44 +144,48 @@
               loader.innerHTML = '<div style="border:4px solid rgba(255,255,255,0.1); border-top:4px solid #3b82f6; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite;"></div><p style="margin-top:20px; font-family:sans-serif; font-weight:bold;">Aplicando atualização...</p><style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>';
               document.body.appendChild(loader);
 
-              function tryReload() {
-                  originalFetch('/version?t=' + new Date().getTime())
-                    .then(r => {
-                        if (r.ok) {
-                            window.location.reload(true);
-                        } else {
-                            setTimeout(tryReload, 1500);
-                        }
-                    })
-                    .catch(() => setTimeout(tryReload, 1500));
-              }
-              setTimeout(tryReload, 1500);
+              setTimeout(() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('_v', latestVersion || new Date().getTime());
+                  window.location.replace(url.toString());
+              }, 1500);
           } else {
               console.error('Update loop detected. Please clear cache.');
           }
       }
 
-      function checkAppVersion() {
-          originalFetch('/version?t=' + new Date().getTime(), { headers: { 'x-app-version': CURRENT_VERSION } })
-            .then(res => res.json())
-            .then(data => { 
-                if (data.version && data.version !== CURRENT_VERSION) {
-                    triggerUpdate();
+      window.checkAppVersion = function() {
+          originalFetch('/?_t=' + new Date().getTime(), { 
+              cache: 'no-store',
+              headers: {
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'Pragma': 'no-cache',
+                  'Expires': '0'
+              }
+          })
+            .then(res => res.text())
+            .then(text => { 
+                const match = text.match(/const CURRENT_VERSION\s*=\s*['"]([^'"]+)['"]/);
+                if (match && match[1]) {
+                    const latestVersion = match[1];
+                    if (CURRENT_VERSION && latestVersion !== CURRENT_VERSION) {
+                        triggerUpdate(latestVersion);
+                    }
                 }
             })
             .catch(console.error);
-      }
+      };
 
       // Check on initial load
-      checkAppVersion();
+      window.checkAppVersion();
 
-      // Check every 5 minutes
-      setInterval(checkAppVersion, 300000);
+      // Check every 2 minutes
+      setInterval(window.checkAppVersion, 120000);
 
       // Check when user comes back to the tab
       document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
-              checkAppVersion();
+              window.checkAppVersion();
           }
       });
     </script>
