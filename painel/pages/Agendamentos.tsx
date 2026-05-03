@@ -10,6 +10,14 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
     const [calendarDate, setCalendarDate] = useState(new Date());
     const [isMapOpen, setIsMapOpen] = useState(false);
 
+    const passengerMap = React.useMemo(() => {
+        const map = new Map();
+        (data.passengers || []).forEach((p: any) => {
+            map.set(String(p.realId || p.id), p);
+        });
+        return map;
+    }, [data.passengers]);
+
     React.useEffect(() => {
         if (targetDate) {
             setSelectedDate(targetDate);
@@ -29,7 +37,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
         
         if (dayTrips.length === 0) return notify("Nenhuma viagem neste dia para copiar.", "error");
         let summary = `📅 RESUMO DO DIA ${formatDisplayDate(selectedDate)}\n\n`;
-        dayTrips.forEach((t:any) => { const pList = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p?.id)); summary += `⏰ ${formatTime(t.time)} - ${t.driverName} (${t.status})\n`; pList.forEach((p:any) => summary += `  ${p.name} (${p.neighborhood})\n`); summary += `\n`; });
+        dayTrips.forEach((t:any) => { const pList = (t.passengerIds||[]).map((id:string) => passengerMap.get(String(id))).filter(Boolean); summary += `⏰ ${formatTime(t.time)} - ${t.driverName} (${t.status})\n`; pList.forEach((p:any) => summary += `  ${p.name} (${p.neighborhood})\n`); summary += `\n`; });
         navigator.clipboard.writeText(summary);
         notify("Resumo do dia copiado!", "success");
     };
@@ -58,7 +66,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
             pax = t.passengersSnapshot;
             occ = pax.reduce((a:any,b:any)=>a+parseInt(b.passengerCount||1),0);
         } else if (hasLiveIds) {
-            pax = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p.realId || p.id));
+            pax = (t.passengerIds||[]).map((id:string) => passengerMap.get(String(id))).filter(Boolean);
             occ = pax.reduce((a:any,b:any)=>a+parseInt(b.passengerCount||1),0);
         } else if (t.isMadrugada) {
              occ = parseInt(t.pCountSnapshot || t.pCount || 0);
@@ -369,7 +377,7 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                     <h4 className="text-xs font-bold uppercase tracking-widest opacity-60 pl-1">Viagens do Dia</h4>
                     {tripsForSelectedDate.length > 0 ? (
                         tripsForSelectedDate.map((t:any) => { 
-                            const pCount = data.passengers.filter((p:any) => (t.passengerIds||[]).includes(p.realId || p.id)).reduce((a:any,b:any)=>a+parseInt(b.passengerCount||1),0); 
+                            const pCount = (t.passengerIds||[]).map((id:string) => passengerMap.get(String(id))).filter(Boolean).reduce((a:any,b:any)=>a+parseInt(b.passengerCount||1),0); 
                             let statusColor = 'bg-blue-500'; 
                             if(t.status === 'Finalizada') statusColor = 'bg-green-500'; 
                             if(t.status === 'Cancelada') statusColor = 'bg-red-500'; 

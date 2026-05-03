@@ -4,6 +4,7 @@ import { Icons, Button, IconButton, PageHeader, EmptyState } from '../components
 import { getAvatarUrl, formatDisplayDate } from '../utils';
 
 export default function Motoristas({ data, theme, searchTerm, searchType = 'all', setFormData, setModal, del, notify }: any) {
+    const [limit, setLimit] = React.useState(30);
     
     const filteredList = data.drivers.filter((item:any) => {
         if (!searchTerm) return true;
@@ -16,11 +17,13 @@ export default function Motoristas({ data, theme, searchTerm, searchType = 'all'
         return (item.name && item.name.toLowerCase().includes(lower)) || (item.phone && item.phone.includes(lower)) || (String(item.id).toLowerCase().includes(lower));
     });
 
+    const displayedList = filteredList.slice(0, limit);
+
     return (
         <div className="space-y-6">
             <PageHeader title="Motoristas" subtitle="Gerencie sua frota de motoristas" />
             <div className="space-y-3">
-                {filteredList.map((item:any, i:number) => (
+                {displayedList.map((item:any, i:number) => (
                     <div key={`${item.id}_${i}`} style={{animationDelay: `${i * 50}ms`}} className={`${theme.card} p-4 ${theme.radius} border ${theme.border} relative overflow-hidden flex flex-col gap-4 group stagger-in`}>
                         <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[10px] font-bold uppercase tracking-wider ${item.status === 'Ativo' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{item.status}</div>
                         <div className="flex items-center gap-4">
@@ -68,6 +71,17 @@ export default function Motoristas({ data, theme, searchTerm, searchType = 'all'
                     </div>
                 ))}
                 {!filteredList.length && <EmptyState title="Nenhum motorista" subtitle="Nenhum motorista encontrado." />}
+                
+                {limit < filteredList.length && (
+                    <div className="flex justify-center pt-4 pb-8">
+                        <button 
+                            onClick={() => setLimit(prev => prev + 30)}
+                            className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm tracking-wider transition-colors"
+                        >
+                            Carregar próximos {Math.min(30, filteredList.length - limit)} motoristas
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -173,6 +173,9 @@ export default function Dashboard({
   const [greeting, setGreeting] = useState("");
   const [motivational, setMotivational] = useState("");
 
+  const [limitPendingNotes, setLimitPendingNotes] = useState(10);
+  const [limitCompletedNotes, setLimitCompletedNotes] = useState(10);
+
   // Festive State
   const [festiveTheme, setFestiveTheme] = useState<string | null>(null);
   const [showThemeControl, setShowThemeControl] = useState(false);
@@ -286,6 +289,12 @@ export default function Dashboard({
       }
     });
 
+    // Cria lookup de passageiros O(1) para evitar gargalos com 30k+
+    const passengerMap = new Map();
+    data.passengers.forEach((p: any) => {
+        passengerMap.set(String(p.realId || p.id), p);
+    });
+
     // Calcula faturamento estimado de HOJE
     data.trips.forEach((t: any) => {
       if (t.date === today && t.status !== "Cancelada") {
@@ -303,14 +312,10 @@ export default function Dashboard({
               0,
             );
           else
-            pCount = data.passengers
-              .filter((p: any) =>
-                (t.passengerIds || []).includes(p.realId || p.id),
-              )
-              .reduce(
-                (a: number, b: any) => a + parseInt(b.passengerCount || 1),
-                0,
-              );
+            pCount = (t.passengerIds || []).reduce((acc: number, id: string) => {
+                const p = passengerMap.get(String(id));
+                return acc + (p ? parseInt(p.passengerCount || 1) : 0);
+            }, 0);
 
           const unitPrice =
             t.pricePerPassenger !== undefined
@@ -844,8 +849,10 @@ export default function Dashboard({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
           {userNotes.filter((n: any) => !n.completed).length > 0 ? (
-            userNotes
+            <>
+            {userNotes
               .filter((n: any) => !n.completed)
+              .slice(0, limitPendingNotes)
               .map((note: any) => (
                 <div
                   key={note.id}
@@ -891,7 +898,14 @@ export default function Dashboard({
                     />
                   </div>
                 </div>
-              ))
+              ))}
+              
+              {limitPendingNotes < userNotes.filter((n: any) => !n.completed).length && (
+                  <div className="col-span-1 md:col-span-2 flex justify-center pt-2">
+                       <button onClick={() => setLimitPendingNotes(p => p + 10)} className="text-xs opacity-50 hover:opacity-100 uppercase tracking-widest font-bold">Mostrar Mais</button>
+                  </div>
+              )}
+            </>
           ) : (
             <div className="col-span-2 py-10">
               <EmptyState
@@ -911,6 +925,7 @@ export default function Dashboard({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
               {userNotes
                 .filter((n: any) => n.completed)
+                .slice(0, limitCompletedNotes)
                 .map((note: any) => (
                   <div
                     key={note.id}
@@ -942,6 +957,11 @@ export default function Dashboard({
                   </div>
                 ))}
             </div>
+            {limitCompletedNotes < userNotes.filter((n: any) => n.completed).length && (
+                  <div className="flex justify-center pt-4">
+                       <button onClick={() => setLimitCompletedNotes(p => p + 10)} className="text-xs opacity-50 hover:opacity-100 uppercase tracking-widest font-bold">Mostrar Mais</button>
+                  </div>
+            )}
           </div>
         )}
       </div>

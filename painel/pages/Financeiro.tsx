@@ -41,6 +41,8 @@ export default function Financeiro({
 
   const [editingTripId, setEditingTripId] = React.useState<string | null>(null);
   const [editingValue, setEditingValue] = React.useState("");
+  
+  const [limit, setLimit] = React.useState(30);
 
   // Verifica permissão para ver o total recebido
   const canSeeRevenue =
@@ -97,6 +99,14 @@ export default function Financeiro({
     });
   }
 
+  const passengerMap = React.useMemo(() => {
+    const map = new Map();
+    (data.passengers || []).forEach((p: any) => {
+      map.set(String(p.realId || p.id), p);
+    });
+    return map;
+  }, [data.passengers]);
+
   const calcTripValue = (t: any) => {
     // Se o valor foi explicitamente definido (mesmo que seja 0), use-o.
     if (t.value !== undefined && t.value !== null && t.value !== "") {
@@ -128,12 +138,10 @@ export default function Financeiro({
           0,
         );
       } else {
-        pCount = data.passengers
-          .filter((p: any) => (t.passengerIds || []).includes(p.realId || p.id))
-          .reduce(
-            (a: number, b: any) => a + parseInt(b.passengerCount || 1),
-            0,
-          );
+        pCount = (t.passengerIds || []).reduce((acc: number, id: string) => {
+          const p = passengerMap.get(String(id));
+          return acc + (p ? parseInt(p.passengerCount || 1) : 0);
+        }, 0);
       }
       const unitPrice =
         Number(t.pricePerPassenger) ||
@@ -506,7 +514,7 @@ export default function Financeiro({
           {/* Lista Agrupada por Dia */}
           <div className="space-y-6 stagger-in d-4">
             {billingData.groups.length > 0 ? (
-              billingData.groups.map((group: any, idx: number) => {
+              billingData.groups.slice(0, limit).map((group: any, idx: number) => {
                 const [y, m, d] = group.date.split("-");
                 const monthNames = [
                   "Janeiro",
@@ -799,6 +807,19 @@ export default function Financeiro({
               <div className="text-center py-10 opacity-30 text-sm border-2 border-dashed border-white/10 rounded-xl">
                 Nenhuma viagem registrada em{" "}
                 {billingDate.toLocaleDateString("pt-BR", { month: "long" })}.
+              </div>
+            )}
+            
+            {limit < billingData.groups.length && (
+              <div className="flex justify-center pt-4 pb-10">
+                  <Button 
+                      theme={theme} 
+                      variant="secondary" 
+                      onClick={() => setLimit(prev => prev + 30)}
+                      className="px-8 py-3 font-black text-sm flex items-center gap-2 hover:scale-105 transition-all"
+                  >
+                      <Icons.Plus size={18} /> Carregar próximos {Math.min(30, billingData.groups.length - limit)} dias
+                  </Button>
               </div>
             )}
           </div>

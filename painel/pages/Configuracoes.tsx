@@ -46,6 +46,8 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     }, [financeiroTab]);
     const [selectedLog, setSelectedLog] = useState<any>(null);
     const [trustedDevices, setTrustedDevices] = useState<any>({});
+    const [limitAudit, setLimitAudit] = useState(50);
+    const [limitNewsletter, setLimitNewsletter] = useState(20);
     
     // History States
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -1424,7 +1426,8 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                         <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Icons.Bell className={theme.accent}/> Central de Novidades</h3>
                         <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                             {data.newsletter && data.newsletter.length > 0 ? (
-                                data.newsletter.sort((a:any,b:any) => b.timestamp - a.timestamp).map((news:any) => (
+                                <>
+                                {data.newsletter.sort((a:any,b:any) => b.timestamp - a.timestamp).slice(0, limitNewsletter).map((news:any) => (
                                     <div key={news.id} className={`${theme.inner} p-5 rounded-2xl border ${theme.divider} relative hover:bg-opacity-80 transition-colors`}>
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
@@ -1453,7 +1456,18 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                             <button onClick={()=>del('newsletter', news.id)} className="absolute top-4 right-4 text-red-400 opacity-20 hover:opacity-100 p-2 hover:bg-red-500/10 rounded-full transition-all"><Icons.Trash size={16}/></button>
                                         )}
                                     </div>
-                                ))
+                                ))}
+                                {limitNewsletter < data.newsletter.length && (
+                                    <div className="flex justify-center pt-2">
+                                        <button 
+                                            onClick={() => setLimitNewsletter(prev => prev + 20)}
+                                            className="text-xs bg-white/10 hover:bg-white/20 px-6 py-2 rounded-xl transition-all"
+                                        >
+                                            Carregar mais ({data.newsletter.length - limitNewsletter})
+                                        </button>
+                                    </div>
+                                )}
+                                </>
                             ) : (
                                 <div className="text-center py-12 opacity-30 text-sm border-2 border-dashed border-white/10 rounded-2xl">Nenhuma novidade registrada.</div>
                             )}
@@ -1843,7 +1857,7 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
                                         return tB - tA;
                                     });
 
-                                return sortedGroups.map((group: any) => {
+                                return sortedGroups.slice(0, limitAudit ? limitAudit : 50).map((group: any) => {
                                     const isExpanded = expandedSessions.includes(group.id);
                                     const hasActions = group.actions.length > 0;
                                     const mainLog = group.login || group.actions[0];

@@ -1824,15 +1824,68 @@ const AppContent = () => {
             });
             unsubs.push(() => pgSettingsRef.off('value', pgSettingsCallback));
 
+            let updateTimeout: any = null;
+            let localCache: any = {
+                 passengers: new Map(), drivers: new Map(), trips: new Map(), notes: new Map(),
+                 lostFound: new Map(), blocked_ips: new Map(), newsletter: new Map(), users: new Map(), prancheta: new Map()
+            };
+
+            const flushToState = () => {
+                 if (updateTimeout) return;
+                 updateTimeout = setTimeout(() => {
+                     updateTimeout = null;
+                     const newData: any = {};
+                     
+                     const sortByIdDesc = (arr: any[]) => arr.sort((a, b) => {
+                         const idA = parseInt(a.id || '0');
+                         const idB = parseInt(b.id || '0');
+                         if (isNaN(idA) && isNaN(idB)) return 0;
+                         if (isNaN(idA)) return 1;
+                         if (isNaN(idB)) return -1;
+                         return idB - idA;
+                     });
+
+                     otherNodes.forEach(node => {
+                         newData[node] = Array.from(localCache[node].values());
+                     });
+                     coreNodes.forEach(node => {
+                         newData[node] = sortByIdDesc(Array.from(localCache[node].values()));
+                     });
+
+                     setData((prev: any) => ({ ...prev, ...newData }));
+                 }, 300);
+            };
+
+            const attachChildListeners = (dbRef: any, node: string) => {
+                 const onAdd = dbRef.on('child_added', (snap: any) => {
+                     const val = snap.val();
+                     if (val) {
+                         localCache[node].set(snap.key, { ...val, id: snap.key });
+                         flushToState();
+                     }
+                 });
+                 const onChange = dbRef.on('child_changed', (snap: any) => {
+                     const val = snap.val();
+                     if (val) {
+                         localCache[node].set(snap.key, { ...val, id: snap.key });
+                         flushToState();
+                     }
+                 });
+                 const onRemove = dbRef.on('child_removed', (snap: any) => {
+                     localCache[node].delete(snap.key);
+                     flushToState();
+                 });
+                 return () => {
+                     dbRef.off('child_added', onAdd);
+                     dbRef.off('child_changed', onChange);
+                     dbRef.off('child_removed', onRemove);
+                 };
+            };
+
             // Listen to non-system-specific nodes
             otherNodes.forEach(node => {
                 const ref = db.ref(node);
-                const callback = ref.on('value', (snapshot) => {
-                    const val = snapshot.val();
-                    const list = val ? Object.keys(val).map(key => ({ ...val[key], id: key })) : [];
-                    setData((prev: any) => ({ ...prev, [node]: list }));
-                });
-                unsubs.push(() => ref.off('value', callback));
+                unsubs.push(attachChildListeners(ref, node));
             });
 
             if (systemContext === 'Mistura') {
@@ -1866,20 +1919,7 @@ const AppContent = () => {
                 coreNodes.forEach(node => {
                     const path = systemContext === 'Pg' ? node : `${systemContext}/${node}`;
                     const ref = db.ref(path);
-                    const callback = ref.on('value', (snapshot) => {
-                        const val = snapshot.val();
-                        const list = val ? Object.keys(val).map(key => ({ ...val[key], id: key })) : [];
-                        list.sort((a: any, b: any) => {
-                            const idA = parseInt(a.id);
-                            const idB = parseInt(b.id);
-                            if (isNaN(idA) && isNaN(idB)) return 0;
-                            if (isNaN(idA)) return 1;
-                            if (isNaN(idB)) return -1;
-                            return idB - idA;
-                        });
-                        setData((prev: any) => ({ ...prev, [node]: list }));
-                    });
-                    unsubs.push(() => ref.off('value', callback));
+                    unsubs.push(attachChildListeners(ref, node));
                 });
             }
         };

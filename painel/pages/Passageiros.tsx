@@ -8,7 +8,7 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
     const [activeTab, setActiveTab] = useState<'ativos' | 'bloqueados' | 'site'>('ativos');
     const [limit, setLimit] = useState(50);
 
-    const filteredList = data.passengers.filter((item:any) => {
+    const filteredList = React.useMemo(() => data.passengers.filter((item:any) => {
         const isBlocked = item.status === 'Bloqueado';
         const isSite = String(item.id).startsWith('S') || item.source === 'Site';
         
@@ -24,9 +24,9 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
         if (searchType === 'phone') return item.phone && item.phone.includes(lower);
         
         return (item.name && item.name.toLowerCase().includes(lower)) || (item.neighborhood && item.neighborhood.toLowerCase().includes(lower)) || (item.phone && item.phone.includes(lower)) || (String(item.id).toLowerCase().includes(lower));
-    });
+    }), [data.passengers, activeTab, searchTerm, searchType]);
 
-    const displayedList = searchTerm ? filteredList : filteredList.slice(0, limit);
+    const displayedList = filteredList.slice(0, limit);
 
     const copyPassengerData = (p: any) => {
         const txt = `*PASSAGEIRO*\nNome: ${p.name}\nTel: ${p.phone}\nEnd: ${p.address}\nRef: ${p.reference||''}\nBairro: ${p.neighborhood}\nPagamento: ${p.payment}\nData: ${formatDisplayDate(p.date)} - ${formatTime(p.time)}\nQtd: ${p.passengerCount} pessoa(s)`;
@@ -295,9 +295,9 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                     </div>
                 </div>
             ))}
-            {!displayedList.length && <div className="text-center opacity-50 py-10">Nenhum passageiro {activeTab === 'bloqueados' ? 'bloqueado' : ''}.</div>}
+            {!displayedList.length && <div className="text-center opacity-50 py-10">Nenhum passageiro encontrado.</div>}
 
-            {!searchTerm && limit < filteredList.length && (
+            {limit < filteredList.length && (
                 <div className="flex justify-center pt-4 pb-10">
                     <Button 
                         theme={theme} 
@@ -305,7 +305,7 @@ export default function Passageiros({ data, theme, searchTerm, searchType = 'all
                         onClick={() => setLimit(prev => prev + 50)}
                         className="px-8 py-3 font-black text-sm flex items-center gap-2 hover:scale-105 transition-all"
                     >
-                        <Icons.Plus size={18} /> Carregar mais 50 passageiros
+                        <Icons.Plus size={18} /> Carregar mais {Math.min(50, filteredList.length - limit)} resultados
                     </Button>
                 </div>
             )}

@@ -46,6 +46,7 @@ const TempTripTimer = ({ date, time }: any) => {
 export default function Viagens({ user, data, theme, searchTerm, searchType = 'all', setSearchTerm, setModal, setFormData, openEditTrip, updateTripStatus, del, duplicateTrip, notify, systemContext, pranchetaValue, isTutorialActive }: any) {
     const [historyDate, setHistoryDate] = useState(new Date());
     const [expandedDays, setExpandedDays] = useState<any>({});
+    const [limitHistoryGroups, setLimitHistoryGroups] = useState(10);
 
     const activeTrips = useMemo(() => {
         let list = data.trips.filter((t:any) => t.status === 'Em andamento' || t.status === 'Ativo' || t.status === 'Aguardando');
@@ -80,8 +81,19 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
             list = list.filter((t:any) => {
                 if (searchType === 'id') return String(t.id).includes(lower);
                 if (searchType === 'driver') return t.driverName && t.driverName.toLowerCase().includes(lower);
-                return String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower));
+                if (searchType === 'name' && t.passengersSnapshot) {
+                     return t.passengersSnapshot.some((p:any) => p.name && p.name.toLowerCase().includes(lower));
+                }
+                
+                const matchesIdOrDriver = String(t.id).includes(lower) || (t.driverName && t.driverName.toLowerCase().includes(lower));
+                const matchesPass = t.passengersSnapshot ? t.passengersSnapshot.some((p:any) => p.name && p.name.toLowerCase().includes(lower)) : false;
+                
+                return matchesIdOrDriver || matchesPass;
             });
+            // Restrict to max 200 items when searching broadly to prevent UI/DOM crashing
+            if (list.length > 200) {
+                list = list.slice(0, 200);
+            }
         }
         return list.sort((a:any,b:any) => parseInt(b.id) - parseInt(a.id));
     }, [data.trips, searchTerm, searchType, user]);
@@ -132,13 +144,21 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
         notify("Dados do passageiro copiados!", "success");
     };
 
+    const passengerMap = useMemo(() => {
+        const map = new Map();
+        (data.passengers || []).forEach((p: any) => {
+            map.set(String(p.realId || p.id), p);
+        });
+        return map;
+    }, [data.passengers]);
+
     const sendWhatsapp = (trip: any) => {
         const d = data.drivers.find((x:any) => x.id === trip.driverId); 
         let p = [];
         if (trip.passengersSnapshot) {
             p = trip.passengersSnapshot;
         } else {
-            p = data.passengers.filter((x:any) => (trip.passengerIds||[]).includes(x.realId || x.id));
+            p = (trip.passengerIds || []).map((id:string) => passengerMap.get(String(id))).filter(Boolean);
         }
         
         if (!d) return notify('Motorista não encontrado.', 'error');
@@ -181,8 +201,10 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
             if (t.pCountSnapshot !== undefined && t.pCountSnapshot !== null) {
                 pCount = parseInt(t.pCountSnapshot);
             } else {
-                pCount = data.passengers.filter((p:any) => (t.passengerIds || []).includes(p.realId || p.id))
-                                          .reduce((a:number, b:any) => a + parseInt(b.passengerCount || 1), 0);
+                pCount = (t.passengerIds || []).reduce((a:number, id:string) => {
+                    const p = passengerMap.get(String(id));
+                    return a + (p ? parseInt(p.passengerCount || 1) : 0);
+                }, 0);
             }
             return acc + pCount;
         }, 0);
@@ -222,9 +244,9 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                     else if (t.isMadrugada) pCount = parseInt(t.pCount || 0);
                     else if (t.passengersSnapshot) pCount = t.passengersSnapshot.reduce((acc:any, p:any) => acc + parseInt(p.passengerCount || 1), 0);
                     else {
-                        const pListRaw = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p.realId || p.id));
+                        const passengersOfTrip = (t.passengerIds || []).map((id:string) => passengerMap.get(String(id))).filter(Boolean);
                         const pListMap = new Map();
-                        pListRaw.forEach((p:any) => {
+                        passengersOfTrip.forEach((p:any) => {
                             const pId = p.realId || p.id;
                             if (!pListMap.has(pId)) pListMap.set(pId, p);
                         });
@@ -239,9 +261,9 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                     let tripPassengers = [];
                     if (t.passengersSnapshot) tripPassengers = t.passengersSnapshot;
                     else {
-                        const pListRaw = data.passengers.filter((p:any)=>(t.passengerIds||[]).includes(p.realId || p.id));
+                        const passengersOfTrip = (t.passengerIds || []).map((id:string) => passengerMap.get(String(id))).filter(Boolean);
                         const pListMap = new Map();
-                        pListRaw.forEach((p:any) => {
+                        passengersOfTrip.forEach((p:any) => {
                             const pId = p.realId || p.id;
                             if (!pListMap.has(pId)) pListMap.set(pId, p);
                         });
@@ -366,8 +388,8 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                 </div>
 
                 {historyGroups.length > 0 ? (
-                    <div className="space-y-3">
-                        {historyGroups.map((group:any) => {
+                    <div className="space-y-3 pb-8">
+                        {historyGroups.slice(0, limitHistoryGroups).map((group:any) => {
                             const isExpanded = expandedDays[group.date];
                             const dateParts = group.date.split('-');
                             const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
@@ -388,8 +410,10 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                                                 } else if (t.passengersSnapshot) {
                                                     pCount = t.passengersSnapshot.reduce((acc:any, p:any) => acc + parseInt(p.passengerCount || 1), 0);
                                                 } else {
-                                                    pCount = data.passengers.filter((p:any) => (t.passengerIds || []).includes(p.realId || p.id))
-                                                                                .reduce((a:any, b:any) => a + parseInt(b.passengerCount || 1), 0);
+                                                    pCount = (t.passengerIds || []).reduce((a:number, id:string) => {
+                                                        const p = passengerMap.get(String(id));
+                                                        return a + (p ? parseInt(p.passengerCount || 1) : 0);
+                                                    }, 0);
                                                 }
 
                                                 return (
@@ -443,6 +467,17 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
                                 </div>
                             );
                         })}
+
+                        {limitHistoryGroups < historyGroups.length && (
+                            <div className="flex justify-center pt-2">
+                                <button 
+                                    onClick={() => setLimitHistoryGroups(prev => prev + 10)}
+                                    className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm tracking-wider transition-colors"
+                                >
+                                    Carregar próximos {Math.min(10, historyGroups.length - limitHistoryGroups)} dias
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <EmptyState title="Nenhuma viagem" subtitle="Nenhuma viagem no histórico deste mês." />

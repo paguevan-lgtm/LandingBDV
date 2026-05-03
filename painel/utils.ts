@@ -355,20 +355,24 @@ export const handlePrint = async (targetId: string, filename: string, title: str
         if (columns < 1) columns = 1;
 
         wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background-color:#1e293b;color:white;padding:40px;z-index:99999;line-height:1.2;';
+        wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background-color:#1e293b;color:white;padding:40px;z-index:99999;line-height:1.2;overflow:hidden;';
+        
+        const watermark = document.createElement('div');
+        watermark.style.cssText = 'position:absolute;top:-50%;left:-50%;right:-50%;bottom:-50%;background-image:url("/BDV.webp");background-size:200px 200px;background-repeat:repeat;opacity:0.03;transform:rotate(-25deg);pointer-events:none;z-index:0;';
+        wrapper.appendChild(watermark);
         
         let dateStr = new Date().toLocaleDateString('pt-BR');
         if (options.date) { const [y, m, d] = options.date.split('-'); dateStr = `${d}/${m}/${y}`; }
 
         const titleEl = document.createElement('h1');
         titleEl.innerText = `${title} - ${dateStr}`;
-        titleEl.style.cssText = 'text-align:center;margin-bottom:5px;font-size:32px;font-weight:bold;color:#fbbf24;width:100%';
+        titleEl.style.cssText = 'position:relative;z-index:10;text-align:center;margin-bottom:5px;font-size:32px;font-weight:bold;color:#fbbf24;width:100%';
         wrapper.appendChild(titleEl);
 
         if (options.userName) {
             const userEl = document.createElement('div');
             userEl.innerText = `Gerado por: ${options.userName}`;
-            userEl.style.cssText = 'text-align:center;margin-bottom:20px;font-size:14px;opacity:0.7;font-style:italic;width:100%';
+            userEl.style.cssText = 'position:relative;z-index:10;text-align:center;margin-bottom:20px;font-size:14px;opacity:0.7;font-style:italic;width:100%';
             wrapper.appendChild(userEl);
         }
 
@@ -459,6 +463,8 @@ export const handlePrint = async (targetId: string, filename: string, title: str
 
         // Render clone to wrapper
         const contentContainer = document.createElement('div');
+        contentContainer.style.position = 'relative';
+        contentContainer.style.zIndex = '10';
         const colWidth = 450;
         wrapper.style.width = `${columns * colWidth + (columns > 1 ? (columns - 1) * 40 : 0) + 80}px`; 
         
@@ -470,6 +476,14 @@ export const handlePrint = async (targetId: string, filename: string, title: str
         contentContainer.appendChild(clone);
         wrapper.appendChild(contentContainer);
         document.body.appendChild(wrapper);
+
+        // Preload watermark image to ensure it appears in html2canvas
+        await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = resolve; // Continue even if it skips
+            img.src = '/BDV.webp';
+        });
 
         // @ts-ignore
         const html2canvas = (window as any).html2canvas;

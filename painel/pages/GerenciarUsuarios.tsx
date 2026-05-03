@@ -51,11 +51,15 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const [limit, setLimit] = useState(30);
+
     // Filtra para não mostrar o Breno e filtra pelo sistema atual (se não for o Breno logado)
     const userList = (data.users || []).filter((u:any) => 
         u.username !== 'Breno' && 
         (currentUser.username === 'Breno' || (u.systems && u.systems.includes(systemContext)) || u.system === systemContext)
     );
+
+    const displayedUsers = userList.slice(0, limit);
 
     const currentUserSystems = currentUser.username === 'Breno' ? ['Pg', 'Mip', 'Sv'] : (currentUser.systems || [currentUser.system || 'Pg']);
     const canManageSystems = currentUser.username === 'Breno' || !isEditing || formUser.createdBy === currentUser.username;
@@ -300,7 +304,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
             {viewMode === 'list' ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 gap-4">
-                        {userList.length > 0 ? userList.map((u:any) => (
+                        {displayedUsers.length > 0 ? displayedUsers.map((u:any) => (
                             <div 
                                 key={u.id} 
                                 className={`${theme.card} p-5 rounded-3xl border ${theme.border} flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-white/30 transition-all hover:shadow-xl hover:shadow-black/20`}
@@ -385,6 +389,16 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
                                 <Icons.Users size={48} />
                                 <p className="font-bold">Nenhum usuário encontrado para o sistema {systemContext}.</p>
                                 <Button theme={theme} onClick={handleAddNew} variant="secondary" size="sm">Começar Agora</Button>
+                            </div>
+                        )}
+                        {limit < userList.length && (
+                            <div className="flex justify-center pt-4 pb-8">
+                                <button 
+                                    onClick={() => setLimit(prev => prev + 30)}
+                                    className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm tracking-wider transition-colors"
+                                >
+                                    Carregar próximos {Math.min(30, userList.length - limit)} usuários
+                                </button>
                             </div>
                         )}
                     </div>

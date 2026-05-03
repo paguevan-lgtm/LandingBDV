@@ -5,6 +5,8 @@ import { formatDisplayDate } from '../utils';
 
 export default function Achados({ data, theme, searchTerm, searchType = 'all', dbOp, del, notify, systemContext }: any) {
 
+    const [limit, setLimit] = React.useState(30);
+
     const filteredList = data.lostFound.filter((item:any) => {
         if (!searchTerm) return true;
         const lower = searchTerm.toLowerCase().trim();
@@ -17,15 +19,17 @@ export default function Achados({ data, theme, searchTerm, searchType = 'all', d
                (String(item.id).toLowerCase().includes(lower));
     });
 
+    const displayedList = filteredList.slice(0, limit);
+
     return (
         <div className="space-y-4">
-            {filteredList.length === 0 ? (
+            {displayedList.length === 0 ? (
                 <div className={`p-8 text-center ${theme.card} ${theme.radius} border ${theme.border} opacity-50`}>
                     <Icons.Box size={48} className="mx-auto mb-3 opacity-20" />
                     <p>Nenhum item encontrado</p>
                 </div>
             ) : (
-                filteredList.map((item:any, i:number) => ( 
+                displayedList.map((item:any, i:number) => ( 
                     <div key={item.id} style={{animationDelay: `${i * 50}ms`}} className={`${theme.card} p-4 ${theme.radius} border ${theme.border} relative overflow-hidden stagger-in`}>
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${item.status === 'Entregue' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                         <div className="pl-3">
@@ -59,6 +63,16 @@ export default function Achados({ data, theme, searchTerm, searchType = 'all', d
                         </div>
                     </div> 
                 ))
+            )}
+            {limit < filteredList.length && (
+                <div className="flex justify-center pt-4 pb-10">
+                    <button 
+                        onClick={() => setLimit(prev => prev + 30)}
+                        className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm tracking-wider transition-colors"
+                    >
+                        Carregar mais {Math.min(30, filteredList.length - limit)} itens
+                    </button>
+                </div>
             )}
         </div>
     );

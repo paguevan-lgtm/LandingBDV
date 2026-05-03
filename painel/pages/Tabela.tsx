@@ -686,7 +686,7 @@ export default function Tabela({ data, theme, tableTab, setTableTab, mipDayType,
                             <h3 className="text-lg font-bold text-green-400 flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-green-500"></span> CONFIRMADOS
                             </h3>
-                            <button onClick={() => onPrint('print-confirmados-list', 'Confirmados', 'LISTA DE CONFIRMADOS', { mode: 'confirmados', date: currentOpDate })} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-white relative z-20" title="Salvar como Imagem"><Icons.Screenshot size={16}/></button>
+                            <button onClick={() => onPrint('print-confirmados-list', 'Confirmados', 'Confirmados', { mode: 'confirmados', date: currentOpDate })} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors text-white relative z-20" title="Salvar como Imagem"><Icons.Screenshot size={16}/></button>
                         </div>
                         
                         <div id="print-confirmados-list" className="space-y-2 min-h-[100px] relative z-10">
