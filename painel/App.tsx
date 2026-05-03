@@ -1075,6 +1075,8 @@ const AppContent = () => {
                 else if (node === 'madrugada_order') logAction('Reorganizou Madrugada', `Data: ${currentOpDate}`);
                 else if (node === 'canned_messages_config/list') logAction('Editou Mensagens Prontas', 'Lista atualizada');
                 else if (node.startsWith('system_settings')) logAction('Editou Configurações', `Configuração: ${node}`);
+                else if (node.startsWith('user_data')) logAction('Gerenciou Assinatura', `Nó: ${node}`);
+                else if (node === 'blocked_devices') logAction('Bloqueou Dispositivo', `ID: ${targetId}`);
                 else if (node === 'passengers') {
                     const pName = payload.name || data.passengers.find((p:any) => p.id === targetId)?.name || 'ID '+targetId;
                     if (payload.status === 'Bloqueado') logAction('Bloqueou Passageiro', `Nome: ${pName}`);
@@ -1169,6 +1171,7 @@ const AppContent = () => {
                 else if (node === 'lostFound') logAction('Excluiu Achados e Perdidos', `ID: ${idToDelete}`);
                 else if (node === 'users') logAction('Excluiu Usuário', `ID: ${idToDelete}`);
                 else if (node === 'notes') logAction('Excluiu Nota', `ID: ${idToDelete}`);
+                else if (node === 'blocked_devices') logAction('Desbloqueou Dispositivo', `ID: ${idToDelete}`);
 
                 notify("Excluído.", "delete");
             }
@@ -4382,7 +4385,7 @@ Agradecemos pela atenção e desejamos um bom trabalho a todos!${pixInfo}`;
                                  pranchetaValue={pranchetaValue}
                                  setPranchetaValue={(val: number) => {
                                      setPranchetaValue(val);
-                                     db.ref('system_settings/Pg/pranchetaValue').set(val);
+                                     dbOp('update', 'system_settings/Pg/pranchetaValue', val);
                                  }}
                                  sendPranchetaBillingMessage={sendPranchetaBillingMessage}
                                  sendPranchetaBlockedMessage={sendPranchetaBlockedMessage}

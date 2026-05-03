@@ -424,10 +424,11 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const handleSaveExpiration = (newDate: Date) => {
         if (!db) return;
         const sys = editExpModal.system;
-        const updates: any = {};
-        updates[`isBlocked_${sys}`] = false;
-        updates[`expiresAt_${sys}`] = newDate.toISOString();
-        db.ref('system_settings/subscription').update(updates);
+        const updates: any = {
+            [`isBlocked_${sys}`]: false,
+            [`expiresAt_${sys}`]: newDate.toISOString()
+        };
+        dbOp('update', 'system_settings/subscription', updates);
         notify(`Vencimento de ${sys} atualizado para ${newDate.toLocaleDateString()}!`, 'success');
     };
 
@@ -701,12 +702,12 @@ export default function Configuracoes({ user, theme, restartTour, setAiModal, ge
     const updatePrice = (sys: string, val: number) => {
         if (!db) return;
         const node = sys === 'Pg' ? 'system_settings/pricePerPassenger' : `${sys}/system_settings/pricePerPassenger`;
-        db.ref(node).set(val);
+        dbOp('update', node, val);
     };
 
     const updateBlock = (sys: string, blocked: boolean) => {
         if (!db) return;
-        db.ref('system_settings/subscription').update({ [`isBlocked_${sys}`]: blocked });
+        dbOp('update', 'system_settings/subscription', { [`isBlocked_${sys}`]: blocked });
         notify(blocked ? `Bloqueio ${sys} ativado` : `Bloqueio ${sys} removido`, blocked ? 'error' : 'success');
     };
 

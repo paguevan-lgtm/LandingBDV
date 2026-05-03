@@ -87,7 +87,7 @@ export default function GerenciarUsuarios({ data, theme, setView, dbOp, notify, 
         const currentStatus = subsData[username]?.isBlockedByAdmin;
         const newStatus = !currentStatus;
         
-        db.ref(`user_data/${username}/subscription`).update({ isBlockedByAdmin: newStatus });
+        dbOp('update', `user_data/${username}/subscription`, { isBlockedByAdmin: newStatus });
         
         setSubsData((prev:any) => ({
             ...prev,
