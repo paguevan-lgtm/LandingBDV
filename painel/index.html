@@ -82,7 +82,7 @@
     <div id="loader"><div class="spinner"></div><p style="margin-top:20px; color:#94a3b8; font-size:12px; font-weight:bold;">Bora de Van</p></div>
     <div id="root"></div>
     <script>
-      const CURRENT_VERSION = '1.1.9';
+      const CURRENT_VERSION = '1.1.10';
       window.APP_VERSION = CURRENT_VERSION;
       
       const urlParams = new URLSearchParams(window.location.search);
@@ -154,6 +154,18 @@
           }
       }
 
+      function isNewerVersion(oldVer, newVer) {
+          const oldParts = oldVer.split('.').map(Number);
+          const newParts = newVer.split('.').map(Number);
+          for (let i = 0; i < Math.max(oldParts.length, newParts.length); i++) {
+              const o = oldParts[i] || 0;
+              const n = newParts[i] || 0;
+              if (n > o) return true;
+              if (n < o) return false;
+          }
+          return false;
+      }
+
       window.checkAppVersion = function() {
           originalFetch('/?_t=' + new Date().getTime(), { 
               cache: 'no-store',
@@ -169,7 +181,11 @@
                 if (match && match[1]) {
                     const latestVersion = match[1];
                     if (CURRENT_VERSION && latestVersion !== CURRENT_VERSION) {
-                        triggerUpdate(latestVersion);
+                        if (isNewerVersion(CURRENT_VERSION, latestVersion)) {
+                            triggerUpdate(latestVersion);
+                        } else {
+                            console.log('Ignorando versão mais antiga do servidor:', latestVersion);
+                        }
                     }
                 }
             })

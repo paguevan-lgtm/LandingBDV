@@ -72,6 +72,11 @@ const AppContent = () => {
     
     useEffect(() => {
         localStorage.setItem('nexflow_active_view', view);
+        
+        // Verifica se há atualização ao trocar de aba no menu
+        if (typeof (window as any).checkAppVersion === 'function') {
+            (window as any).checkAppVersion();
+        }
     }, [view]);
 
     const [menuOpen, setMenuOpen] = useState(false);
