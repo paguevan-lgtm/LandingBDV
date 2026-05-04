@@ -212,11 +212,13 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                         
                         const sortedTimes = Object.keys(grouped).sort();
 
-                        return sortedTimes.map(time => (
+                        return sortedTimes.map(time => {
+                            const totalPassInTime = grouped[time].reduce((sum: number, p: any) => sum + parseInt(p.passengerCount || 1, 10), 0);
+                            return (
                             <div key={time} className="mb-4">
                                 <div className="flex items-center gap-2 mb-2 opacity-80">
                                     <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                                    <span className="font-bold font-mono text-lg">{time}</span>
+                                    <span className="font-bold font-mono text-lg">{time} - {totalPassInTime} {totalPassInTime === 1 ? 'Passageiro' : 'Passageiros'}</span>
                                     <div className="h-[1px] bg-white/10 flex-1"></div>
                                 </div>
                                 <div className="space-y-3 pl-2 border-l border-white/5">
@@ -298,7 +300,8 @@ export default function Agendamentos({ data, theme, setFormData, setModal, dbOp,
                                     ))}
                                 </div>
                             </div>
-                        ));
+                            );
+                        });
                     })()}
                 </div>
 

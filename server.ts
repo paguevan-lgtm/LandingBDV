@@ -33,7 +33,7 @@ const tokenAttempts = new Map<string, { count: number, lastAttempt: number, bloc
 // API Session Tokens (Security Layer)
 const apiSessionTokens = new Map<string, { email: string, expires: number }>();
 
-const CURRENT_VERSION = '1.1.6';
+const CURRENT_VERSION = '1.1.9';
 
 // API Version Middleware
 const requireAppVersion = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -125,10 +125,15 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
     try {
         const response = await fetch(url, options);
-        if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
+        if (!response.ok) {
+            const error = new Error(`Status ${response.status}`);
+            (error as any).status = response.status;
+            throw error;
+        }
         return response;
-    } catch (error) {
-        if (retries > 0) {
+    } catch (error: any) {
+        // Do not retry on auth errors (401, 403) as they are likely configuration issues
+        if (retries > 0 && error.status !== 401 && error.status !== 403) {
             console.warn(`Fetch failed, retrying in ${backoff}ms...`, error);
             await new Promise(resolve => setTimeout(resolve, backoff));
             return fetchWithRetry(url, options, retries - 1, backoff * 2);
@@ -214,15 +219,13 @@ async function updateUserSubscriptionStatus(userId: string, status: string, mpId
             body: JSON.stringify(updates)
         });
         
-        if (!response.ok) {
-            console.error('Failed to update Firebase via REST. Status:', response.status, await response.text());
-            return false;
-        } else {
-            console.log(`Updated system subscription for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
-            return true;
-        }
-    } catch (error) {
+        console.log(`Updated system subscription for ${systemContext || 'Mistura'} to ${status} by user ${userId}`);
+        return true;
+    } catch (error: any) {
         console.error('Error updating Firebase:', error);
+        if (error.status === 401) {
+            console.warn('Authentication failed: Check FIREBASE_DATABASE_SECRET.');
+        }
         return false;
     }
 }

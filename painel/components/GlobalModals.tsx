@@ -52,6 +52,14 @@ export const GlobalModals = ({
     user
 }: any) => {
 
+    const removePassenger = (id: string) => {
+        if (!suggestedTrip || !suggestedTrip.passengers) return;
+        setSuggestedTrip({
+            ...suggestedTrip,
+            passengers: suggestedTrip.passengers.filter((p:any) => p.id !== id)
+        });
+    };
+
     const bairrosList = systemContext === 'Mip' ? BAIRROS_MIP : BAIRROS;
     const operators = (data.users || []).filter((u: any) => {
         if (u.role !== 'operador' || u.username === 'Breno') return false;
@@ -223,7 +231,7 @@ export const GlobalModals = ({
                                         className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 h-14"
                                         value={formData.driverId || ''}
                                         onChange={(e:any) => {
-                                            const dr = data.drivers.find((d:any) => d.id === e.target.value);
+                                            const dr = data.drivers.find((d:any) => String(d.id) === String(e.target.value));
                                             if (dr) {
                                                 setFormData({
                                                     ...formData, 
@@ -290,6 +298,41 @@ export const GlobalModals = ({
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold opacity-60 ml-1">Observação (Opcional)</label>
                                 <textarea className="bg-black/10 border border-white/10 text-white rounded-xl px-4 py-3.5 w-full outline-none focus:border-white/50 transition-colors h-20 resize-none" placeholder="Detalhes adicionais..." value={formData.notes || ''} onChange={(e:any)=>setFormData({...formData, notes:e.target.value})} />
+                            </div>
+
+                            <div className="pt-4 border-t border-white/10 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-bold text-sm opacity-80">Vincular Passageiros (Opcional)</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <input className="bg-black/20 border border-white/10 rounded-xl px-4 flex-1 h-12" placeholder="ID ou Nome (separados por vírgula)" value={searchId} onChange={(e:any)=>setSearchId(e.target.value)} />
+                                    <button onClick={addById} className="bg-white/10 px-4 rounded-xl font-bold h-12">Add</button>
+                                </div>
+                                <button onClick={autoFill} className={`w-full py-3 bg-white/5 border border-white/10 rounded-xl font-bold flex items-center justify-center gap-2 active:bg-white/10 anim-fade ${theme.accent}`}>
+                                    <Icons.Refresh size={20}/> 🤖 Puxar Passageiros (Auto)
+                                </button>
+                                
+                                {suggestedTrip && suggestedTrip.passengers && suggestedTrip.passengers.length > 0 && (
+                                    <div className="space-y-3 overflow-y-auto pr-1 max-h-40 custom-scrollbar mt-4">
+                                        {suggestedTrip.passengers.map((p:any, i:number) => (
+                                            <div key={p.id} className={`${theme.inner} p-3 rounded-xl border ${theme.divider} flex justify-between items-center flex-wrap gap-2`}>
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-8 h-8 rounded border border-white/10 flex items-center justify-center text-xs font-black ${theme.primary} shrink-0`}>{i+1}</div>
+                                                    <div className="min-w-0">
+                                                        <div className="text-xs font-bold truncate pr-2" title={p.name}>{p.name}</div>
+                                                        <div className="text-[10px] opacity-60 flex gap-2">
+                                                            <span>P: {p.passengerCount||1}</span>
+                                                            <span>Tempo: {p.time}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1 shrink-0 ml-auto">
+                                                    <button onClick={() => removePassenger(p.id)} className="p-1.5 hover:bg-red-500/20 text-red-400 rounded transition-colors"><Icons.Trash size={14}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="pt-4">
@@ -424,13 +467,13 @@ export const GlobalModals = ({
                                                 {formData.driverId ? (
                                                     <>
                                                         <span className="text-sm font-bold text-white">
-                                                            {data.drivers.find((d:any) => d.id === formData.driverId)?.name || 'Motorista'}
+                                                            {data.drivers.find((d:any) => String(d.id) === String(formData.driverId))?.name || 'Motorista'}
                                                         </span>
                                                         <span className="text-[10px] opacity-50 font-bold">
                                                             {(() => {
-                                                                const d = data.drivers.find((d:any) => d.id === formData.driverId);
+                                                                const d = data.drivers.find((d:any) => String(d.id) === String(formData.driverId));
                                                                 if (!d) return '';
-                                                                let sub = `${d.capacity} lug`;
+                                                                let sub = `${d.capacity || 0} lug`;
                                                                 if (formData.isMadrugada) {
                                                                     const driverName = (d.name || '').trim().toLowerCase();
                                                                     const sp = spList.find((s:any) => (s?.name || '').trim().toLowerCase() === driverName && madrugadaList.includes(s.vaga));
@@ -472,7 +515,7 @@ export const GlobalModals = ({
                                                         return d.status==='Ativo'; 
                                                     }).sort((a:any, b:any) => a.name.localeCompare(b.name)).map((d:any) => {
                                                         const isSelected = formData.driverId === d.id;
-                                                        let subLabel = `${d.capacity} lug`;
+                                                        let subLabel = `${d.capacity || 0} lug`;
                                                         if (formData.isMadrugada) {
                                                             const driverName = (d.name || '').trim().toLowerCase();
                                                             const sp = spList.find((s:any) => (s?.name || '').trim().toLowerCase() === driverName && madrugadaList.includes(s.vaga));
@@ -584,7 +627,7 @@ export const GlobalModals = ({
                                                             <span className="text-[10px] opacity-50 font-bold">
                                                                 {(() => {
                                                                     const d = suggestedTrip.driver;
-                                                                    let sub = `${d.capacity} lug`;
+                                                                    let sub = `${d?.capacity || 0} lug`;
                                                                     if (formData.isMadrugada) {
                                                                         const driverName = (d.name || '').trim().toLowerCase();
                                                                         const sp = spList.find((s:any) => (s?.name || '').trim().toLowerCase() === driverName && madrugadaList.includes(s.vaga));
@@ -659,7 +702,7 @@ export const GlobalModals = ({
                                         </div>
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="font-bold text-lg">Resumo</span>
-                                            <span className={`text-sm px-3 py-1 rounded-full font-bold ${suggestedTrip.occupancy > (suggestedTrip.driver?.capacity || 0) ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>{suggestedTrip.occupancy} / {suggestedTrip.driver?.capacity}</span>
+                                            <span className={`text-sm px-3 py-1 rounded-full font-bold ${suggestedTrip?.occupancy > (suggestedTrip?.driver?.capacity || 0) ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>{suggestedTrip?.occupancy || 0} / {suggestedTrip?.driver?.capacity || 0}</span>
                                         </div>
                                         <div className="flex gap-2 mb-4">
                                             <input className="bg-black/20 border border-white/10 rounded-xl px-4 flex-1 h-12" placeholder="ID ou Nome (separados por vírgula)" value={searchId} onChange={(e:any)=>setSearchId(e.target.value)} />
@@ -669,7 +712,7 @@ export const GlobalModals = ({
                                             <Icons.Refresh size={20}/> 🤖 Puxar Passageiros (Auto)
                                         </button>
                                         <div className="space-y-3 overflow-y-auto flex-1 pr-1 max-h-[40vh] custom-scrollbar">
-                                            {suggestedTrip.passengers.map((p:any, i:number) => (
+                                            {(suggestedTrip?.passengers || []).map((p: any, i: number) => (
                                                 <div key={p.id} className={`${theme.inner} p-4 rounded-2xl border ${theme.divider} flex justify-between items-center shadow-sm hover:shadow-md hover:border-white/20 transition-all group relative overflow-hidden`}>
                                                     {p.source === 'Site' && (
                                                         <div className="absolute top-0 right-0 z-10">

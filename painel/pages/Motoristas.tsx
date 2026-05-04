@@ -60,7 +60,27 @@ export default function Motoristas({ data, theme, searchTerm, searchType = 'all'
                         <div className="flex gap-2">
                             <Button 
                                 variant="secondary"
-                                onClick={() => { const msg = encodeURIComponent(`Olá ${item.name}, tudo bem?`); window.open(`https://wa.me/55${(item.phone||'').replace(/\D/g,'')}?text=${msg}`, '_blank'); }} 
+                                onClick={() => { 
+                                    const phones = item.phones && item.phones.length > 0 
+                                        ? item.phones 
+                                        : (item.phone ? [{name: item.name, phone: item.phone}] : []);
+                                    
+                                    if (phones.length === 0) return notify('Motorista sem telefone.', 'error');
+                                    
+                                    const msg = encodeURIComponent(`Olá ${item.name}, tudo bem?`);
+
+                                    if (phones.length === 1) {
+                                        window.open(`https://wa.me/55${phones[0].phone.replace(/\D/g,'')}?text=${msg}`, '_blank');
+                                    } else {
+                                        setFormData({
+                                            phones: phones,
+                                            onSelect: (phone: string) => {
+                                                window.open(`https://wa.me/55${phone.replace(/\D/g,'')}?text=${msg}`, '_blank');
+                                            }
+                                        });
+                                        setModal('phoneSelection');
+                                    }
+                                }} 
                                 className="flex-1 text-green-400 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-colors"
                             >
                                 <Icons.Message size={14}/> WhatsApp

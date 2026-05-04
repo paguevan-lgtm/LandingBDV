@@ -30,10 +30,16 @@ const loginTokens = new Map<string, { token: string, expires: number }>();
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
     try {
         const response = await fetch(url, options);
-        if (!response.ok && retries > 0) throw new Error(`Status ${response.status}`);
+        if (!response.ok) {
+            // Do not retry on auth errors (401, 403) as they are likely configuration issues
+            if ((response.status === 401 || response.status === 403) || retries <= 0) {
+                throw new Error(`Status ${response.status}`);
+            }
+            throw new Error(`Status ${response.status}`);
+        }
         return response;
-    } catch (error) {
-        if (retries > 0) {
+    } catch (error: any) {
+        if (retries > 0 && !error.message?.includes('Status 401') && !error.message?.includes('Status 403')) {
             console.warn(`Fetch failed, retrying in ${backoff}ms...`, error);
             await new Promise(resolve => setTimeout(resolve, backoff));
             return fetchWithRetry(url, options, retries - 1, backoff * 2);

@@ -153,7 +153,7 @@ export default function Viagens({ user, data, theme, searchTerm, searchType = 'a
     }, [data.passengers]);
 
     const sendWhatsapp = (trip: any) => {
-        const d = data.drivers.find((x:any) => x.id === trip.driverId); 
+        const d = data.drivers.find((x:any) => String(x.id) === String(trip.driverId)); 
         let p = [];
         if (trip.passengersSnapshot) {
             p = trip.passengersSnapshot;
